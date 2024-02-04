@@ -11,8 +11,9 @@ services:
       dockerfile: dockerfiles/vite.Dockerfile
     container_name: t4b-vite
     volumes:
-      - ./site:/usr/src/app
-      - ./site/node_modules:/usr/src/app/node_modules
+      - ./vite/src:/usr/src/app/src
+      - ./vite/static/img:/usr/src/app/static/img
+      - ./script:/usr/src/app/src/touchforbots
     networks: ["t4bnet"]
     # links:
     #   - rasa
@@ -20,7 +21,7 @@ services:
   webserver:
     depends_on:
       - vite
-    image: nginx:1.15.12-alpine
+    image: nginx:1.25.3-alpine
     container_name: t4b-webserver
     restart: always
     ports:
@@ -30,12 +31,11 @@ services:
       - "5055:5055" # rasa actions
       - "5005:5005" # rasa
     volumes:
-      - ./site:/usr/src/app
+      - ./vite:/usr/src/app
       - ./nginx:/etc/nginx/conf.d
-      - ./nginx/certs:/etc/nginx/certs
     networks: ["t4bnet"]
-    # links:
-    #   - vite
+    links:
+      - vite
     # environment:
     #   - VOSK_PROXY_PASS="http://t4b-vosk:2700"
     #   - VOSK_UPSTREAM="t4b-vosk:2700"
