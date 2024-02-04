@@ -1,0 +1,16 @@
+{
+  "name": "touch-for-bots",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^4.5.0",
+    "vite-plugin-glsl": "^1.1.2"
+  },
+  "dependencies": {
+  }
+}
