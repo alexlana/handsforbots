@@ -13,11 +13,8 @@ RUN python3 -m pip install --upgrade pip
 # Instala a versão mais recente do Rasa no ambiente virtual
 RUN pip install rasa && \
 	pip3 install --no-cache-dir spacy && \
-	python -m spacy download en_core_web_sm
+	python -m spacy download en_core_web_md
 	# python -m spacy download pt_core_news_sm
-
-RUN pip install fuzzywuzzy
-RUN pip install python-Levenshtein
 
 WORKDIR /app
 

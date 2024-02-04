@@ -59,6 +59,16 @@ services:
     volumes:
       - "./rasa/actions:/app/actions"
 
+  duckling:
+    restart: always
+    image: rasa/duckling:0.2.0.2
+    container_name: t4b-duckling
+    platform: linux/x86_64
+    networks: ['t4bnet']
+    ports:
+    - "8000:8000"
+    command: ["duckling-example-exe", "-p", "8000", "--no-access-log", "--no-error-log"]
+
 ######
 # SPEECH RECOGNITION
 # vosk:

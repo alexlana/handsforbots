@@ -14,14 +14,15 @@ WORKDIR /app
 
 COPY ./rasa /app
 
+RUN chmod 777 /app
+
 USER root
 
-RUN pip install -r /app/actions/requirements.txt
+RUN pip install -r /app/actions/requirements-actions.txt
 
 USER 1001
 
-WORKDIR /app/actions
+WORKDIR /app
 
 # the entry point
-EXPOSE 5055
 ENTRYPOINT [ "rasa", "run", "actions", "-p", "5055" ]

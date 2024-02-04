@@ -6,7 +6,7 @@ import Bot from "./touchforbots/Bot.js";
 let bot_settings = {
   engine: "rasa",
   language: "pt-br",
-  engine_endpoint: "https://localhost/rasa/webhooks/rest/webhook",
+  engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
 
   inputs: [],
   outputs: [],
@@ -17,14 +17,15 @@ let text_ui_config = {
   plugin: "text",
 
   start_open: true,
-  color: "custom",
-  color_scheme: {
-    primary: "#96B522",
-    primary_hover: "#BBD034",
-    light: "#eaf0c1",
-    dark: "#96B522",
-    user: "#f1f5d6",
-  },
+  color: "blue",
+  // color: "custom",
+  // color_scheme: {
+  //   primary: "#96B522",
+  //   primary_hover: "#BBD034",
+  //   light: "#eaf0c1",
+  //   dark: "#96B522",
+  //   user: "#f1f5d6",
+  // },
   no_css: false,
   container: "#chatbot",
   bot_name: "GUI Assistant",
