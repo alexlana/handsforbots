@@ -1,5 +1,5 @@
 {
-  "name": "touch-for-bots",
+  "name": "hands-for-chatbots",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,6 @@
   },
   "devDependencies": {
     "vite": "^4.5.0",
-    "vite-plugin-glsl": "^1.1.2"
   },
   "dependencies": {
   }

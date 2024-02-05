@@ -1,4 +1,4 @@
-import Bot from "./touchforbots/Bot.js";
+import Bot from "./handsforchatbots/Bot.js";
 
 /**
  * Chatbot
