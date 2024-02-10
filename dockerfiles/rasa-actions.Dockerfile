@@ -7,8 +7,8 @@ RUN apt-get update && \
 RUN python3 -m pip install --upgrade pip
 
 # Instala a versão mais recente do Rasa SDK
-RUN pip install rasa && \
-	pip install rasa-sdk
+RUN pip install rasa==3.6.16 && \
+	pip install rasa-sdk==3.7.1
 
 WORKDIR /app
 

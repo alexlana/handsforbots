@@ -61,7 +61,7 @@ services:
 
   duckling:
     restart: always
-    image: rasa/duckling:0.2.0.2
+    image: rasa/duckling:0.2.0.2-r3
     container_name: t4b-duckling
     platform: linux/x86_64
     networks: ['t4bnet']
