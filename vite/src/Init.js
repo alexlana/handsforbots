@@ -58,6 +58,31 @@ let poke_config = {
 };
 bot_settings.inputs.push(poke_config);
 
+
+
+
+  // let hex_presentation_settings = {
+  //   plugin: 'HexPresentation',
+  //   root: '../../../../content/portfolio/',
+  //   gallery_list: [
+  //     'afrolatinas',
+  //     'cena',
+  //     'dogatwork',
+  //     'mapaecologico',
+  //     'origo',
+  //     'powerfi',
+  //     'saptravelheroes',
+  //     'skyhub',
+  //     'snowland',
+  //     'tabata',
+  //     'ubec'
+  //   ]
+  // }
+  // bot_settings.plugins.push( hex_presentation_settings )
+
+
+
+
 const bot = new Bot(bot_settings);
 
 if (bot.history.length == 0) {
