@@ -1,10 +1,10 @@
-import Bot from '../Bot.js'
+import Bot from '../../Bot.js'
 
-import EventEmitter from '../Libs/EventEmitter.js'
+import EventEmitter from '../../Libs/EventEmitter.js'
 
-import EasySpeech from '../Libs/EasySpeech.es5.js'
+import EasySpeech from '../../Libs/EasySpeech.es5.js'
 import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
-import EnvironmentDetection from '../Libs/EnvironmentDetection.js'
+import EnvironmentDetection from '../../Libs/EnvironmentDetection.js'
 
 
 /**

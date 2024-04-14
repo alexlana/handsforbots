@@ -1,6 +1,6 @@
-import Bot from '../../Bot.js'
+import Bot from '../../../Bot.js'
 
-import EventEmitter from '../../Libs/EventEmitter.js'
+import EventEmitter from '../../../Libs/EventEmitter.js'
 
 import { parse, stringify } from 'yaml'
 

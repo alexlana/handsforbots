@@ -1,4 +1,4 @@
-import Bot from '../Bot.js'
+import Bot from '../../Bot.js'
 
 let bot = new Bot()
 

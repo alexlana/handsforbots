@@ -3,33 +3,32 @@
  * Now the bot can use the UI!
  * 
  * Simple flow:
- * 
+ *
+ * Inputs: 				|   > input >   [*_*]   > output >	|  Outputs:
  * Text					|									|  Text
  * Voice				|									|  Voice
- * Gesture (TODO)		|   > input >   [*_*]   > output >	|  UI (TODO)
- * Mouse/Pointer (TODO)	|
+ * Gesture (TODO)		|									|  UI (TODO)
  * Trigger/Poke			|									|  Bot's Commands
  * 
  */
 
 
-// HOSTER
 
 
-import TextInput from './Input/Text.js'
-import VoiceInput from './Input/Voice.js'
-import PokeInput from './Input/Poke.js'
+import TextInput from './Core/Input/Text.js'
+import VoiceInput from './Core/Input/Voice.js'
+import PokeInput from './Core/Input/Poke.js'
 
-import TextOutput from './Output/Text.js'
-import VoiceOutput from './Output/Voice.js'
-import BotsCommandsOutput from './Output/BotsCommands.js'
+import TextOutput from './Core/Output/Text.js'
+import VoiceOutput from './Core/Output/Voice.js'
+import BotsCommandsOutput from './Core/Output/BotsCommands.js'
 
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
 
 
 /**
- * Set bot instance to load same instance trought plugins.
+ * Set bot instance so we access the same instance in plugins.
  * @type Null|Object
  */
 let bot_instance = null
@@ -215,10 +214,10 @@ export default class Bot {
 			engine_specific = options.engine_specific
 
 		if ( !options.engine || options.engine.toLowerCase() == 'rasa' ) {
-			let BackendEngine = await import( './Backend/Rasa.js' )
+			let BackendEngine = await import( './Core/Backend/Rasa.js' )
 			this.backend = new BackendEngine.default( {endpoint: options.endpoint, engine_specific: engine_specific} )
 		} else if ( !options.engine || options.engine.toLowerCase() == 'openai' ) {
-			let BackendEngine = await import( './Backend/OpenAI.js' )
+			let BackendEngine = await import( './Core/Backend/OpenAI.js' )
 			this.backend = new BackendEngine.default( {endpoint: options.endpoint, engine_specific: engine_specific} )
 		}
 
@@ -268,7 +267,7 @@ export default class Bot {
 				throw new Error( 'The parameter "plugin" (the plugin name) can use only letters and numbers, and no accent or special characters.' )
 
 			let type = null
-			await import( /* @vite-ignore */ './Plugins/' + plugin + '/' + plugin + '.js' )
+			await import( /* @vite-ignore */ './Plugins/' + this.camelcase( options.type ) + '/' + plugin + '/' + plugin + '.js' )
 				  .then(({ default: LoadedPlugin }) => {
 				  	const LoadedPluginInit = new LoadedPlugin( options );
 					this[ LoadedPluginInit.name ] = LoadedPluginInit
@@ -299,6 +298,17 @@ export default class Bot {
 
 		const reg = /[^a-zA-Z0-9]/gi
 		return input.replace( reg, '' )
+
+	}
+
+	/**
+	 * Convert a string to camel case. Work only for the first letter for now.
+	 * @param  String   str Original string.
+	 * @return String       Camel case string.
+	 */
+	camelcase ( str ) {
+
+		return str.charAt(0).toUpperCase() + str.slice(1)
 
 	}
 

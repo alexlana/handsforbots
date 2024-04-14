@@ -63,6 +63,7 @@ bot_settings.inputs.push(poke_config);
 
   // let hex_presentation_settings = {
   //   plugin: 'HexPresentation',
+  //   type: 'output',
   //   root: '../../../../content/portfolio/',
   //   gallery_list: [
   //     'afrolatinas',

@@ -1,7 +1,7 @@
-import Bot from '../Bot.js'
+import Bot from '../../Bot.js'
 
-import EventEmitter from '../Libs/EventEmitter.js'
-import EnvironmentDetection from '../Libs/EnvironmentDetection.js'
+import EventEmitter from '../../Libs/EventEmitter.js'
+import EnvironmentDetection from '../../Libs/EnvironmentDetection.js'
 
 
 /**
@@ -62,10 +62,10 @@ export default class VoiceInput {
 
 		let wsURL = ''
 		if ( this.isNative() ) {
-			this.speechRecognitionModule = await import( '../Libs/SpeechRecognition.js' )
+			this.speechRecognitionModule = await import( '../../Libs/SpeechRecognition.js' )
 		} else {
 			wsURL = 'wss://localhost/vosk'
-			this.speechRecognitionModule = await import( '../Libs/VoskConnector.js' )
+			this.speechRecognitionModule = await import( '../../Libs/VoskConnector.js' )
 		}
 		this.speechRecognition = new this.speechRecognitionModule.default( { language: this.bot.current_language, wsURL: wsURL } )
 

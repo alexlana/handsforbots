@@ -1,4 +1,4 @@
-import Bot from '../Bot.js'
+import Bot from '../../Bot.js'
 
 import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
 
