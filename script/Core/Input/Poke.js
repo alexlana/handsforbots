@@ -40,7 +40,7 @@ export default class PokeInput {
 			setTimeout( (poke, payload)=>{
 				poke.input( false )
 			}, 300, this, payload )
-			return;
+			return
 		}
 
 		this.queue.forEach(( payload )=>{
@@ -48,7 +48,7 @@ export default class PokeInput {
 				if ( response.length > 0 )
 					this.bot.output( response )
 			})
-		});
+		})
 		this.queue = []
 
 	}
@@ -59,7 +59,7 @@ export default class PokeInput {
 	 */
 	register () {
 
-		this.bot.registerInput( this );
+		this.bot.registerInput( this )
 
 	}
 

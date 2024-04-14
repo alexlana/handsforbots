@@ -146,9 +146,9 @@ export default class Bot {
 	input ( plugin, payload, title = null ) {
 
 		if ( !plugin )
-			throw new Error( 'The parameter "plugin" is required.' );
+			throw new Error( 'The parameter "plugin" is required.' )
 		if ( !payload )
-			throw new Error( 'The parameter "payload" is required.' );
+			throw new Error( 'The parameter "payload" is required.' )
 
 		this.inputs[ plugin ].input( payload, title ) // send payload to plugin
 		this.addToHistory( 'input', plugin, payload, title ) // add event to bot history
@@ -163,7 +163,7 @@ export default class Bot {
 	 */
 	output ( payload ) {
 
-		payload = this.extractActions( payload );
+		payload = this.extractActions( payload )
 
 		let plugins = []
 		for ( var plugin in this.ui_outputs ) {
@@ -182,7 +182,7 @@ export default class Bot {
 	registerInput ( obj ) {
 
 		if ( !obj.name )
-			throw new Error( 'The parameter "name" (input name) is required.' );
+			throw new Error( 'The parameter "name" (input name) is required.' )
 
 		this.inputs[ obj.name ] = obj // add input plugin to list
 
@@ -196,7 +196,7 @@ export default class Bot {
 	registerOutput ( obj ) {
 
 		if ( !obj.name )
-			throw new Error( 'The parameter "name" (output name) is required.' );
+			throw new Error( 'The parameter "name" (output name) is required.' )
 
 		this.outputs[ obj.name ] = obj // add output plugin to list
 
@@ -233,9 +233,9 @@ export default class Bot {
 	async ui ( options, type ) {
 
 		if ( !options.type && !type )
-			throw new Error( 'The parameter "type" (input or output) is required.' );
+			throw new Error( 'The parameter "type" (input or output) is required.' )
 		if ( !options.plugin )
-			throw new Error( 'The parameter "plugin" (the plugin name) is required.' );
+			throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
 
 		if ( options.type )
 			type = options.type
@@ -250,7 +250,7 @@ export default class Bot {
 	 * Set custom plugin UI at DOM. It will activate plugins in `Plugins` folder.
 	 * You want to inform the plugin's name throught the `options` like: `{plugin: "MyPlugin"}`.
 	 * The name is the name of the main folder of your package, AND the name of the main .js
-	 * file (ex.: `/Plugins/MyPlugin/MyPlugin.js`), AND the name of the class (ex.: `export default class MyPlugin { constructor() { } }`).
+	 * file (ex.: `/Plugins/AdapterType/MyPlugin/MyPlugin.js`), AND the name of the class (ex.: `export default class MyPlugin { constructor() { } }`).
 	 * The plugin name can only have letters and numbers, no special characters is allowed.
 	 * @param  Object	options	Information about plugin `type` and plugin `name` as well as plugin parameters.
 	 * @return Void
@@ -262,14 +262,14 @@ export default class Bot {
 			if ( !options.plugin )
 				throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
 
-			const plugin = this.sanitize_input( options.plugin )
+			const plugin = this.sanitizeInput( options.plugin )
 			if ( !plugin || plugin === '' )
 				throw new Error( 'The parameter "plugin" (the plugin name) can use only letters and numbers, and no accent or special characters.' )
 
 			let type = null
 			await import( /* @vite-ignore */ './Plugins/' + this.camelcase( options.type ) + '/' + plugin + '/' + plugin + '.js' )
 				  .then(({ default: LoadedPlugin }) => {
-				  	const LoadedPluginInit = new LoadedPlugin( options );
+				  	const LoadedPluginInit = new LoadedPlugin( options )
 					this[ LoadedPluginInit.name ] = LoadedPluginInit
 					type = this[ LoadedPluginInit.name ].type()
 				  })
@@ -294,7 +294,7 @@ export default class Bot {
 	 * @param  String input Input string.
 	 * @return String       String sanitized.
 	 */
-	sanitize_input ( input ) {
+	sanitizeInput ( input ) {
 
 		const reg = /[^a-zA-Z0-9]/gi
 		return input.replace( reg, '' )
@@ -320,11 +320,11 @@ export default class Bot {
 	addToHistory ( type, plugin, payload, title = null ) {
 
 		if ( !type )
-			throw new Error( 'The parameter "type" (input or output) is required.' );
+			throw new Error( 'The parameter "type" (input or output) is required.' )
 		if ( !plugin )
-			throw new Error( 'The parameter "plugin" (the plugin name) is required.' );
+			throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
 		if ( !payload )
-			throw new Error( 'The parameter "payload" (event\'s data) is required.' );
+			throw new Error( 'The parameter "payload" (event\'s data) is required.' )
 
 		const history = [ type, plugin, payload, title ] // history event item
 		this.history.push( history ) // add event to history

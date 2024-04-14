@@ -215,7 +215,7 @@ export default class TextInput {
 			this.bot.color_schemes[ options.color ] = options.color_scheme
 		}
 		if ( this.bot.color_schemes[this.bot.color] == undefined ) {
-			console.warn( 'Can not find the requested color scheme. It will be blue.' );
+			console.warn( 'Can not find the requested color scheme. It will be blue.' )
 			this.bot.color = 'blue'
 		}
 		this.title = options.title || this.language[this.bot.current_language].title
@@ -305,7 +305,7 @@ export default class TextInput {
 			if ( payload.length > 0 ) {
 				this.bot.input( 'text', payload )
 				e.target.querySelector( 'input[type="text"]' ).value = ''
-				this.setChatMarginTop();
+				this.setChatMarginTop()
 			}
 		})
 		document.querySelector( this.container ).append( ui_window )
@@ -330,7 +330,7 @@ export default class TextInput {
 
 		if ( options.autofocus ) {
 			if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
-				document.querySelector('#chat_input').focus();
+				document.querySelector('#chat_input').focus()
 			}
 			document.querySelector('body').addEventListener( 'click', ()=>{
 				if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {

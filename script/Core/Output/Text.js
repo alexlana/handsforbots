@@ -68,7 +68,7 @@ export default class TextOutput {
 	 */
 	register () {
 
-		this.bot.registerOutput( this );
+		this.bot.registerOutput( this )
 
 	}
 

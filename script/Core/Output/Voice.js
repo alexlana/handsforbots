@@ -110,7 +110,7 @@ export default class VoiceOutput {
 	 */
 	register () {
 
-		this.bot.registerOutput( this );
+		this.bot.registerOutput( this )
 
 	}
 

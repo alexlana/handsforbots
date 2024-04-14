@@ -74,7 +74,7 @@ export default class Rasa {
 			if ( this.try_times <= 3 ) {
 				return this.send( payload )
 			} else {
-				console.debug( 'Error when trying to access the endpoint: ' + err );
+				console.debug( 'Error when trying to access the endpoint: ' + err )
 			}
 		}
 		this.try_times = 0
@@ -82,7 +82,7 @@ export default class Rasa {
 		if ( bot_dt == undefined || bot_dt.status != undefined ) {
 
 			if ( bot_dt != undefined && bot_dt.status != undefined )
-				console.debug( 'HTTP error when accessing endpoint ('+bot_dt.status+'): ' + bot_dt.description );
+				console.debug( 'HTTP error when accessing endpoint ('+bot_dt.status+'): ' + bot_dt.description )
 
 			const ret = [
 				{

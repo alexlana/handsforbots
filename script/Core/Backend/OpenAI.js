@@ -105,12 +105,12 @@ export default class OpenAI {
 		try {
 			response = await fetch( this.endpoint, endpoint_config )
 			if ( !response.ok ) {
-				throw new Error(`HTTP error! status: ${response.status}`);
+				throw new Error(`HTTP error! status: ${response.status}`)
 			}
 			bot_dt = await response.json()
 		} catch ( err ) {
 			console.log( err )
-			console.debug( `Error when trying to access the endpoint: ${err}` );
+			console.debug( `Error when trying to access the endpoint: ${err}` )
 		}
 console.log('pre')
 console.log(bot_dt)
@@ -118,10 +118,10 @@ console.log(bot_dt)
 		if ( bot_dt == undefined || bot_dt.status != undefined || bot_dt.error != undefined ) {
 
 			if ( bot_dt != undefined && bot_dt.status != undefined )
-				console.debug( 'HTTP error when accessing endpoint ('+bot_dt.status+'): ' + bot_dt.description );
+				console.debug( 'HTTP error when accessing endpoint ('+bot_dt.status+'): ' + bot_dt.description )
 
 			else if ( bot_dt != undefined && bot_dt.error != undefined )
-				console.debug( 'HTTP error when accessing endpoint ('+bot_dt.error+'): ' + bot_dt.description );
+				console.debug( 'HTTP error when accessing endpoint ('+bot_dt.error+'): ' + bot_dt.description )
 
 			const ret = [
 				{
