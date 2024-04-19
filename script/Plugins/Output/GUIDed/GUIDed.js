@@ -18,6 +18,7 @@ export default class GUIDed {
 		this.options = options
 		this.sequence = options.sequence
 		this.step = 0
+		this.dom_element = null
 
 		this.language = {
 			'en': {
@@ -202,6 +203,8 @@ export default class GUIDed {
 		if ( this.guided_balloon )
 			this.guided_balloon.classList.add( 'hide' )
 
+		this.overlay.removeAttribute( 'style' )
+
 		let text = message.text
 		if ( message.text.indexOf( '<p>' ) < 0 )
 			text = `<p>${message.text}</p>`
@@ -233,6 +236,7 @@ export default class GUIDed {
 			this.guided_balloon.classList.add( 'chat_rounded_box' )
 			this.guided_balloon.innerHTML = `<h5></h5><div class="chat_inner"></div>`
 			document.querySelector( 'body' ).append( this.guided_balloon )
+			window.addEventListener( 'resize', ()=>{ this.balloonPosition() } )
 		}
 
 		this.guided_balloon.classList.remove( 'hide' )
@@ -254,12 +258,68 @@ export default class GUIDed {
 		let skip_link = this.skip()
 		inner.append( skip_link )
 
-
 		if ( this.options.auto_start ) {
 
 			this.guided_balloon.classList.add( 'show' )
 
 		}
+
+		this.dom_element = message.dom_element
+		this.balloonPosition();
+
+	}
+
+	balloonPosition () {
+
+		let window_width = window.innerWidth
+		let window_height = window.innerHeight
+
+		let focus = document.querySelector( this.dom_element );
+		let focus_bounds = focus.getBoundingClientRect()
+
+		let balloon_bounds = this.guided_balloon.getBoundingClientRect()
+
+		let pointer = []
+		pointer[0] = 'center'
+		pointer[1] = 'top'
+
+		let x = focus_bounds.x + focus_bounds.width / 2 - balloon_bounds.width / 2
+		if ( x < 0 ) {
+			x += balloon_bounds.width / 2
+			pointer[0] = 'left'
+		}
+		if ( x + balloon_bounds.width > window_width ) {
+			x -= balloon_bounds.width / 2
+			pointer[0] = 'right'
+		}
+
+		let y = focus_bounds.y + focus_bounds.height + 25
+		if ( y + balloon_bounds.height > window_height ) {
+			y = focus_bounds.y - balloon_bounds.height - 25
+			pointer[1] = 'bottom'
+		}
+
+		this.guided_balloon.setAttribute( 'pointer', pointer.join( '-' ) )
+
+		this.guided_balloon.style.left = x + 'px'
+		this.guided_balloon.style.top = y + 'px'
+
+		this.mask( focus_bounds )
+
+	}
+
+	mask ( focus_bounds ) {
+
+		let centro_x = focus_bounds.x + focus_bounds.width / 2
+		let centro_y = focus_bounds.y + focus_bounds.height / 2
+		let raio = focus_bounds.width
+		if ( raio < focus_bounds.height )
+			raio = focus_bounds.height
+		raio *= 0.7
+		let radial = `radial-gradient( circle at ${centro_x}px ${centro_y}px, rgba(0, 0, 0, 0) ${raio}px, black ${raio}px )`
+
+		let css = `-webkit-mask-image:${radial};mask-image:${radial};`
+		this.overlay.setAttribute( 'style', css )
 
 	}
 

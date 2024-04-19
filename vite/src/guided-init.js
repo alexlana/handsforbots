@@ -5,7 +5,7 @@ import Bot from "./handsforchatbots/Bot.js";
  */
 let bot_settings = {
   engine: "rasa",
-  language: "pt-br",
+  language: "en",
   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
 
   inputs: [],
@@ -17,7 +17,7 @@ let text_ui_config = {
   plugin: "text",
 
   start_open: true,
-  color: "blue",
+  color: "red",
   // color: "custom",
   // color_scheme: {
   //   primary: "#96B522",
@@ -66,13 +66,12 @@ let guided_settings = {
   type: 'output',
   wait_user: true,
   auto_start: true,
-  skip: 'Pular o guia',
   sequence: [
     {
       type: 'modal',
-      title: 'Welcome',
+      title: 'Welcome to the guided tutorial',
       text: 'This is the app interface. We want you to know how to do all things here!',
-      btn_next: 'Próximo'
+      btn_next: 'Let\'s start!'
     },
     {
       type: 'balloon',
@@ -87,11 +86,23 @@ let guided_settings = {
       dom_element: '#open_button'
     },
     {
+      type: 'balloon',
+      title: 'Ask me',
+      text: 'If you have questions, ask me for more information.',
+      dom_element: '#chat_input'
+    },
+    {
+      type: 'balloon',
+      title: 'Ask me',
+      text: 'You can ask using your own voice too.',
+      dom_element: '#speech_button'
+    },
+    {
       type: 'modal',
       title: 'That\'s all!',
       text: 'Ok! That\'s all, folks!',
-      btn_previous: 'Anterior',
-      btn_close: 'Entendi!'
+      btn_previous: '<< Previous',
+      btn_close: 'Understood!'
     }
   ]
 }
