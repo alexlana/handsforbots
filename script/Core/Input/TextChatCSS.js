@@ -4,7 +4,7 @@ let bot = new Bot()
 
 
 const ChatCSS = `
-		#chat_window {
+		.chat_rounded_box {
 			display: block !important;
 			font-family:sans-serif;
 			box-sizing:border-box;
@@ -23,26 +23,26 @@ const ChatCSS = `
 			z-index: 999;
 			transition: 0.3s max-height, 0.3s border-radius;
 		}
-		#chat_window.open_chat {
+		.chat_rounded_box.open_chat {
 			max-height:500px;
 		}
-		#chat_window.keyboard_active.open_chat {
+		.chat_rounded_box.keyboard_active.open_chat {
 			border-bottom-left-radius: 20px;
 			border-bottom-right-radius: 20px;
 		}
-		#chat_window * {
+		.chat_rounded_box * {
 			box-sizing:border-box;
 			line-height:1.3;
 			letter-spacing: 0;
 		}
-		#chat_window ul,
-		#chat_window ol {
+		.chat_rounded_box ul,
+		.chat_rounded_box ol {
 			padding-left: 20px !important;
 			list-style-position: outside !important;
 			margin: 0 !important;
 		}
-		#chat_window ul li,
-		#chat_window ol li {
+		.chat_rounded_box ul li,
+		.chat_rounded_box ol li {
 			margin: 6px 0 !important;
 		}
 		#chat_body {
@@ -54,10 +54,10 @@ const ChatCSS = `
 			padding:0 20px;
 			overflow:scroll;
 		}
-		#inner_chat_body {
+		.inner_chat {
 			padding-bottom: 80px;
 		}
-		#inner_chat_body a {
+		.inner_chat a {
 			text-decoration: none;
 			padding: 0 5px;
 			color:white;
@@ -66,11 +66,11 @@ const ChatCSS = `
 			overflow-wrap: break-word;
 			transition: 0.3s background-color, 0.3s color;
 		}
-		#inner_chat_body a:hover {
+		.inner_chat a:hover {
 			color:black;
 			background-color:white;
 		}
-		#chat_window h5 {
+		.chat_rounded_box h5 {
 			position:relative;
 			color:white;
 			background:${bot.color_schemes[bot.color].primary};
@@ -83,10 +83,10 @@ const ChatCSS = `
 			text-align: center;
 			transition:0.2s background;
 		}
-		#chat_window h5:hover {
+		.chat_rounded_box h5:hover {
 			background:${bot.color_schemes[bot.color].primary_hover};
 		}
-		#chat_window h5 button {
+		.chat_rounded_box h5 button {
 			pointer-events:none;
 			position:absolute;
 			top:0;
@@ -104,11 +104,11 @@ const ChatCSS = `
 			font-weight:bold;
 			transition: 0.3s transform ease-in-out, 0.3s right ease-in-out;
 		}
-		#chat_window.open_chat h5 button {
+		.chat_rounded_box.open_chat h5 button {
 			transform: rotate(180deg);
 			right: 8px;
 		}
-		#chat_window form {
+		.chat_rounded_box form {
 			display:flex;
 			padding:0;
 			margin:0 -20px;
@@ -119,20 +119,20 @@ const ChatCSS = `
 			z-index: 300;
 			transition: 0.3s;
 		}
-		#chat_window.keyboard_active.open_chat form {
+		.chat_rounded_box.keyboard_active.open_chat form {
 			bottom: 0;
 		}
-		#chat_window.waiting form {
+		.chat_rounded_box.waiting form {
 			pointer-events:none;
 		}
-		#chat_window input {
+		.chat_rounded_box input {
 			appearance:none;
 			font-size:0.9em;
 			padding:17px 10px;
 			border:none;
 			outline:none;
 		}
-		#chat_window input[type="text"] {
+		.chat_rounded_box input[type="text"] {
 			/*box-shadow:inset 0 0 5px rgba(0,0,0,0.4);*/
 			border-top-right-radius: 10px;
 			color:#333333;
@@ -141,24 +141,24 @@ const ChatCSS = `
 			color: black;
 			background:${bot.color_schemes[bot.color].light};
 		}
-		#chat_window input[type="text"]:focus {
+		.chat_rounded_box input[type="text"]:focus {
 			box-shadow: none;
 			border: none;
 			outline: none;
 		}
-		#chat_window input[type="text"]::placeholder {
+		.chat_rounded_box input[type="text"]::placeholder {
 			color:${bot.color_schemes[bot.color].primary};
 			opacity:0.5;
 		}
-		#chat_window input[type="text"]::-webkit-input-placeholder {
+		.chat_rounded_box input[type="text"]::-webkit-input-placeholder {
 			color:${bot.color_schemes[bot.color].primary};
 			opacity:0.5;
 		}
-		#chat_window input[type="text"]:-ms-input-placeholder {
+		.chat_rounded_box input[type="text"]:-ms-input-placeholder {
 			color:${bot.color_schemes[bot.color].primary};
 			opacity:0.5;
 		}
-		#chat_window input[type="submit"] {
+		.chat_rounded_box input[type="submit"] {
 			cursor:pointer;
 			width:28%;
 			padding-right: 15px;
@@ -169,19 +169,19 @@ const ChatCSS = `
 			transition:0.4s all;
 			letter-space:0.9;
 		}
-		#chat_window input[type="submit"]:hover {
+		.chat_rounded_box input[type="submit"]:hover {
 			text-shadow:0 0 2px rgba(0,0,0,0.7);
 			color: white;
 			background:${bot.color_schemes[bot.color].dark};
 		}
-		#chat_window input[type="submit"]:active {
+		.chat_rounded_box input[type="submit"]:active {
 			color:${bot.color_schemes[bot.color].dark};
 			background:${bot.color_schemes[bot.color].light};
 			text-shadow: 0 0 0 transparent;
 			transition:0.2s;
 		}
-		#chat_window:not(.keyboard_active) input[type="text"],
-		#chat_window:not(.keyboard_active) input[type="submit"] {
+		.chat_rounded_box:not(.keyboard_active) input[type="text"],
+		.chat_rounded_box:not(.keyboard_active) input[type="submit"] {
 			user-select: none;
 			-webkit-user-select: none;
 			pointer-events: none;
@@ -357,7 +357,7 @@ const ChatCSS = `
 		#chat_overlay button:hover {
 			background:${bot.color_schemes[bot.color].primary_hover};
 		}
-		#chat_body button {
+		.chat_rounded_box button {
 			appearande:none;
 			border:none;
 			box-shadow:0 2px 0 rgba(0,0,0,0.5);
@@ -371,7 +371,7 @@ const ChatCSS = `
 			font-size:0.7em;
 			transition:0.2s background, 0.2s box-shadow;
 		}
-		#chat_body button:hover {
+		.chat_rounded_box button:hover {
 			box-shadow:0 0 3px rgba(0,0,0,0.5);
 			background:${bot.color_schemes[bot.color].primary_hover};
 		}

@@ -239,6 +239,7 @@ export default class TextInput {
 		 */
 		let ui_window = document.createElement( 'DIV' )
 		ui_window.setAttribute( 'id', 'chat_window' )
+		ui_window.classList.add( 'chat_rounded_box' );
 		ui_window.classList.add( 'keyboard_active' )
 		ui_window.setAttribute( 'style', 'display:none;' )
 
@@ -267,7 +268,7 @@ export default class TextInput {
 
 		ui_window.innerHTML = '<h5>'+this.title+'<button>▲</button></h5>\
 			'+bot_id+'\
-			<div id="chat_body"><div id="inner_chat_body"><div class="chat_div_extra"></div></div></div>\
+			<div id="chat_body"><div id="inner_chat_body" class="inner_chat"><div class="chat_div_extra"></div></div></div>\
 			<form id="chat_input_wrapper" autocomplete="off">\
 				' + bot_disclaimer + '\
 				<input type="text" name="chat_input" id="chat_input" placeholder="'+this.language[this.bot.current_language].placeholder+'"><input type="submit" name="chat_submit" id="chat_submit" value="'+this.language[this.bot.current_language].send+'">\
