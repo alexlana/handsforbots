@@ -17,7 +17,7 @@ let text_ui_config = {
   plugin: "text",
 
   start_open: true,
-  color: "red",
+  color: "orange",
   // color: "custom",
   // color_scheme: {
   //   primary: "#96B522",
@@ -65,12 +65,12 @@ let guided_settings = {
   plugin: 'GUIDed',
   type: 'output',
   wait_user: true,
-  auto_start: true,
+  auto_start: false,
   sequence: [
     {
       type: 'modal',
       title: 'Welcome to the guided tutorial',
-      text: 'This is the app interface. We want you to know how to do all things here!',
+      text: 'This is the app interface. We want you to know all you can do here!',
       btn_next: 'Let\'s start!'
     },
     {
@@ -82,7 +82,7 @@ let guided_settings = {
     {
       type: 'balloon',
       title: 'Open old work',
-      text: 'And this button is to open your old or in process work.',
+      text: 'And this button is to open your old or in progress work.',
       dom_element: '#open_button'
     },
     {
@@ -136,7 +136,7 @@ bot_settings.plugins.push( guided_settings )
 
 const bot = new Bot(bot_settings);
 
-if (bot.history.length == 0) {
+// if (bot.history.length == 0) {
   // bot.input( 'poke', 'Obliviate' );
   // bot.input( 'poke', '__startbot__' );
-}
+// }

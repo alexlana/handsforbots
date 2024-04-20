@@ -3,6 +3,7 @@ session_config:
   session_expiration_time: 0
   carry_over_slots_to_new_session: true
 intents:
+- please_explain
 - check_human
 - transfer_money:
     use_entities: []
@@ -346,6 +347,8 @@ slots:
       - active_loop: transaction_search_form
         requested_slot: zz_confirm_form
 responses:
+  utter_please_explain:
+  - text: I can show you! [*{"action":"GUIDed.newGuide","params":[{"type":"modal","title":"Welcome to the guided tutorial","text":"This is the app interface. We want you to know all you can do here!","btn_next":"Let's start!"},{"type":"balloon","title":"Save your work","text":"This button is to save your work. Do not forget to save!","dom_element":"#save_button"},{"type":"balloon","title":"Open old work","text":"And this button is to open your old or in progress work.","dom_element":"#open_button"},{"type":"balloon","title":"Ask me","text":"If you have questions, ask me for more information.","dom_element":"#chat_input"},{"type":"balloon","title":"Ask me","text":"You can ask using your own voice too.","dom_element":"#speech_button"},{"type":"modal","title":"That's all!","text":"Ok! That's all, folks!","btn_previous":"<< Previous","btn_close":"Understood!"}]}*]
   utter_out_of_scope:
   - text: Sorry, I'm not sure how to respond to that. Type "help" for assistance.
   utter_ask_transfer_money_form_amount-of-money:

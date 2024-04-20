@@ -452,9 +452,9 @@ export default class TextInput {
 							ui_window.querySelector('#inner_chat_body').append( this.messageWrapper( title, 'bot', output[j].recipient_id ) )
 						}
 					}
-					if ( output[j].do != undefined ) {
-						this.bot.botsCommandsOutput.output( [ output[j] ] )
-					}
+					// if ( output[j].do != undefined ) {
+					// 	this.bot.botsCommandsOutput.output( [ output[j] ] )
+					// }
 					if ( i == this.bot.history.length - 1 )
 						ui_window.querySelector('#inner_chat_body').append( this.listButtons( output[j].buttons ) )
 				}

@@ -102,6 +102,7 @@ const ChatCSS = `
 			border:none;
 			font-size:0.75em;
 			font-weight:bold;
+			box-shadow: none;
 			transition: 0.3s transform ease-in-out, 0.3s right ease-in-out;
 		}
 		.chat_rounded_box.open_chat h5 button {

@@ -209,15 +209,42 @@ export default class VoiceOutput {
 			document.querySelector( 'body' ).append( button )
 
 		let ui_css = document.createElement('STYLE')
-		ui_css.innerHTML = '\
-			#chat_voice_toggle { transition:0.2s background;cursor:pointer;position:absolute;top:47px;right:10px;z-index:20;appearance:none;border:none;border-radius:5px;height:40px;width:40px;background:'+this.bot.color_schemes[this.bot.color].primary+'; }\
-			#chat_voice_toggle #sound-on { display:none;pointer-events:none; }\
-			#chat_voice_toggle #sound-off { display:block;pointer-events:none; }\
-			#chat_voice_toggle.voice-off #sound-on { display:block; }\
-			#chat_voice_toggle.voice-off #sound-off { display:none; }\
-			#chat_voice_toggle:hover { background:'+this.bot.color_schemes[this.bot.color].primary_hover+'; }\
-			#chat_bot_face { padding-right:60px; }\
-		'
+		ui_css.innerHTML = `
+			#chat_voice_toggle {
+				transition:0.2s background;
+				cursor:pointer;
+				position:absolute;
+				top:47px;
+				right:10px;
+				z-index:20;
+				appearance:none;
+				border:none;
+				border-radius:5px;
+				height:40px;
+				width:40px;
+				background:${this.bot.color_schemes[this.bot.color].primary};
+			}
+			#chat_voice_toggle #sound-on {
+				display:none;
+				pointer-events:none;
+			}
+			#chat_voice_toggle #sound-off {
+				display:block;
+				pointer-events:none;
+			}
+			#chat_voice_toggle.voice-off #sound-on {
+				display:block;
+			}
+			#chat_voice_toggle.voice-off #sound-off {
+				display:none;
+			}
+			#chat_voice_toggle:hover {
+				background:${this.bot.color_schemes[this.bot.color].primary_hover};
+			}
+			#chat_bot_face {
+				padding-right:60px;
+			}
+		`
 		document.querySelector( 'head' ).append( ui_css )
 
 		console.log( '[✔︎] Voice output UI added.' )

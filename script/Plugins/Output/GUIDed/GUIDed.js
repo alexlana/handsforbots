@@ -74,6 +74,21 @@ export default class GUIDed {
 
 	}
 
+	newGuide ( sequence ) {
+
+		if ( !this.bot.botsCommandsOutput.commands_history_loaded )
+			return
+
+		this.sequence = sequence
+		this.step = 0
+		this.dom_element = null
+
+		this.options.auto_start = true
+
+		this.ui( this.options )
+
+	}
+
 	/**
 	 * It don't have an UI, but want to register one.
 	 * @return Void
@@ -88,12 +103,15 @@ export default class GUIDed {
 		import( /* @vite-ignore */ './GUIDedCSS.js' )
 				.then(({ default: GUIDedCSS }) => {
 					ui_css.innerHTML = GUIDedCSS
+					this.guided_modal.removeAttribute( 'style' )
 				})
 		document.querySelector( 'head' ).append( ui_css )
 
-		this.overlay = document.createElement( 'DIV' )
-		this.overlay.setAttribute( 'id', 'guided_overlay' )
-		document.querySelector( 'body' ).append( this.overlay )
+		if ( this.overlay == undefined ) {
+			this.overlay = document.createElement( 'DIV' )
+			this.overlay.setAttribute( 'id', 'guided_overlay' )
+			document.querySelector( 'body' ).append( this.overlay )
+		}
 
 		if ( this.sequence[ this.step ].type === 'modal' )
 			this.modal( this.sequence[ this.step ], this.step, this.sequence.length )
@@ -111,6 +129,11 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Buttons for navigate through tutorial.
+	 * @param  Float  			direction	If `1` forward tutorial, if `-1` rewind, if `0` cancel.
+	 * @return Boolean | Void 				Return `false` if direction is `0`, else return `void`
+	 */
 	navigate ( direction ) {
 
 		if ( direction == 0 ) {
@@ -137,6 +160,12 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Create HTML buttons to navigate.
+	 * @param  Float    direction If `1` forward tutorial, if `-1` rewind, if `0` cancel.
+	 * @param  Object	el        Message and options to configure the button.
+	 * @return Object             DOM button object.
+	 */
 	button ( direction, el ) {
 
 		let button = document.createElement( 'BUTTON' )
@@ -160,6 +189,10 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Link to cancel the tutorial.
+	 * @return Object  HTML `<a>` object containing the link to cancel the tutorial.
+	 */
 	skip () {
 
 		let skip_link = document.createElement( 'A' )
@@ -172,6 +205,13 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * The footer containing the navigation buttons.
+	 * @param  Object   message Message and message options to create the buttons.
+	 * @param  Integer  current Current guide step.
+	 * @param  Integer  total   Total guide steps.
+	 * @return Object           DOM object containing the buttons.
+	 */
 	footerButtons ( message, current, total ) {
 
 		let buttons = document.createElement('DIV');
@@ -189,11 +229,19 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Create and update modal.
+	 * @param  Object   message Message and message options.
+	 * @param  Integer  current Current guide step.
+	 * @param  Integer  total   Total guide steps.
+	 * @return Void
+	 */
 	modal ( message, current, total ) {
 
 		if ( document.querySelector( '#guided_modal' ) == undefined ) {
 			this.guided_modal = document.createElement( 'DIV' )
 			this.guided_modal.setAttribute( 'id', 'guided_modal' )
+			this.guided_modal.setAttribute( 'style', 'display:none;' )
 			this.guided_modal.classList.add( 'chat_rounded_box' )
 			this.guided_modal.innerHTML = `<h5></h5><div class="chat_inner"></div>`
 			document.querySelector( 'body' ).append( this.guided_modal )
@@ -228,6 +276,13 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Create and update balloons.
+	 * @param  Object   message Message and message options.
+	 * @param  Integer  current Current guide step.
+	 * @param  Integer  total   Total guide steps.
+	 * @return Void
+	 */
 	balloon ( message, current, total ) {
 
 		if ( document.querySelector( '#guided_balloon' ) == undefined ) {
@@ -269,6 +324,10 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Moves the balloon close to the highlighted GUI element.
+	 * @return Void
+	 */
 	balloonPosition () {
 
 		let window_width = window.innerWidth
@@ -308,6 +367,10 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Creates a mask on the overlay to highlight a GUI element.
+	 * @return Void
+	 */
 	mask ( focus_bounds ) {
 
 		let centro_x = focus_bounds.x + focus_bounds.width / 2

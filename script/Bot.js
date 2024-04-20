@@ -75,8 +75,6 @@ export default class Bot {
 		this.disclaimer = options.disclaimer
 		this.presentation = options.presentation
 
-		this.rebuildHistory() // history of bot events
-
 		let engine_specific = null
 		if ( options.engine_specific != undefined )
 			engine_specific = options.engine_specific
@@ -102,6 +100,8 @@ export default class Bot {
 		this.lastInteraction = d.getTime()
 
 		this.loadInterfaces()
+
+		this.rebuildHistory() // history of bot events
 
 	}
 
@@ -132,6 +132,7 @@ export default class Bot {
 					this.output( this.presentation )
 				}
 			}
+			this.eventEmitter.trigger( 'loaded_ui' )
 		}
 
 	}
@@ -354,6 +355,7 @@ export default class Bot {
 		} else {
 			this.history = []
 		}
+
 		this.history_loaded = true
 	}
 
