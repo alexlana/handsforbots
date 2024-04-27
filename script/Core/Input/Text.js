@@ -1,4 +1,4 @@
-import Bot from '../../Bot.js'
+// import Bot from '../../Bot.js'
 
 import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
 
@@ -12,79 +12,13 @@ export default class TextInput {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor () {
+	constructor ( bot, options ) {
 
-		this.name = 'text'
+		this.name = 'text_input'
 		this.container = null
-		this.bot = new Bot()
-
+		this.bot = bot
 		this.marked = new Marked()
 
-		this.bot.color_schemes = {
-			blue: {
-				primary: 'rgb(0, 100, 255)',
-				primary_hover: 'rgb(0, 81, 205)',
-				light: 'rgb(184, 212, 255)',
-				dark: 'rgb(53, 76, 164)',
-				user: 'rgb(219, 233, 255)',
-			},
-			green: {
-				primary: 'rgb(46, 201, 0)',
-				primary_hover: 'rgb(12, 164, 0)',
-				light: 'rgb(197, 244, 203)',
-				dark: 'rgb(53, 164, 63)',
-				user: 'rgb(213, 247, 213)',
-			},
-			red: {
-				primary: 'rgb(201, 0, 0)',
-				primary_hover: 'rgb(164, 0, 0)',
-				light: 'rgb(255, 224, 212)',
-				dark: 'rgb(164, 53, 53)',
-				user: 'rgb(255, 224, 212)',
-			},
-			yellow: {
-				primary: 'rgb(218, 190, 0)',
-				primary_hover: 'rgb(194, 169, 0)',
-				light: 'rgb(247, 240, 188)',
-				dark: 'rgb(171, 149, 0)',
-				user: 'rgb(247, 240, 188)',
-			},
-			pink: {
-				primary: 'rgb(231, 40, 212)',
-				primary_hover: 'rgb(195, 29, 179)',
-				light: 'rgb(255, 214, 251)',
-				dark: 'rgb(181, 70, 170)',
-				user: 'rgb(255, 214, 251)',
-			},
-			orange: {
-				primary: 'rgb(255, 119, 0)',
-				primary_hover: 'rgb(230, 107, 0)',
-				light: 'rgb(255, 220, 190)',
-				dark: 'rgb(209, 114, 31)',
-				user: 'rgb(255, 220, 190)',
-			},
-			purple: {
-				primary: 'rgb(177, 0, 255)',
-				primary_hover: 'rgb(153, 0, 221)',
-				light: 'rgb(240, 205, 255)',
-				dark: 'rgb(152, 78, 185)',
-				user: 'rgb(240, 205, 255)',
-			},
-			black: {
-				primary: 'rgb(0, 0, 0)',
-				primary_hover: 'rgb(40, 40, 40)',
-				light: 'rgb(240, 240, 240)',
-				dark: 'rgb(150, 150, 150)',
-				user: 'rgb(200, 200, 200)',
-			},
-			gray: {
-				primary: 'rgb(180, 180, 180)',
-				primary_hover: 'rgb(220, 220, 220)',
-				light: 'rgb(240, 240, 240)',
-				dark: 'rgb(150, 150, 150)',
-				user: 'rgb(200, 200, 200)',
-			},
-		}
 		this.language = {
 			'en': {
 				'title': 'Come and chat!',
@@ -117,7 +51,9 @@ export default class TextInput {
 
 		this.register()
 
-		this.bot.eventEmitter.on('history_cleared', ()=>{
+		this.ui( options )
+
+		this.bot.eventEmitter.on( 'history_cleared', ()=>{
 			if ( document.querySelector( '#chat_window' ) ) {
 				document.querySelector( '#chat_window' ).classList.add( 'disconnected' )
 				document.querySelector( '#chat_window input[type="text"]' ).setAttribute( 'disabled', 'disabled' )

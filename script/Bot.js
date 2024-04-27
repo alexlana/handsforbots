@@ -3,32 +3,34 @@
  * Now the bot can use the UI!
  * 
  * Simple flow:
- *
- * Inputs: 				|   > input >   [*_*]   > output >	|  Outputs:
+ * 
  * Text					|									|  Text
  * Voice				|									|  Voice
- * Gesture (TODO)		|									|  UI (TODO)
+ * Gesture (TODO)		|   > input >   [*_*]   > output >	|  UI (TODO)
+ * Mouse/Pointer (TODO)	|
  * Trigger/Poke			|									|  Bot's Commands
  * 
  */
 
 
+// HOSTER
 
 
-import TextInput from './Core/Input/Text.js'
-import VoiceInput from './Core/Input/Voice.js'
-import PokeInput from './Core/Input/Poke.js'
+// import TextInput from './Core/Input/Text.js'
+// import VoiceInput from './Core/Input/Voice.js'
+// import PokeInput from './Core/Input/Poke.js'
 
-import TextOutput from './Core/Output/Text.js'
-import VoiceOutput from './Core/Output/Voice.js'
-import BotsCommandsOutput from './Core/Output/BotsCommands.js'
+// import TextOutput from './Core/Output/Text.js'
+// import VoiceOutput from './Core/Output/Voice.js'
+// import BotsCommandsOutput from './Core/Output/BotsCommands.js'
+
 
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
 
 
 /**
- * Set bot instance so we access the same instance in plugins.
+ * Set bot instance to load same instance trought plugins.
  * @type Null|Object
  */
 let bot_instance = null
@@ -49,13 +51,79 @@ export default class Bot {
 
 		console.log( '[-_-] The bot is on the production line. [-_-]' )
 
+		this.action_tag_open = '[*'
+		this.action_tag_close = '*]'
+
 		if ( ! options.language )
 			this.current_language = 'en'
 		else
 			this.current_language = options.language
 
-		this.action_tag_open = '[*'
-		this.action_tag_close = '*]'
+		this.color_schemes = {
+			blue: {
+				primary: 'rgb(0, 100, 255)',
+				primary_hover: 'rgb(0, 81, 205)',
+				light: 'rgb(184, 212, 255)',
+				dark: 'rgb(53, 76, 164)',
+				user: 'rgb(219, 233, 255)',
+			},
+			green: {
+				primary: 'rgb(46, 201, 0)',
+				primary_hover: 'rgb(12, 164, 0)',
+				light: 'rgb(197, 244, 203)',
+				dark: 'rgb(53, 164, 63)',
+				user: 'rgb(213, 247, 213)',
+			},
+			red: {
+				primary: 'rgb(201, 0, 0)',
+				primary_hover: 'rgb(164, 0, 0)',
+				light: 'rgb(255, 224, 212)',
+				dark: 'rgb(164, 53, 53)',
+				user: 'rgb(255, 224, 212)',
+			},
+			yellow: {
+				primary: 'rgb(218, 190, 0)',
+				primary_hover: 'rgb(194, 169, 0)',
+				light: 'rgb(247, 240, 188)',
+				dark: 'rgb(171, 149, 0)',
+				user: 'rgb(247, 240, 188)',
+			},
+			pink: {
+				primary: 'rgb(231, 40, 212)',
+				primary_hover: 'rgb(195, 29, 179)',
+				light: 'rgb(255, 214, 251)',
+				dark: 'rgb(181, 70, 170)',
+				user: 'rgb(255, 214, 251)',
+			},
+			orange: {
+				primary: 'rgb(255, 119, 0)',
+				primary_hover: 'rgb(230, 107, 0)',
+				light: 'rgb(255, 220, 190)',
+				dark: 'rgb(209, 114, 31)',
+				user: 'rgb(255, 220, 190)',
+			},
+			purple: {
+				primary: 'rgb(177, 0, 255)',
+				primary_hover: 'rgb(153, 0, 221)',
+				light: 'rgb(240, 205, 255)',
+				dark: 'rgb(152, 78, 185)',
+				user: 'rgb(240, 205, 255)',
+			},
+			black: {
+				primary: 'rgb(0, 0, 0)',
+				primary_hover: 'rgb(40, 40, 40)',
+				light: 'rgb(240, 240, 240)',
+				dark: 'rgb(150, 150, 150)',
+				user: 'rgb(200, 200, 200)',
+			},
+			gray: {
+				primary: 'rgb(180, 180, 180)',
+				primary_hover: 'rgb(220, 220, 220)',
+				light: 'rgb(240, 240, 240)',
+				dark: 'rgb(150, 150, 150)',
+				user: 'rgb(200, 200, 200)',
+			},
+		}
 
 		this.session_timeout = 30 // minutes
 		this.one_minute = 1000 * 60
@@ -75,6 +143,8 @@ export default class Bot {
 		this.disclaimer = options.disclaimer
 		this.presentation = options.presentation
 
+		this.rebuildHistory() // history of bot events
+
 		let engine_specific = null
 		if ( options.engine_specific != undefined )
 			engine_specific = options.engine_specific
@@ -88,20 +158,18 @@ export default class Bot {
 		this.outputs = {} // list of output plugins
 		this.ui_outputs = {} // list of output plugins
 
-		this.textInput = new TextInput() // Text Input plugin
-		this.voiceInput = new VoiceInput() // Voice Input plugin (speech to text / VTT)
-		this.pokeInput = new PokeInput() // Poke Input plugin
+		// this.textInput = new TextInput() // Text Input plugin
+		// this.voiceInput = new VoiceInput() // Voice Input plugin (speech to text / VTT)
+		// this.pokeInput = new PokeInput() // Poke Input plugin
 
-		this.textOutput = new TextOutput() // Text output plugin
-		this.voiceOutput = new VoiceOutput() // Text output plugin (text to speech / TTS)
-		this.botsCommandsOutput = new BotsCommandsOutput() // Bot's Commands output plugin
+		// this.textOutput = new TextOutput() // Text output plugin
+		// this.voiceOutput = new VoiceOutput() // Text output plugin (text to speech / TTS)
+		// this.botsCommandsOutput = new BotsCommandsOutput() // Bot's Commands output plugin
 
 		const d = new Date()
 		this.lastInteraction = d.getTime()
 
-		this.loadInterfaces()
-
-		this.rebuildHistory() // history of bot events
+		// this.loadInterfaces()
 
 	}
 
@@ -132,7 +200,6 @@ export default class Bot {
 					this.output( this.presentation )
 				}
 			}
-			this.eventEmitter.trigger( 'loaded_ui' )
 		}
 
 	}
@@ -147,9 +214,9 @@ export default class Bot {
 	input ( plugin, payload, title = null ) {
 
 		if ( !plugin )
-			throw new Error( 'The parameter "plugin" is required.' )
+			throw new Error( 'The parameter "plugin" is required.' );
 		if ( !payload )
-			throw new Error( 'The parameter "payload" is required.' )
+			throw new Error( 'The parameter "payload" is required.' );
 
 		this.inputs[ plugin ].input( payload, title ) // send payload to plugin
 		this.addToHistory( 'input', plugin, payload, title ) // add event to bot history
@@ -164,7 +231,7 @@ export default class Bot {
 	 */
 	output ( payload ) {
 
-		payload = this.extractActions( payload )
+		payload = this.extractActions( payload );
 
 		let plugins = []
 		for ( var plugin in this.ui_outputs ) {
@@ -183,7 +250,7 @@ export default class Bot {
 	registerInput ( obj ) {
 
 		if ( !obj.name )
-			throw new Error( 'The parameter "name" (input name) is required.' )
+			throw new Error( 'The parameter "name" (input name) is required.' );
 
 		this.inputs[ obj.name ] = obj // add input plugin to list
 
@@ -197,7 +264,7 @@ export default class Bot {
 	registerOutput ( obj ) {
 
 		if ( !obj.name )
-			throw new Error( 'The parameter "name" (output name) is required.' )
+			throw new Error( 'The parameter "name" (output name) is required.' );
 
 		this.outputs[ obj.name ] = obj // add output plugin to list
 
@@ -215,10 +282,10 @@ export default class Bot {
 			engine_specific = options.engine_specific
 
 		if ( !options.engine || options.engine.toLowerCase() == 'rasa' ) {
-			let BackendEngine = await import( './Core/Backend/Rasa.js' )
+			let BackendEngine = await import( './Backend/Rasa.js' )
 			this.backend = new BackendEngine.default( {endpoint: options.endpoint, engine_specific: engine_specific} )
 		} else if ( !options.engine || options.engine.toLowerCase() == 'openai' ) {
-			let BackendEngine = await import( './Core/Backend/OpenAI.js' )
+			let BackendEngine = await import( './Backend/OpenAI.js' )
 			this.backend = new BackendEngine.default( {endpoint: options.endpoint, engine_specific: engine_specific} )
 		}
 
@@ -234,9 +301,9 @@ export default class Bot {
 	async ui ( options, type ) {
 
 		if ( !options.type && !type )
-			throw new Error( 'The parameter "type" (input or output) is required.' )
+			throw new Error( 'The parameter "type" (input or output) is required.' );
 		if ( !options.plugin )
-			throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
+			throw new Error( 'The parameter "plugin" (the plugin name) is required.' );
 
 		if ( options.type )
 			type = options.type
@@ -251,7 +318,7 @@ export default class Bot {
 	 * Set custom plugin UI at DOM. It will activate plugins in `Plugins` folder.
 	 * You want to inform the plugin's name throught the `options` like: `{plugin: "MyPlugin"}`.
 	 * The name is the name of the main folder of your package, AND the name of the main .js
-	 * file (ex.: `/Plugins/AdapterType/MyPlugin/MyPlugin.js`), AND the name of the class (ex.: `export default class MyPlugin { constructor() { } }`).
+	 * file (ex.: `/Plugins/MyPlugin/MyPlugin.js`), AND the name of the class (ex.: `export default class MyPlugin { constructor() { } }`).
 	 * The plugin name can only have letters and numbers, no special characters is allowed.
 	 * @param  Object	options	Information about plugin `type` and plugin `name` as well as plugin parameters.
 	 * @return Void
@@ -263,14 +330,14 @@ export default class Bot {
 			if ( !options.plugin )
 				throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
 
-			const plugin = this.sanitizeInput( options.plugin )
+			const plugin = this.sanitize_input( options.plugin )
 			if ( !plugin || plugin === '' )
 				throw new Error( 'The parameter "plugin" (the plugin name) can use only letters and numbers, and no accent or special characters.' )
 
 			let type = null
-			await import( /* @vite-ignore */ './Plugins/' + this.camelcase( options.type ) + '/' + plugin + '/' + plugin + '.js' )
+			await import( /* @vite-ignore */ './Plugins/' + plugin + '/' + plugin + '.js' )
 				  .then(({ default: LoadedPlugin }) => {
-				  	const LoadedPluginInit = new LoadedPlugin( options )
+				  	const LoadedPluginInit = new LoadedPlugin( options );
 					this[ LoadedPluginInit.name ] = LoadedPluginInit
 					type = this[ LoadedPluginInit.name ].type()
 				  })
@@ -295,21 +362,10 @@ export default class Bot {
 	 * @param  String input Input string.
 	 * @return String       String sanitized.
 	 */
-	sanitizeInput ( input ) {
+	sanitize_input ( input ) {
 
 		const reg = /[^a-zA-Z0-9]/gi
 		return input.replace( reg, '' )
-
-	}
-
-	/**
-	 * Convert a string to camel case. Work only for the first letter for now.
-	 * @param  String   str Original string.
-	 * @return String       Camel case string.
-	 */
-	camelcase ( str ) {
-
-		return str.charAt(0).toUpperCase() + str.slice(1)
 
 	}
 
@@ -321,11 +377,11 @@ export default class Bot {
 	addToHistory ( type, plugin, payload, title = null ) {
 
 		if ( !type )
-			throw new Error( 'The parameter "type" (input or output) is required.' )
+			throw new Error( 'The parameter "type" (input or output) is required.' );
 		if ( !plugin )
-			throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
+			throw new Error( 'The parameter "plugin" (the plugin name) is required.' );
 		if ( !payload )
-			throw new Error( 'The parameter "payload" (event\'s data) is required.' )
+			throw new Error( 'The parameter "payload" (event\'s data) is required.' );
 
 		const history = [ type, plugin, payload, title ] // history event item
 		this.history.push( history ) // add event to history
@@ -355,7 +411,6 @@ export default class Bot {
 		} else {
 			this.history = []
 		}
-
 		this.history_loaded = true
 	}
 
@@ -395,7 +450,7 @@ export default class Bot {
 	async sendToBackend ( plugin, payload ) {
 
 		for ( var _plugin in this.outputs ) {
-			this.outputs[ _plugin ].waiting() // waiting signal
+			this.outputs[ _plugin ].waiting() // waiting symbol, actions etc...
 		}
 
 		let response = await this.backend.send( plugin, payload )
