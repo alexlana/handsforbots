@@ -16,15 +16,6 @@
 // HOSTER
 
 
-<<<<<<< Updated upstream
-import TextInput from './Input/Text.js'
-import VoiceInput from './Input/Voice.js'
-import PokeInput from './Input/Poke.js'
-
-import TextOutput from './Output/Text.js'
-import VoiceOutput from './Output/Voice.js'
-import BotsCommandsOutput from './Output/BotsCommands.js'
-=======
 // import TextInput from './Core/Input/Text.js'
 // import VoiceInput from './Core/Input/Voice.js'
 // import PokeInput from './Core/Input/Poke.js'
@@ -32,7 +23,7 @@ import BotsCommandsOutput from './Output/BotsCommands.js'
 // import TextOutput from './Core/Output/Text.js'
 // import VoiceOutput from './Core/Output/Voice.js'
 // import BotsCommandsOutput from './Core/Output/BotsCommands.js'
->>>>>>> Stashed changes
+
 
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'

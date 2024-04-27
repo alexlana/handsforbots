@@ -1,13 +1,15 @@
 FROM python:3.9.18-slim
 
 RUN apt-get update && \
-	apt-get install -y python3-venv python3-pip
+	apt-get install -y python3-venv python3-pip \
+	pkg-config \
+	libhdf5-dev
 
 # Atualiza o pip
 RUN python3 -m pip install --upgrade pip
 
 # Instala a versão mais recente do Rasa SDK
-RUN pip install rasa==3.6.16 && \
+RUN pip --default-timeout=100 install rasa==3.6.19 && \
 	pip install rasa-sdk==3.7.1
 
 WORKDIR /app

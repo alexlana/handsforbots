@@ -117,3 +117,8 @@ rules:
   - slot_was_set:
     - requested_slot: null
   - action: action_transaction_search
+
+- rule: explain
+  steps:
+  - intent: please_explain
+  - action: utter_please_explain

@@ -587,6 +587,15 @@ nlu:
     - let me speak to a real person
     - let me speak to a real person please
     - i want to talk to a real person
+- intent: please_explain
+  examples: |
+    - I do not understand
+    - Please show me the interface
+    - I cant see the save button
+    - I don't find the open button
+    - show me the save button
+    - how to save?
+    - how can i save my work?
 - intent: out_of_scope
   examples: |
     - what is the square root of 5
