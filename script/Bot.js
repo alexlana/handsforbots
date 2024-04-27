@@ -16,6 +16,7 @@
 // HOSTER
 
 
+<<<<<<< Updated upstream
 import TextInput from './Input/Text.js'
 import VoiceInput from './Input/Voice.js'
 import PokeInput from './Input/Poke.js'
@@ -23,6 +24,15 @@ import PokeInput from './Input/Poke.js'
 import TextOutput from './Output/Text.js'
 import VoiceOutput from './Output/Voice.js'
 import BotsCommandsOutput from './Output/BotsCommands.js'
+=======
+// import TextInput from './Core/Input/Text.js'
+// import VoiceInput from './Core/Input/Voice.js'
+// import PokeInput from './Core/Input/Poke.js'
+
+// import TextOutput from './Core/Output/Text.js'
+// import VoiceOutput from './Core/Output/Voice.js'
+// import BotsCommandsOutput from './Core/Output/BotsCommands.js'
+>>>>>>> Stashed changes
 
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
@@ -50,13 +60,79 @@ export default class Bot {
 
 		console.log( '[-_-] The bot is on the production line. [-_-]' )
 
+		this.action_tag_open = '[*'
+		this.action_tag_close = '*]'
+
 		if ( ! options.language )
 			this.current_language = 'en'
 		else
 			this.current_language = options.language
 
-		this.action_tag_open = '[*'
-		this.action_tag_close = '*]'
+		this.color_schemes = {
+			blue: {
+				primary: 'rgb(0, 100, 255)',
+				primary_hover: 'rgb(0, 81, 205)',
+				light: 'rgb(184, 212, 255)',
+				dark: 'rgb(53, 76, 164)',
+				user: 'rgb(219, 233, 255)',
+			},
+			green: {
+				primary: 'rgb(46, 201, 0)',
+				primary_hover: 'rgb(12, 164, 0)',
+				light: 'rgb(197, 244, 203)',
+				dark: 'rgb(53, 164, 63)',
+				user: 'rgb(213, 247, 213)',
+			},
+			red: {
+				primary: 'rgb(201, 0, 0)',
+				primary_hover: 'rgb(164, 0, 0)',
+				light: 'rgb(255, 224, 212)',
+				dark: 'rgb(164, 53, 53)',
+				user: 'rgb(255, 224, 212)',
+			},
+			yellow: {
+				primary: 'rgb(218, 190, 0)',
+				primary_hover: 'rgb(194, 169, 0)',
+				light: 'rgb(247, 240, 188)',
+				dark: 'rgb(171, 149, 0)',
+				user: 'rgb(247, 240, 188)',
+			},
+			pink: {
+				primary: 'rgb(231, 40, 212)',
+				primary_hover: 'rgb(195, 29, 179)',
+				light: 'rgb(255, 214, 251)',
+				dark: 'rgb(181, 70, 170)',
+				user: 'rgb(255, 214, 251)',
+			},
+			orange: {
+				primary: 'rgb(255, 119, 0)',
+				primary_hover: 'rgb(230, 107, 0)',
+				light: 'rgb(255, 220, 190)',
+				dark: 'rgb(209, 114, 31)',
+				user: 'rgb(255, 220, 190)',
+			},
+			purple: {
+				primary: 'rgb(177, 0, 255)',
+				primary_hover: 'rgb(153, 0, 221)',
+				light: 'rgb(240, 205, 255)',
+				dark: 'rgb(152, 78, 185)',
+				user: 'rgb(240, 205, 255)',
+			},
+			black: {
+				primary: 'rgb(0, 0, 0)',
+				primary_hover: 'rgb(40, 40, 40)',
+				light: 'rgb(240, 240, 240)',
+				dark: 'rgb(150, 150, 150)',
+				user: 'rgb(200, 200, 200)',
+			},
+			gray: {
+				primary: 'rgb(180, 180, 180)',
+				primary_hover: 'rgb(220, 220, 220)',
+				light: 'rgb(240, 240, 240)',
+				dark: 'rgb(150, 150, 150)',
+				user: 'rgb(200, 200, 200)',
+			},
+		}
 
 		this.session_timeout = 30 // minutes
 		this.one_minute = 1000 * 60
@@ -91,18 +167,18 @@ export default class Bot {
 		this.outputs = {} // list of output plugins
 		this.ui_outputs = {} // list of output plugins
 
-		this.textInput = new TextInput() // Text Input plugin
-		this.voiceInput = new VoiceInput() // Voice Input plugin (speech to text / VTT)
-		this.pokeInput = new PokeInput() // Poke Input plugin
+		// this.textInput = new TextInput() // Text Input plugin
+		// this.voiceInput = new VoiceInput() // Voice Input plugin (speech to text / VTT)
+		// this.pokeInput = new PokeInput() // Poke Input plugin
 
-		this.textOutput = new TextOutput() // Text output plugin
-		this.voiceOutput = new VoiceOutput() // Text output plugin (text to speech / TTS)
-		this.botsCommandsOutput = new BotsCommandsOutput() // Bot's Commands output plugin
+		// this.textOutput = new TextOutput() // Text output plugin
+		// this.voiceOutput = new VoiceOutput() // Text output plugin (text to speech / TTS)
+		// this.botsCommandsOutput = new BotsCommandsOutput() // Bot's Commands output plugin
 
 		const d = new Date()
 		this.lastInteraction = d.getTime()
 
-		this.loadInterfaces()
+		// this.loadInterfaces()
 
 	}
 
@@ -383,7 +459,7 @@ export default class Bot {
 	async sendToBackend ( plugin, payload ) {
 
 		for ( var _plugin in this.outputs ) {
-			this.outputs[ _plugin ].waiting() // waiting signal
+			this.outputs[ _plugin ].waiting() // waiting symbol, actions etc...
 		}
 
 		let response = await this.backend.send( plugin, payload )
