@@ -1,8 +1,6 @@
-import Bot from '../../../Bot.js'
+function GUIDedCSS ( bot ) {
 
-let bot = new Bot()
-
-const GUIDedCSS = `
+	const GUIDedCSS = `
 		#guided_modal,
 		#guided_balloon {
 			position: fixed;
@@ -18,6 +16,7 @@ const GUIDedCSS = `
 			height: auto;
 			z-index: 1001;
 			overflow: visible;
+			pointer-events: none;
 			transition: 0.3s opacity ease-in-out, 0.3s top ease-in-out, 0.3s left ease-in-out, 0.3s border-radius ease-in-out;
 		}
 		#guided_balloon {
@@ -102,6 +101,7 @@ const GUIDedCSS = `
 		#guided_balloon.show {
 			top: 50%;
 			opacity: 1;
+			pointer-events: all;
 		}
 		#guided_modal.show.hide,
 		#guided_balloon.show.hide {
@@ -164,5 +164,8 @@ const GUIDedCSS = `
 
 	`
 
+	return GUIDedCSS
+
+}
 
 export default GUIDedCSS

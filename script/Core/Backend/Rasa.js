@@ -10,10 +10,10 @@ export default class Rasa {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor ( options ) {
+	constructor ( bot, options ) {
 
 		this.name = 'rasa'
-		this.bot = new Bot()
+		this.bot = bot
 
 		this.last_user_message = null
 		this.last_sender_plugin = null
@@ -25,7 +25,7 @@ export default class Rasa {
 		console.log('[✔︎] Bot\'s engine is RASA.')
 
 		this.language = {
-			'en': {
+			'en-us': {
 				'inform_error': 'An error ocurred. Try again.',
 			},
 			'pt-pt': {

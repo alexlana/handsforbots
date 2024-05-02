@@ -1,8 +1,3 @@
-import Bot from '../../Bot.js'
-
-import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
-
-
 /**
  * Text output channel.
  */
@@ -12,14 +7,20 @@ export default class TextOutput {
 	 * Text output constructor.
 	 * @return void
 	 */
-	constructor () {
+	constructor ( bot ) {
 
-		this.name = 'text'
 		this.container = null
-		this.bot = new Bot()
-		this.marked = new Marked()
+		this.bot = bot
 
-		this.register()
+		/**
+		 * Event listeners
+		 */
+		this.bot.eventEmitter.on( 'bot.calling_backend' , ()=>{
+			this.waiting()
+		})
+		this.bot.eventEmitter.on( 'bot.output_ready', ()=>{
+			this.output( this.bot.lastOutputPayload )
+		})
 
 		console.log('[✔︎] Bot\'s text output connected.')
 
@@ -55,20 +56,10 @@ export default class TextOutput {
 				}
 				document.querySelector('#inner_chat_body').append( this.listButtons( payload[i].buttons ) )
 
-				this.bot.inputs.text.setChatMarginTop()
+				this.bot.inputs.Text.setChatMarginTop()
 
 			}, i*lazyness, payload, i)
 		}
-
-	}
-
-	/**
-	 * Register output channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerOutput( this )
 
 	}
 
@@ -78,7 +69,9 @@ export default class TextOutput {
 	 */
 	ui ( options ) {
 
-		this.bot.inputs.text.ui( options )
+		// this.bot.inputs.Text.ui( options )
+
+		this.bot.UILoaded()
 
 	}
 
@@ -89,7 +82,7 @@ export default class TextOutput {
 	 */
 	messageWrapper ( payload, side = 'bot', recipient = null ) {
 
-		let wrapper = this.bot.inputs.text.messageWrapper( payload, side, recipient )
+		let wrapper = this.bot.inputs.Text.messageWrapper( payload, side, recipient )
 
 		return wrapper
 
@@ -101,8 +94,10 @@ export default class TextOutput {
 	 * @return HTML		wrapper		HTML of the image.
 	 */
 	imageWrapper ( payload ) {
-		const wrapper = document.createElement( 'DIV' )
-		wrapper.innerHTML = '<div class="chat_message bot_message img_message"><img src="'+payload+'"></div><div class="chat_div_extra"></div>'
+
+		let wrapper = this.bot.inputs.Text.imageWrapper( payload )
+		// const wrapper = document.createElement( 'DIV' )
+		// wrapper.innerHTML = '<div class="chat_message bot_message img_message"><img src="'+payload+'"></div><div class="chat_div_extra"></div>'
 		return wrapper
 	}
 
@@ -113,13 +108,16 @@ export default class TextOutput {
 	 * @return HTML		wrapper		HTML of the button.
 	 */
 	buttonWrapper ( title, payload ) {
-		const wrapper = document.createElement( 'BUTTON' )
-		wrapper.setAttribute( 'payload', payload )
-		wrapper.innerHTML = title
-		wrapper.addEventListener( 'click', (e)=>{
-			this.bot.input( 'text', e.target.getAttribute( 'payload' ), e.target.innerText )
-			e.target.parentElement.remove()
-		})
+
+		let wrapper = this.bot.inputs.Text.buttonWrapper( title, payload )
+
+		// const wrapper = document.createElement( 'BUTTON' )
+		// wrapper.setAttribute( 'payload', payload )
+		// wrapper.innerHTML = title
+		// wrapper.addEventListener( 'click', (e)=>{
+		// 	this.bot.input( 'text', e.target.getAttribute( 'payload' ), e.target.innerText )
+		// 	e.target.parentElement.remove()
+		// })
 		return wrapper
 	}
 
@@ -130,14 +128,16 @@ export default class TextOutput {
 	 */
 	listButtons ( buttons = null ) {
 
-		if ( !buttons )
-			return ''
+		let buttons_wrapper = this.bot.inputs.Text.listButtons( buttons )
 
-		let buttons_wrapper = document.createElement('DIV')
-		buttons_wrapper.setAttribute( 'class', 'buttons_wrapper' )
-		for ( var i in buttons ) {
-			buttons_wrapper.append( this.buttonWrapper( buttons[i].title, buttons[i].payload ) )
-		}
+		// if ( !buttons )
+		// 	return ''
+
+		// let buttons_wrapper = document.createElement('DIV')
+		// buttons_wrapper.setAttribute( 'class', 'buttons_wrapper' )
+		// for ( var i in buttons ) {
+		// 	buttons_wrapper.append( this.buttonWrapper( buttons[i].title, buttons[i].payload ) )
+		// }
 
 		return buttons_wrapper
 

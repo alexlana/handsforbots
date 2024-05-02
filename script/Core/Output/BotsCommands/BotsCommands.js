@@ -1,5 +1,3 @@
-import Bot from '../../Bot.js'
-
 
 /**
  * Bot's Commands output channel. You can pass commands from the bot text response to plugins.
@@ -14,18 +12,24 @@ export default class BotsCommandsOutput {
 	 * Bot's Commands output constructor.
 	 * @return void
 	 */
-	constructor () {
+	constructor ( bot ) {
 
-		this.name = 'bots_commands'
-		this.bot = new Bot()
-
-		this.register()
+		this.bot = bot
 
 		this.commands_history_loaded = false
 
+		/**
+		 * Event listeners
+		 */
+		this.bot.eventEmitter.on( 'bot.ui_loaded', ()=>{
+			this.rebuildHistory()
+		})
+		this.bot.eventEmitter.on( 'bot.output_ready', ()=>{
+			this.output( this.bot.lastOutputPayload )
+		})
+
 		console.log('[✔︎] Bot\'s Commands output connected.')
 
-		this.bot.eventEmitter.on( 'loaded_ui', ()=>{ this.rebuildHistory() } )
 	}
 
 	/**
@@ -45,12 +49,13 @@ export default class BotsCommandsOutput {
 				 * ser gerada nos componentes de Backend ou outros.
 				 */
 				let command = JSON.parse( obj.do )
+
 				const classMethod = command.action.split('.')
 
-				if ( !this.bot[ classMethod[0] ] )
+				if ( !this.bot.outputs[ classMethod[0] ] )
 					return
 
-				const ret = this.bot[ classMethod[0] ][ classMethod[1] ]( command.params )
+				const ret = this.bot.outputs[ classMethod[0] ][ classMethod[1] ]( command.params )
 
 				if ( ret ) {
 					ret.then(( result )=>{
@@ -84,18 +89,9 @@ export default class BotsCommandsOutput {
 		this.commands_history_loaded = true
 
 	}
-	/**
-	 * Register output channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerOutput( this )
-
-	}
 
 	/**
-	 * It don't have an UI, but want to register one.
+	 * It don't have an UI, but want to check in.
 	 * @return Void
 	 */
 	ui ( options ) {

@@ -13,24 +13,17 @@ export default class HexPresentation {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor ( options ) {
+	constructor ( bot options ) {
 
 		this.name = 'HexPresentation'
+		this.type = 'output'
 
-		this.bot = new Bot()
+		this.bot = bot
 		this.emitter = new EventEmitter()
 
 		this.options = options
 
-		this.register()
-
 		console.log('[✔︎] Bot\'s presentation module connected.')
-
-	}
-
-	type () {
-
-		return 'output'
 
 	}
 
@@ -40,16 +33,6 @@ export default class HexPresentation {
 	 * @return Void
 	 */
 	async output ( payload ) {}
-
-	/**
-	 * Register input channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerOutput( this );
-
-	}
 
 	/**
 	 * Create UI for user input on front end.

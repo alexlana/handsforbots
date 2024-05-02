@@ -1,9 +1,8 @@
 class BaseInputChannel {
 
-    constructor ( name, options ) {
+    constructor ( bot, name, options ) {
 
-		this.name = ''
-		this.bot = new Bot()
+		this.bot = bot
 		this.language = {}
 
 		this.register()
@@ -15,11 +14,5 @@ class BaseInputChannel {
 
     input ( payload, title ) {
     }
-
-	register () {
-
-		this.bot.registerInput( this )
-
-	}
 
 }

@@ -1,10 +1,6 @@
-import Bot from '../../Bot.js'
-
-import EventEmitter from '../../Libs/EventEmitter.js'
-
-import EasySpeech from '../../Libs/EasySpeech.es5.js'
+import EasySpeech from '../../../Libs/EasySpeech.es5.js'
 import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
-import EnvironmentDetection from '../../Libs/EnvironmentDetection.js'
+import EnvironmentDetection from '../../../Libs/EnvironmentDetection.js'
 
 
 /**
@@ -17,18 +13,18 @@ export default class VoiceOutput {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor () {
+	constructor ( bot ) {
 
-		this.name = 'voice'
-		this.bot = new Bot()
+		this.bot = bot
 
 		this.voice = null
 		this.mute = null
 		this.volume = 1
 		this.speaking = false
+		this.voice_loaded = false
 		this.options = null
 		this.language = {
-			'en': {
+			'en-us': {
 				unmute: 'Voice on.',
 			},
 			'pt-pt': {
@@ -40,17 +36,21 @@ export default class VoiceOutput {
 		}
 		this.mobListener = ()=>{ this.initSpeech( true ) }
 
-		this.eventEmitter = new EventEmitter()
 		this.marked = new Marked()
 		this.environmentDetection = new EnvironmentDetection()
-
-		this.register()
 
 		this.bot.eventEmitter.on( 'history_cleared', ()=>{
 			this.bot.botStorage.removeItem( 'mute' )
 			this.mute = true
 			if ( document.querySelector( '#chat_voice_toggle' ) != undefined )
 				document.querySelector( '#chat_voice_toggle' ).classList.add( 'voice-off' )
+		})
+
+		/**
+		 * Event listeners
+		 */
+		this.bot.eventEmitter.on( 'bot.output_ready', ()=>{
+			this.output( this.bot.lastOutputPayload )
 		})
 
 		console.log('[✔︎] Bot\'s voice output connected.')
@@ -68,6 +68,11 @@ export default class VoiceOutput {
 		if ( this.mute )
 			return
 
+		if ( !this.voice_loaded ) {
+			setTimeout( ( payload )=>{ this.output( payload ); }, 300, payload )
+			return
+		}
+
 		this.EasySpeech.cancel()
 
 		let final_payload = ''
@@ -84,7 +89,7 @@ export default class VoiceOutput {
 
 		if ( !this.mute ) {
 			this.speaking = true
-			this.eventEmitter.trigger('speaking_start')
+			this.bot.eventEmitter.trigger('speaking_start')
 		}
 
 		final_payload = final_payload.replace(/(<([^>]+)>)/gi, "")
@@ -98,19 +103,8 @@ export default class VoiceOutput {
 		})
 		.then( ()=>{
 			this.speaking = false
-			this.eventEmitter.trigger('speaking_end')
+			this.bot.eventEmitter.trigger('speaking_end')
 		})
-
-	}
-
-
-	/**
-	 * Register input channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerOutput( this )
 
 	}
 
@@ -120,7 +114,7 @@ export default class VoiceOutput {
 	 * @param  Boolean say_no_text   Inform if we want the bot to activate speech, but say nothing. It is for iOS to work
 	 * @return void
 	 */
-	initSpeech ( say_no_text = false ) {
+	async initSpeech ( say_no_text = false ) {
 
 		let activated_payload = [ { text: this.language[ this.bot.current_language ].unmute } ]
 		if ( say_no_text && this.EasySpeech == undefined )
@@ -133,11 +127,10 @@ export default class VoiceOutput {
 
 		this.EasySpeech = EasySpeech
 
-		this.EasySpeech.init({ maxTimeout: 5000, interval: 250 })
+		await this.EasySpeech.init({ maxTimeout: 5000, interval: 250 })
 			.then(
 
 				()=>{
-
 					for ( var i = 0; i < this.EasySpeech.voices().length ; i++ ) {
 						if ( this.options.name != undefined ) {
 							if ( this.EasySpeech.voices()[i].name.toLowerCase() === this.options.name.toLowerCase() ) {
@@ -160,6 +153,8 @@ export default class VoiceOutput {
 
 			)
 			.catch(e => console.error(e))
+
+		this.voice_loaded = true
 
 		document.querySelector( 'body' ).removeEventListener( 'click', this.mobListener )
 

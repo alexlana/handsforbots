@@ -1,7 +1,4 @@
-import Bot from '../../Bot.js'
-
-let bot = new Bot()
-
+function ChatCSS ( bot ) {
 
 const ChatCSS = `
 		.chat_rounded_box {
@@ -352,6 +349,9 @@ const ChatCSS = `
 			color:white;
 			border:none;
 			border-radius:5px;
+			margin-left: auto;
+			margin-right: auto;
+			float: none;
 			cursor:pointer;
 			transition:0.2s background;
 		}
@@ -467,5 +467,9 @@ const ChatCSS = `
 		}
 
 	`
+
+	return ChatCSS
+
+}
 
 export default ChatCSS

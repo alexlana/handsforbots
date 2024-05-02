@@ -1,19 +1,12 @@
-import Bot from '../../../Bot.js'
-
-import EventEmitter from '../../../Libs/EventEmitter.js'
-
 export default class GUIDed {
 
 	/**
 	 * GUI Ded Tutorial output constructor.
 	 * @return void
 	 */
-	constructor ( options ) {
+	constructor ( bot, options ) {
 
-		this.name = 'GUIDed'
-
-		this.bot = new Bot()
-		this.emitter = new EventEmitter()
+		this.bot = bot
 
 		this.options = options
 		this.sequence = options.sequence
@@ -21,7 +14,7 @@ export default class GUIDed {
 		this.dom_element = null
 
 		this.language = {
-			'en': {
+			'en-us': {
 				'btn_next': 'Next >>',
 				'btn_previous': '<< Previous',
 				'btn_close': 'Close [x]',
@@ -41,8 +34,6 @@ export default class GUIDed {
 			},
 		}
 
-		this.register()
-
 		console.log('[✔︎] GUI Ded Tutorial output connected.')
 
 	}
@@ -54,43 +45,21 @@ export default class GUIDed {
 	 */
 	async output ( payload ) {}
 
-	/**
-	 * Plugin type.
-	 * @return String Inform if the plugin is an input or an output adapter.
-	 */
-	type () {
-
-		return 'output'
-
-	}
-
-	/**
-	 * Register output channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerOutput( this )
-
-	}
-
 	newGuide ( sequence ) {
 
-		if ( !this.bot.botsCommandsOutput.commands_history_loaded )
+		if ( !this.bot.outputs.BotsCommands.commands_history_loaded )
 			return
 
 		this.sequence = sequence
 		this.step = 0
 		this.dom_element = null
 
-		this.options.auto_start = true
-
-		this.ui( this.options )
+		this.init( true )
 
 	}
 
 	/**
-	 * It don't have an UI, but want to register one.
+	 * Register user interface.
 	 * @return Void
 	 */
 	async ui ( options ) {
@@ -102,7 +71,7 @@ export default class GUIDed {
 		ui_css.setAttribute( 'id', 'guided_ui_css' )
 		import( /* @vite-ignore */ './GUIDedCSS.js' )
 				.then(({ default: GUIDedCSS }) => {
-					ui_css.innerHTML = GUIDedCSS
+					ui_css.innerHTML = GUIDedCSS( this.bot )
 					this.guided_modal.removeAttribute( 'style' )
 				})
 		document.querySelector( 'head' ).append( ui_css )
@@ -113,19 +82,27 @@ export default class GUIDed {
 			document.querySelector( 'body' ).append( this.overlay )
 		}
 
-		if ( this.sequence[ this.step ].type === 'modal' )
-			this.modal( this.sequence[ this.step ], this.step, this.sequence.length )
-		else
-			this.balloon( this.sequence[ this.step ], this.step, this.sequence.length )
+		this.init( this.options.auto_start )
 
-		if ( this.options.auto_start ) {
+		this.bot.UILoaded()
+		console.log( '[✔︎] GUI Ded Tutorial output "UI" added.' )
 
+	}
+
+	/**
+	 * Init the presentation.
+	 * @return void
+	 */
+	init ( show=false ) {
+
+		if ( show ) {
+
+			this.options.auto_start = true
 			this.overlay.classList.add( 'show' )
 
 		}
 
-		this.bot.UILoaded()
-		console.log( '[✔︎] GUI Ded Tutorial output "UI" added.' )
+		this.nextStep()
 
 	}
 
@@ -153,10 +130,23 @@ export default class GUIDed {
 
 		this.step += direction
 
-		if ( this.sequence[ this.step ].type === 'modal' )
+		this.nextStep()
+
+	}
+
+	nextStep () {
+
+		if ( this.sequence[ this.step ].type === 'modal' ) {
 			this.modal( this.sequence[ this.step ], this.step, this.sequence.length )
-		else
+		} else {
 			this.balloon( this.sequence[ this.step ], this.step, this.sequence.length )
+		}
+
+		if ( this.options.auto_start ) {
+
+			this.bot.outputs.Voice.output( [ this.sequence[ this.step ] ] )
+
+		}
 
 	}
 

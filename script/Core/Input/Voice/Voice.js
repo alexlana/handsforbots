@@ -1,7 +1,5 @@
-import Bot from '../../Bot.js'
 
-import EventEmitter from '../../Libs/EventEmitter.js'
-import EnvironmentDetection from '../../Libs/EnvironmentDetection.js'
+import EnvironmentDetection from '../../../Libs/EnvironmentDetection.js'
 
 
 /**
@@ -14,23 +12,20 @@ export default class VoiceInput {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor () {
+	constructor ( bot ) {
 
-		this.name = 'voice'
-		this.bot = new Bot()
+		this.bot = bot
 
-		this.eventEmitter = new EventEmitter()
 		this.speechRecognitionModule = null
 		this.speechRecognition = null
 		this.environmentDetection = new EnvironmentDetection()
-		this.register()
 
 		this.loadSpeechRecognition()
 
 		this.status = 'not_listening' // options: not_listening, listening, ignoring (microphone is on but the bot is ignoring)
 		this.user_set_listening = false
 		this.language = {
-			'en': {
+			'en-us': {
 				tooltip: 'Click to speach. Say short sentences.',
 				inform_incompatibility: 'Speech UI removed because of some incompatibility.',
 				listening: 'Listening'
@@ -62,10 +57,10 @@ export default class VoiceInput {
 
 		let wsURL = ''
 		if ( this.isNative() ) {
-			this.speechRecognitionModule = await import( '../../Libs/SpeechRecognition.js' )
+			this.speechRecognitionModule = await import( '../../../Libs/SpeechRecognition.js' )
 		} else {
 			wsURL = 'wss://localhost/vosk'
-			this.speechRecognitionModule = await import( '../../Libs/VoskConnector.js' )
+			this.speechRecognitionModule = await import( '../../../Libs/VoskConnector.js' )
 		}
 		this.speechRecognition = new this.speechRecognitionModule.default( { language: this.bot.current_language, wsURL: wsURL } )
 
@@ -81,16 +76,6 @@ export default class VoiceInput {
 	input ( payload ) {
 
 		console.log('Bot received "' + payload + '".')
-
-	}
-
-	/**
-	 * Register input channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerInput( this )
 
 	}
 
@@ -121,7 +106,7 @@ export default class VoiceInput {
 		ui_css.setAttribute( 'id', 'speech_css' )
 		import( /* @vite-ignore */ './VoiceChatCSS.js' )
 				.then(({ default: VoiceCSS }) => {
-					ui_css.innerHTML = VoiceCSS
+					ui_css.innerHTML = VoiceCSS( this.bot )
 				})
 		document.querySelector( 'head' ).append( ui_css )
 
@@ -139,17 +124,17 @@ export default class VoiceInput {
 		keyboard_button.innerHTML = '<svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M264.96 567.04a39.68 39.68 0 0 0-14.08-8.96 42.666667 42.666667 0 0 0-32.426667 0 38.4 38.4 0 0 0-23.04 23.04 42.666667 42.666667 0 1 0 78.506667 0 42.666667 42.666667 0 0 0-8.96-14.08zM576 469.333333h42.666667a42.666667 42.666667 0 0 0 0-85.333333h-42.666667a42.666667 42.666667 0 0 0 0 85.333333z m-170.666667 0h42.666667a42.666667 42.666667 0 0 0 0-85.333333h-42.666667a42.666667 42.666667 0 0 0 0 85.333333z m-128-85.333333h-42.666666a42.666667 42.666667 0 0 0 0 85.333333h42.666666a42.666667 42.666667 0 0 0 0-85.333333zM853.333333 213.333333H170.666667a128 128 0 0 0-128 128v341.333334a128 128 0 0 0 128 128h682.666666a128 128 0 0 0 128-128V341.333333a128 128 0 0 0-128-128z m42.666667 469.333334a42.666667 42.666667 0 0 1-42.666667 42.666666H170.666667a42.666667 42.666667 0 0 1-42.666667-42.666666V341.333333a42.666667 42.666667 0 0 1 42.666667-42.666666h682.666666a42.666667 42.666667 0 0 1 42.666667 42.666666z m-256-128H384a42.666667 42.666667 0 0 0 0 85.333333h256a42.666667 42.666667 0 0 0 0-85.333333z m149.333333-170.666667h-42.666666a42.666667 42.666667 0 0 0 0 85.333333h42.666666a42.666667 42.666667 0 0 0 0-85.333333z m30.293334 183.04a42.666667 42.666667 0 0 0-14.08-8.96 42.666667 42.666667 0 0 0-32.426667 0 39.68 39.68 0 0 0-14.08 8.96 42.666667 42.666667 0 0 0-8.96 14.08 42.666667 42.666667 0 1 0 81.92 16.213333 35.84 35.84 0 0 0-3.413333-16.213333 42.666667 42.666667 0 0 0-8.96-14.08z"  /></svg>'
 		keyboard_button.addEventListener( 'click', (e)=>{
 			this.stop()
-			document.querySelector('#chat_window').classList.add('keyboard_active')
+			document.querySelector( '#chat_window' ).classList.add('keyboard_active')
 			setTimeout( ()=>{
 				document.querySelector('#chat_window input[type="text"]').focus()
 			}, 400 )
 		})
-		document.querySelector('#chat_input').addEventListener( 'focus', (e)=>{
+		document.querySelector( '#chat_input' ).addEventListener( 'focus', (e)=>{
 			if ( !document.querySelector('#chat_window').classList.contains( 'keyboard_active' ) ) {
 				e.target.blur()
 			}
 		})
-		document.querySelector('#chat_submit').addEventListener( 'focus', (e)=>{
+		document.querySelector( '#chat_submit' ).addEventListener( 'focus', (e)=>{
 			if ( !document.querySelector('#chat_window').classList.contains( 'keyboard_active' ) ) {
 				e.target.blur()
 			}
@@ -165,7 +150,7 @@ export default class VoiceInput {
 			document.querySelector( 'body' ).append( speech_button )
 			document.querySelector( 'body' ).append( keyboard_button )
 		}
-		this.bot.outputs.voice.eventEmitter.on( 'speaking_start', ()=>{
+		this.bot.eventEmitter.on( 'speaking_start', ()=>{
 			// if ( this.speechRecognition.speechRecognition.continuous || !this.isNative() ) {
 			if ( this.environmentDetection.whatBrowser() == 'Safari' || !this.isNative() ) {
 				this.ignore()
@@ -173,7 +158,7 @@ export default class VoiceInput {
 				this.stop()
 			}
 		})
-		this.bot.outputs.voice.eventEmitter.on( 'speaking_end', ()=>{
+		this.bot.eventEmitter.on( 'speaking_end', ()=>{
 			// if ( this.speechRecognition.speechRecognition.continuous || !this.isNative() ) {
 			if ( this.environmentDetection.whatBrowser() == 'Safari' || !this.isNative() ) {
 				this.unignore()
@@ -181,10 +166,10 @@ export default class VoiceInput {
 				this.start()
 			}
 		})
-		this.bot.outputs.voice.eventEmitter.on( 'speechstart', ()=>{
+		this.bot.eventEmitter.on( 'speechstart', ()=>{
 			document.querySelector( '#speech_button' ).classList.add( 'user_speaking' )
 		})
-		this.bot.outputs.voice.eventEmitter.on( 'speechend', ()=>{
+		this.bot.eventEmitter.on( 'speechend', ()=>{
 			document.querySelector( '#speech_button' ).classList.remove( 'user_speaking' )
 		})
 
@@ -212,7 +197,7 @@ export default class VoiceInput {
 			}
 		]
 
-		this.bot.output( payload )
+		this.bot.spreadOutput( payload )
 
 		console.log( '[✘] Speech UI removed because of some incompatibility.' )
 
@@ -238,12 +223,12 @@ export default class VoiceInput {
 			// speech recognition is on
 			this.speechRecognition.eventEmitter.on( 'start', (e)=>{
 				console.log( 'Start listening' )
-				this.eventEmitter.trigger( 'start' )
+				this.bot.eventEmitter.trigger( 'start' )
 				document.querySelector( '#speech_tooltip' ).innerText = this.language[ this.bot.current_language ].listening.toUpperCase()
 			})
 			this.speechRecognition.eventEmitter.on( 'stop', (e)=>{
 				console.log( 'Stop listening' )
-				this.eventEmitter.trigger( 'stop' )
+				this.bot.eventEmitter.trigger( 'stop' )
 				document.querySelector( '#speech_tooltip' ).innerText = this.language[ this.bot.current_language ].tooltip
 			})
 			this.speechRecognition.eventEmitter.on( 'error', (e)=>{

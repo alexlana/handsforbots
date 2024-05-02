@@ -1,5 +1,3 @@
-import Bot from '../../Bot.js'
-
 
 /**
  * Poke input channel.
@@ -13,14 +11,11 @@ export default class PokeInput {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor () {
+	constructor ( bot ) {
 
-		this.name = 'poke'
-		this.bot = new Bot()
+		this.bot = bot
 
 		this.queue = []
-
-		this.register()
 
 		console.log('[✔︎] Bot\'s poke input connected.')
 
@@ -46,20 +41,10 @@ export default class PokeInput {
 		this.queue.forEach(( payload )=>{
 			this.bot.sendToBackend( 'poke', payload ).then( (response)=>{
 				if ( response.length > 0 )
-					this.bot.output( response )
+					this.bot.spreadOutput( response )
 			})
 		})
 		this.queue = []
-
-	}
-
-	/**
-	 * Register input channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerInput( this )
 
 	}
 

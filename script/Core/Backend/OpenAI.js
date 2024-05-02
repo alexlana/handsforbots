@@ -11,10 +11,10 @@ export default class OpenAI {
 	 * Text input constructor.
 	 * @return void
 	 */
-	constructor ( options ) {
+	constructor ( bot, options ) {
 
 		this.name = 'openai'
-		this.bot = new Bot()
+		this.bot = bot
 
 		this.tools = {}
 		this.setDefaultTools( options.engine_specific )
@@ -34,7 +34,7 @@ export default class OpenAI {
 		console.log('[✔︎] Bot\'s engine is GPT.')
 
 		this.language = {
-			'en': {
+			'en-us': {
 				'inform_error': 'An error ocurred. Try again.',
 			},
 			'pt-pt': {

@@ -1,5 +1,3 @@
-// import Bot from '../../Bot.js'
-
 import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
 
 
@@ -14,19 +12,18 @@ export default class TextInput {
 	 */
 	constructor ( bot, options ) {
 
-		this.name = 'text_input'
 		this.container = null
 		this.bot = bot
 		this.marked = new Marked()
 
 		this.language = {
-			'en': {
+			'en-us': {
 				'title': 'Come and chat!',
 				'bot_name': 'The bot',
 				'placeholder': 'Text your message here',
 				'send': 'Send',
 				'reconnect': 'Reconnect',
-				'disconnected': 'The bot is disconnected due to timeout. Previous conversation is lost.',
+				'disconnected': 'The bot is disconnected due to inactivity. Previous conversation is lost.',
 				'disclaimer': 'Disclaimer',
 			},
 			'pt-pt': {
@@ -49,11 +46,9 @@ export default class TextInput {
 			},
 		}
 
-		this.register()
+		// this.bot.ui_outputs[ 'Text' ] = true // text input and text output are interdependants
 
-		this.ui( options )
-
-		this.bot.eventEmitter.on( 'history_cleared', ()=>{
+		this.bot.eventEmitter.on( 'bot.history_cleared', ()=>{
 			if ( document.querySelector( '#chat_window' ) ) {
 				document.querySelector( '#chat_window' ).classList.add( 'disconnected' )
 				document.querySelector( '#chat_window input[type="text"]' ).setAttribute( 'disabled', 'disabled' )
@@ -88,28 +83,17 @@ export default class TextInput {
 		document.querySelector( '#chat_input_wrapper input[type="submit"]' ).setAttribute( 'disabled', 'disabled' )
 		// send data to backend
 		this.bot.sendToBackend( 'text', payload ).then( (response)=>{
+			// tell bot to spread output
+			this.bot.spreadOutput( response )
 			// enable user form when bot response is received
 			document.querySelector( '#chat_window' ).classList.remove( 'waiting' )
 			document.querySelector( '#chat_input_wrapper input[type="text"]' ).removeAttribute( 'disabled' )
 			document.querySelector( '#chat_input_wrapper input[type="submit"]' ).removeAttribute( 'disabled' )
-			// output bot response
-			this.bot.output( response )
 			if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
 				document.querySelector( 'input[type="text"]' ).focus()
 			}
 		})
-
-	}
-
-	/**
-	 * Register input channel.
-	 * @return Void
-	 */
-	register () {
-
-		this.bot.registerInput( this )
-
-		this.bot.ui_outputs[ 'text' ] = true // text input and text output are interdependants
+		this.bot.input( 'text', payload )
 
 	}
 
@@ -134,7 +118,6 @@ export default class TextInput {
 	 * @return Void
 	 */
 	ui ( options ) {
-
 		/**
 		 * Placeholder image.
 		 */
@@ -146,14 +129,6 @@ export default class TextInput {
 		this.bot_name = (options.bot_name != undefined) ? options.bot_name : this.language[this.bot.current_language].bot_name
 		this.bot_job = options.bot_job || ''
 		this.no_css = options.no_css
-		this.bot.color = options.color || 'blue'
-		if ( options.color_scheme ) {
-			this.bot.color_schemes[ options.color ] = options.color_scheme
-		}
-		if ( this.bot.color_schemes[this.bot.color] == undefined ) {
-			console.warn( 'Can not find the requested color scheme. It will be blue.' )
-			this.bot.color = 'blue'
-		}
 		this.title = options.title || this.language[this.bot.current_language].title
 		this.autofocus = options.autofocus || false
 
@@ -165,7 +140,7 @@ export default class TextInput {
 			ui_css.setAttribute( 'id', 'text_ui_css' )
 			import( /* @vite-ignore */ './TextChatCSS.js' )
 					.then(({ default: ChatCSS }) => {
-						ui_css.innerHTML = ChatCSS
+						ui_css.innerHTML = ChatCSS( this.bot )
 					})
 			document.querySelector( this.container ).append( ui_css )
 		}
@@ -240,7 +215,7 @@ export default class TextInput {
 			e.preventDefault()
 			const payload = e.target.querySelector( 'input[type="text"]' ).value
 			if ( payload.length > 0 ) {
-				this.bot.input( 'text', payload )
+				this.input( payload )
 				e.target.querySelector( 'input[type="text"]' ).value = ''
 				this.setChatMarginTop()
 			}
@@ -259,7 +234,9 @@ export default class TextInput {
 			this.bot.renewSession()
 		})
 
-		this.rebuildHistory( ui_window )
+		this.bot.eventEmitter.on( 'bot.history_loaded', ()=>{
+			this.rebuildHistory( ui_window )
+		})
 
 		if ( this.start_open ) {
 			this.initialOpenChatWindow( ui_window )
@@ -364,18 +341,25 @@ export default class TextInput {
 	rebuildHistory ( ui_window ) {
 
 		for ( var i in this.bot.history ) {
+
 			if ( this.bot.history[i][0] == 'input' ) {
+
 				if ( !this.bot.history[i][3] )
 					var title = this.bot.history[i][2]
 				else
 					var title = this.bot.history[i][3]
+
 				if ( title.trim().length == 0 )
 					continue
+
 				if ( this.bot.history[i][1] == 'text' )
 					ui_window.querySelector('#inner_chat_body').append( this.messageWrapper( title, 'user' ) )
+
 			} else if ( this.bot.history[i][0] == 'output' ) {
+
 				const output = JSON.parse( this.bot.history[i][2] )
 				for ( var j in output ) {
+
 					if ( output[j].image ) {
 						ui_window.querySelector('#inner_chat_body').append( this.imageWrapper( output[j].image ) )
 					} else {
@@ -388,13 +372,14 @@ export default class TextInput {
 							ui_window.querySelector('#inner_chat_body').append( this.messageWrapper( title, 'bot', output[j].recipient_id ) )
 						}
 					}
-					// if ( output[j].do != undefined ) {
-					// 	this.bot.botsCommandsOutput.output( [ output[j] ] )
-					// }
+
 					if ( i == this.bot.history.length - 1 )
 						ui_window.querySelector('#inner_chat_body').append( this.listButtons( output[j].buttons ) )
+
 				}
+
 			}
+
 		}
 
 		if ( this.bot.disclaimer )
