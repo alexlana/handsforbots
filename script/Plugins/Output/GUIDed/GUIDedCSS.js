@@ -130,7 +130,7 @@ function GUIDedCSS ( bot ) {
 			transform: translate( -50%, -50% );
 			width: 0;
 			height: 0;
-			z-index: 1000;
+			z-index: 998;
 			background: rgba( 0, 0, 0, 0 );
 			pointer-events: none;
 			transition: 0.1s width 0.4s ease-in-out, 0.1s height 0.4s ease-in-out, 0.4s background ease-in-out;

@@ -15,11 +15,11 @@ export default class TextOutput {
 		/**
 		 * Event listeners
 		 */
-		this.bot.eventEmitter.on( 'bot.calling_backend' , ()=>{
+		this.bot.eventEmitter.on( 'core.calling_backend' , ()=>{
 			this.waiting()
 		})
-		this.bot.eventEmitter.on( 'bot.output_ready', ()=>{
-			this.output( this.bot.lastOutputPayload )
+		this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
+			this.output( payload )
 		})
 
 		console.log('[✔︎] Bot\'s text output connected.')

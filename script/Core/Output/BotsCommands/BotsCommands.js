@@ -21,11 +21,11 @@ export default class BotsCommandsOutput {
 		/**
 		 * Event listeners
 		 */
-		this.bot.eventEmitter.on( 'bot.ui_loaded', ()=>{
+		this.bot.eventEmitter.on( 'core.ui_loaded', ()=>{
 			this.rebuildHistory()
 		})
-		this.bot.eventEmitter.on( 'bot.output_ready', ()=>{
-			this.output( this.bot.lastOutputPayload )
+		this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
+			this.output( payload )
 		})
 
 		console.log('[✔︎] Bot\'s Commands output connected.')

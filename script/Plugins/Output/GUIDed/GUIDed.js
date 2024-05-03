@@ -1,3 +1,5 @@
+import Fuse from 'https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.mjs'
+
 export default class GUIDed {
 
 	/**
@@ -34,6 +36,89 @@ export default class GUIDed {
 			},
 		}
 
+		/**
+		 * To navigate with voice or text.
+		 */
+		this.vocabuly = {
+			'en-us': [
+				{ input: 'next', nav_direction: 1 },
+				{ input: 'previous', nav_direction: -1 },
+				{ input: 'forward', nav_direction: 1 },
+				{ input: 'back', nav_direction: -1 },
+				{ input: 'skip', nav_direction: 0 },
+				{ input: 'start', nav_direction: 1 },
+				{ input: 'lets start', nav_direction: 1 },
+				{ input: 'skip guide', nav_direction: 0 },
+				{ input: 'skip this guide', nav_direction: 0 },
+				{ input: 'cancel', nav_direction: 0 },
+				{ input: 'enough', nav_direction: 0 },
+				{ input: 'understanded', nav_direction: 1 },
+				{ input: 'ok', nav_direction: 1 },
+				{ input: 'copy', nav_direction: 1 },
+				{ input: 'lets go', nav_direction: 1 },
+				{ input: 'thank you', nav_direction: 1 },
+				{ input: 'thanx', nav_direction: 1 },
+				{ input: 'whats next', nav_direction: 1 },
+				{ input: 'more', nav_direction: 1 },
+			],
+			'pt-pt': [
+				{ input: 'próximo', nav_direction: 1 },
+				{ input: 'anterior', nav_direction: -1 },
+				{ input: 'avançar', nav_direction: 1 },
+				{ input: 'voltar', nav_direction: -1 },
+				{ input: 'pular', nav_direction: 0 },
+				{ input: 'iniciar', nav_direction: 1 },
+				{ input: 'começar', nav_direction: 1 },
+				{ input: 'vamos começar', nav_direction: 1 },
+				{ input: 'pular guia', nav_direction: 0 },
+				{ input: 'pular este guia', nav_direction: 0 },
+				{ input: 'cancelar', nav_direction: 0 },
+				{ input: 'chega', nav_direction: 0 },
+				{ input: 'entendi', nav_direction: 1 },
+				{ input: 'ok', nav_direction: 1 },
+				{ input: 'tá bem', nav_direction: 1 },
+				{ input: 'bora seguir', nav_direction: 1 },
+				{ input: 'segue', nav_direction: 1 },
+				{ input: 'obrigado', nav_direction: 1 },
+				{ input: 'o que mais', nav_direction: 1 },
+				{ input: 'mais', nav_direction: 1 },
+			],
+			'pt-br': [
+				{ input: 'próximo', nav_direction: 1 },
+				{ input: 'anterior', nav_direction: -1 },
+				{ input: 'avançar', nav_direction: 1 },
+				{ input: 'voltar', nav_direction: -1 },
+				{ input: 'pular', nav_direction: 0 },
+				{ input: 'iniciar', nav_direction: 1 },
+				{ input: 'começar', nav_direction: 1 },
+				{ input: 'vamos começar', nav_direction: 1 },
+				{ input: 'pular guia', nav_direction: 0 },
+				{ input: 'pular este guia', nav_direction: 0 },
+				{ input: 'cancelar', nav_direction: 0 },
+				{ input: 'chega', nav_direction: 0 },
+				{ input: 'entendi', nav_direction: 1 },
+				{ input: 'ok', nav_direction: 1 },
+				{ input: 'tá bem', nav_direction: 1 },
+				{ input: 'bora seguir', nav_direction: 1 },
+				{ input: 'segue', nav_direction: 1 },
+				{ input: 'obrigado', nav_direction: 1 },
+				{ input: 'o que mais', nav_direction: 1 },
+				{ input: 'mais', nav_direction: 1 },
+			],
+		}
+		this.fuzzy_options = {
+			shouldSort: true,
+			threshold: 0.1,
+			location: 0,
+			distance: 100,
+			maxPatternLength: 32,
+			minMatchCharLength: 1,
+			keys: [
+				'input',
+			],
+		}
+		this.fuse = new Fuse( this.vocabuly[ this.bot.current_language ], this.fuzzy_options )
+
 		console.log('[✔︎] GUI Ded Tutorial output connected.')
 
 	}
@@ -45,6 +130,17 @@ export default class GUIDed {
 	 */
 	async output ( payload ) {}
 
+	async redirectedInput ( payload ) {
+
+		this.navigate( this.fuse.search( payload )[0].item.nav_direction )
+
+	}
+
+	/**
+	 * Start new guided tutorial.
+	 * @param  Object   sequence List of elements to explain.
+	 * @return Void
+	 */
 	newGuide ( sequence ) {
 
 		if ( !this.bot.outputs.BotsCommands.commands_history_loaded )
@@ -99,6 +195,7 @@ export default class GUIDed {
 
 			this.options.auto_start = true
 			this.overlay.classList.add( 'show' )
+			this.bot.redirectInput = 'GUIDed'
 
 		}
 
@@ -124,6 +221,8 @@ export default class GUIDed {
 			if ( this.guided_balloon )
 				this.guided_balloon.classList.remove( 'show' )
 
+			this.bot.redirectInput = false
+
 			return;
 
 		}
@@ -134,7 +233,16 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * Navigate to next or previous step.
+	 * @return Void
+	 */
 	nextStep () {
+
+		if ( this.step >= this.sequence.length ) {
+			this.navigate( 0 )
+			return
+		}
 
 		if ( this.sequence[ this.step ].type === 'modal' ) {
 			this.modal( this.sequence[ this.step ], this.step, this.sequence.length )
@@ -376,6 +484,10 @@ export default class GUIDed {
 
 	}
 
+	/**
+	 * What to do while waiting back end response.
+	 * @return Void
+	 */
 	waiting () {}
 
 }

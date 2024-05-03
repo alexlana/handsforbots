@@ -48,7 +48,7 @@ export default class TextInput {
 
 		// this.bot.ui_outputs[ 'Text' ] = true // text input and text output are interdependants
 
-		this.bot.eventEmitter.on( 'bot.history_cleared', ()=>{
+		this.bot.eventEmitter.on( 'core.history_cleared', ()=>{
 			if ( document.querySelector( '#chat_window' ) ) {
 				document.querySelector( '#chat_window' ).classList.add( 'disconnected' )
 				document.querySelector( '#chat_window input[type="text"]' ).setAttribute( 'disabled', 'disabled' )
@@ -234,7 +234,7 @@ export default class TextInput {
 			this.bot.renewSession()
 		})
 
-		this.bot.eventEmitter.on( 'bot.history_loaded', ()=>{
+		this.bot.eventEmitter.on( 'core.history_loaded', ()=>{
 			this.rebuildHistory( ui_window )
 		})
 

@@ -49,8 +49,8 @@ export default class VoiceOutput {
 		/**
 		 * Event listeners
 		 */
-		this.bot.eventEmitter.on( 'bot.output_ready', ()=>{
-			this.output( this.bot.lastOutputPayload )
+		this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
+			this.output( payload )
 		})
 
 		console.log('[✔︎] Bot\'s voice output connected.')

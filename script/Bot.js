@@ -197,7 +197,7 @@ export default class Bot {
 		this.loaded_ui_count++
 
 		if ( this.loaded_ui_count == this.ui_count ) {
-			this.eventEmitter.trigger( 'bot.ui_loaded' )
+			this.eventEmitter.trigger( 'core.ui_loaded' )
 		}
 
 	}
@@ -215,9 +215,8 @@ export default class Bot {
 		if ( !payload )
 			throw new Error( 'The parameter "payload" is required.' )
 
-		// this.inputs[ plugin ].input( payload, title ) // send payload to plugin
 		this.addToHistory( 'input', plugin, payload, title ) // add event to bot history
-		this.eventEmitter.trigger( 'bot.input_received' )
+		this.eventEmitter.trigger( 'core.input_received' )
 
 	}
 
@@ -229,6 +228,9 @@ export default class Bot {
 	 */
 	spreadOutput ( payload ) {
 
+		if ( this.redirectInput )
+			return
+
 		payload = this.extractActions( payload )
 
 		let plugins = []
@@ -236,8 +238,7 @@ export default class Bot {
 			plugins.push( plugin )
 		}
 		this.addToHistory( 'output', plugins, JSON.stringify( payload ) ) // add event to bot history
-		this.lastOutputPayload = payload;
-		this.eventEmitter.trigger( 'bot.output_ready' )
+		this.eventEmitter.trigger( 'core.output_ready', [payload] )
 
 	}
 
@@ -261,7 +262,7 @@ export default class Bot {
 		}
 
 		console.log('★  [*_*] The bot is assembled and ready. [*_*]  ★')
-		this.eventEmitter.trigger( 'bot.loaded' )
+		this.eventEmitter.trigger( 'core.loaded' )
 
 	}
 
@@ -353,7 +354,7 @@ export default class Bot {
 		this.botStorage.setItem( 'history', JSON.stringify( this.history ), error => { console.error(error) })
 		this.botStorage.setItem( 'time', this.lastInteraction, error => { console.error(error) })
 
-		this.eventEmitter.trigger( 'bot.history_added' )
+		this.eventEmitter.trigger( 'core.history_added' )
 
 	}
 
@@ -377,7 +378,7 @@ export default class Bot {
 		}
 
 		this.history_loaded = true
-		this.eventEmitter.trigger( 'bot.history_loaded' )
+		this.eventEmitter.trigger( 'core.history_loaded' )
 	}
 
 	/**
@@ -415,13 +416,14 @@ export default class Bot {
 	 */
 	async sendToBackend ( plugin, payload ) {
 
-		// for ( var _plugin in this.outputs ) {
-		// 	this.outputs[ _plugin ].waiting() // waiting symbol, actions etc...
-		// }
+		if ( this.redirectInput ) {
+			this.outputs[ this.redirectInput ].redirectedInput( payload )
+			return
+		}
 
-		this.eventEmitter.trigger( 'bot.calling_backend' )
+		this.eventEmitter.trigger( 'core.calling_backend' )
 		let response = await this.backend.send( plugin, payload )
-		this.eventEmitter.trigger( 'bot.backend_responded' )
+		this.eventEmitter.trigger( 'core.backend_responded' )
 
 		return response
 
@@ -459,7 +461,7 @@ export default class Bot {
 
 		this.botStorage.removeItem( 'history' )
 		this.history = []
-		this.eventEmitter.trigger( 'bot.history_cleared' )
+		this.eventEmitter.trigger( 'core.history_cleared' )
 
 	}
 
