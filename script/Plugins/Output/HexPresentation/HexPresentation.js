@@ -275,7 +275,7 @@ export default class HexPresentation {
 		style.innerHTML = css
 		document.querySelector( 'head' ).append( style )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 	}
 

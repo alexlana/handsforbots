@@ -197,24 +197,45 @@ export default class Bot {
 		this.loadPlugins()
 
 		/**
-		 * Listen the event to send messages to backend.
+		 * Send messages to backend.
 		 */
 		this.eventEmitter.on( 'core.send_to_backend', ( payload )=>{
 			this.sendToBackend( payload )
 		})
 
 		/**
-		 * Listen the event to send to backend the next message on queue.
+		 * Send to backend the next message on queue.
 		 */
-		this.eventEmitter.on( 'core.backend_responded', ( payload )=>{
-			this.nextQueuedMessage( payload )
+		this.eventEmitter.on( 'core.backend_responded', ()=>{
+			this.nextQueuedMessage()
 		})
 
 		/**
-		 * Listen the event to spread output to all plugins.
+		 * Spread output to all plugins.
 		 */
-		this.eventEmitter.on( 'core.spread_output', ( response )=>{
-			this.spreadOutput( response )
+		this.eventEmitter.on( 'core.spread_output', ( output )=>{
+			this.spreadOutput( output )
+		})
+
+		/**
+		 * Receive an input to store.
+		 */
+		this.eventEmitter.on( 'core.input', ( input )=>{
+			this.input( input )
+		})
+
+		/**
+		 * Count new UI loaded.
+		 */
+		this.eventEmitter.on( 'core.ui_loaded', ( plugin )=>{
+			this.UILoaded( plugin )
+		})
+
+		/**
+		 * Renew user session.
+		 */
+		this.eventEmitter.on( 'core.renew_session', ()=>{
+			this.renewSession()
 		})
 
 	}
@@ -268,14 +289,14 @@ export default class Bot {
 	 * @param  string			plugin	Input plugin name.
 	 * @return void
 	 */
-	input ( plugin, payload, title = null ) {
+	input ( input ) {
 
-		if ( !plugin )
+		if ( !input.plugin )
 			throw new Error( 'The parameter "plugin" is required.' )
-		if ( !payload )
+		if ( !input.payload )
 			throw new Error( 'The parameter "payload" is required.' )
 
-		this.addToHistory( 'input', plugin, payload, title ) // add event to bot history
+		this.addToHistory( 'input', input.plugin, input.payload, input.title ) // add event to bot history
 		this.eventEmitter.trigger( 'core.input_received' )
 
 	}

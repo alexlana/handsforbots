@@ -55,7 +55,12 @@ export default class BotsCommandsOutput {
 				if ( !this.bot.outputs[ classMethod[0] ] )
 					return
 
-				const ret = this.bot.outputs[ classMethod[0] ][ classMethod[1] ]( command.params )
+				let ret;
+				if ( this.bot.outputs[ classMethod[0] ] != undefined && classMethod.length == 2 ) {
+					ret = this.bot.outputs[ classMethod[0] ][ classMethod[1] ]( command.params )
+				} else {
+					ret = window[ classMethod[0] ]( command.params )
+				}
 
 				if ( ret ) {
 					ret.then(( result )=>{
@@ -98,7 +103,7 @@ export default class BotsCommandsOutput {
 
 		console.log( '[✔︎] Bot\'s Commands output "UI" added.' )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 	}
 

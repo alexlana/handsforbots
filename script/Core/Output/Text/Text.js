@@ -71,7 +71,7 @@ export default class TextOutput {
 
 		// this.bot.inputs.Text.ui( options )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 	}
 

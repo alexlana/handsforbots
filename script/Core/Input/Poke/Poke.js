@@ -55,7 +55,7 @@ export default class PokeInput {
 	 */
 	ui ( options ) {
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 	}
 

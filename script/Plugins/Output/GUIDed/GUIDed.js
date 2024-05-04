@@ -186,7 +186,8 @@ export default class GUIDed {
 
 		this.init( this.options.auto_start )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
+
 		console.log( '[✔︎] GUI Ded Tutorial output "UI" added.' )
 
 	}
@@ -215,6 +216,8 @@ export default class GUIDed {
 	 * @return Boolean | Void 				Return `false` if direction is `0`, else return `void`
 	 */
 	navigate ( direction ) {
+
+		this.bot.eventEmitter.trigger( 'core.renew_session' )
 
 		if ( direction == 0 ) {
 

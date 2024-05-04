@@ -244,7 +244,7 @@ export default class VoiceOutput {
 
 		console.log( '[✔︎] Voice output UI added.' )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 		if ( !this.mute && this.environmentDetection.whatDeviceType() == 'Mobile' )
 			document.querySelector( 'body' ).addEventListener( 'click', this.mobListener )

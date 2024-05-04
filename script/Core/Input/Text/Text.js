@@ -46,8 +46,6 @@ export default class TextInput {
 			},
 		}
 
-		// this.bot.ui_outputs[ 'Text' ] = true // text input and text output are interdependants
-
 		this.bot.eventEmitter.on( 'core.history_cleared', ()=>{
 			if ( document.querySelector( '#chat_window' ) ) {
 				document.querySelector( '#chat_window' ).classList.add( 'disconnected' )
@@ -87,7 +85,7 @@ export default class TextInput {
 		document.querySelector( '#chat_input_wrapper input[type="submit"]' ).setAttribute( 'disabled', 'disabled' )
 
 		// send data to backend
-		this.bot.input( 'text', payload )
+		this.bot.eventEmitter.trigger( 'core.input', [{'plugin':'Text', 'payload': payload, 'title': title}] )
 		this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'text', 'payload': payload, 'trigger': 'input_text.receiver' }] )
 
 	}
@@ -211,7 +209,7 @@ export default class TextInput {
 			} else {
 				e.target.parentElement.querySelector( 'input[type="text"]' ).blur()
 			}
-			this.bot.renewSession()
+			this.bot.eventEmitter.trigger( 'core.renew_session' )
 		})
 		if ( this.autofocus ) {
 			ui_window.addEventListener( 'click', ()=>{
@@ -240,7 +238,7 @@ export default class TextInput {
 			if ( document.querySelector('#chat_window').classList.contains( 'keyboard_active' ) ) {
 				document.querySelector( 'input[type="text"]' ).focus()
 			}
-			this.bot.renewSession()
+			this.bot.eventEmitter.trigger( 'core.renew_session' )
 		})
 
 		this.bot.eventEmitter.on( 'core.history_loaded', ()=>{
@@ -274,7 +272,7 @@ export default class TextInput {
 
 		console.log( '[✔︎] Text UI added.' )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 	}
 
@@ -316,7 +314,7 @@ export default class TextInput {
 		wrapper.setAttribute( 'payload', payload )
 		wrapper.innerHTML = title
 		wrapper.addEventListener( 'click', (e)=>{
-			this.bot.input( 'text', e.target.getAttribute( 'payload' ), e.target.innerText )
+			this.bot.eventEmitter.trigger( 'core.input', [{'plugin':'Text', 'payload': e.target.getAttribute( 'payload' ), 'title': e.target.innerText}] )
 			e.target.parentElement.remove()
 		})
 		return wrapper

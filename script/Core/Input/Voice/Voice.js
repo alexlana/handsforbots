@@ -92,7 +92,7 @@ export default class VoiceInput {
 			this.environmentDetection.whatBrowser() != 'Chrome' &&
 			this.environmentDetection.whatBrowser() != 'Safari'
 			) { // não funciona bem se não for um dos dois
-			this.bot.UILoaded()
+			this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 			return
 		}
 
@@ -181,7 +181,7 @@ export default class VoiceInput {
 
 		console.log( '[✔︎] Speech to text UI added.' )
 
-		this.bot.UILoaded()
+		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 
 	}
 

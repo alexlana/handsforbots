@@ -18,7 +18,7 @@ To do:
 
 ### Custom commands / function calls
 
-It is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery etc. You can develop a class or function and then make the back end call your command / function / method. *The class or function do not need to be integrated with the framework core*, it will be simple called.
+It is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery etc. You can develop a function and then make the back end call your command / function / method. *The function do not need to be integrated with the framework core*, it will be simple called.
 
 ### Framework folder structure
 
@@ -127,6 +127,14 @@ The core triggers the following events:
 - **Custom event on back end response**: the core received the response from the back end and send the response to the plugin responsible for the input. The plugin want to send the custom event name and listen this event.
 - **core.history_cleared**: the history was deleted. It occurs because of privacy, so after a defined time of inactivity the history expires.
 
+The core listen to the following events:
+
+- **core.send_to_backend**: receive the payload to send to back end.
+- **core.backend_responded**: this is not to trigger from plugins. On receive this event, the core check if we have queued messages to send to back end.
+- **core.spread_output**: receive output to spread to all plugins.
+- **core.input**: receive an input to add to history.
+- **core.ui_loaded**: count a new UI completely loaded.
+- **core.renew_session**: when user interacts, the input plugin can trigger this event to renew user session.
 
 ## Functions call
 
