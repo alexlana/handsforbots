@@ -59,6 +59,7 @@ export default class Bot {
 		/**
 		 * State.
 		 */
+		this.calling_backend = false
 		this.history_loaded = false
 		this.loaded_ui_count = 0
 		this.ui_count = this.options.plugins.length + this.options.core.length
@@ -69,6 +70,11 @@ export default class Bot {
 		this.inputs = {} // list of input plugins
 		this.outputs = {} // list of output plugins
 		this.ui_outputs = {} // list of output plugins
+
+		/**
+		 * Message queue.
+		 */
+		this.queue = []
 
 		/**
 		 * Language.
@@ -195,6 +201,13 @@ export default class Bot {
 		 */
 		this.eventEmitter.on( 'core.send_to_backend', ( payload )=>{
 			this.sendToBackend( payload )
+		})
+
+		/**
+		 * Listen the event to send to backend the next message on queue.
+		 */
+		this.eventEmitter.on( 'core.backend_responded', ( payload )=>{
+			this.nextQueuedMessage( payload )
 		})
 
 		/**
@@ -461,6 +474,11 @@ export default class Bot {
 	 */
 	async sendToBackend ( payload ) {
 
+		if ( this.calling_backend ) {
+			this.addToQueue( payload )
+			return
+		}
+
 		let response = '';
 
 		if ( this.redirectInput ) {
@@ -476,7 +494,28 @@ export default class Bot {
 
 	}
 
-	queue (  ) {
+	/**
+	 * Create a queue when new events / messages arrive before back end response for the previous one.
+	 * @param Object payload Payload to the back end.
+	 */
+	addToQueue ( payload ) {
+
+		this.queue.append( payload )
+
+	}
+
+	/**
+	 * Send the next message / event in the queue to the back end, if any.
+	 * @return Void | Null
+	 */
+	nextQueuedMessage () {
+
+		if ( this.queue.length == 0 ) {
+			return
+		}
+
+		let payload = this.queue.shift()
+		this.sendToBackend( payload )
 
 	}
 
