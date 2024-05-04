@@ -56,6 +56,10 @@ export default class TextInput {
 			}
 		})
 
+		this.bot.eventEmitter.on( 'input_text.receiver', (response)=>{
+			this.receiver( response )
+		})
+
 		console.log( '[✔︎] Bot\'s text input connected.' )
 
 	}
@@ -81,19 +85,24 @@ export default class TextInput {
 		document.querySelector( '#chat_window' ).classList.add( 'waiting' )
 		document.querySelector( '#chat_input_wrapper input[type="text"]' ).setAttribute( 'disabled', 'disabled' )
 		document.querySelector( '#chat_input_wrapper input[type="submit"]' ).setAttribute( 'disabled', 'disabled' )
+
 		// send data to backend
-		this.bot.sendToBackend( 'text', payload ).then( (response)=>{
-			// tell bot to spread output
-			this.bot.spreadOutput( response )
-			// enable user form when bot response is received
-			document.querySelector( '#chat_window' ).classList.remove( 'waiting' )
-			document.querySelector( '#chat_input_wrapper input[type="text"]' ).removeAttribute( 'disabled' )
-			document.querySelector( '#chat_input_wrapper input[type="submit"]' ).removeAttribute( 'disabled' )
-			if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
-				document.querySelector( 'input[type="text"]' ).focus()
-			}
-		})
 		this.bot.input( 'text', payload )
+		this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'text', 'payload': payload, 'trigger': 'input_text.receiver' }] )
+
+	}
+
+	receiver ( response ) {
+
+		this.bot.eventEmitter.trigger( 'core.spread_output', [response] )
+
+		// enable user form when bot response is received
+		document.querySelector( '#chat_window' ).classList.remove( 'waiting' )
+		document.querySelector( '#chat_input_wrapper input[type="text"]' ).removeAttribute( 'disabled' )
+		document.querySelector( '#chat_input_wrapper input[type="submit"]' ).removeAttribute( 'disabled' )
+		if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
+			document.querySelector( 'input[type="text"]' ).focus()
+		}
 
 	}
 

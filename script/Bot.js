@@ -13,6 +13,7 @@
  */
 
 
+
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
 
@@ -30,44 +31,74 @@ export default class Bot {
 
 		console.log( '[-_-] The bot is on the production line. [-_-]' )
 
+		/**
+		 * Commands delimiters.
+		 */
+		this.action_tag_open = '[*'
+		this.action_tag_close = '*]'
+
+		/**
+		 * Global options.
+		 */
+		this.options = options
+
+		/**
+		 * Initial messages.
+		 */
+		this.disclaimer = this.options.disclaimer
+		this.presentation = this.options.presentation
+
+		/**
+		 * Time.
+		 */
+		const d = new Date()
+		this.lastInteraction = d.getTime()
+		this.session_timeout = 30 // minutes
+		this.one_minute = 1000 * 60
+
+		/**
+		 * State.
+		 */
+		this.history_loaded = false
+		this.loaded_ui_count = 0
+		this.ui_count = this.options.plugins.length + this.options.core.length
+
+		/**
+		 * Plugins' key rings.
+		 */
+		this.inputs = {} // list of input plugins
+		this.outputs = {} // list of output plugins
+		this.ui_outputs = {} // list of output plugins
+
+		/**
+		 * Language.
+		 */
 		if ( ! options.language )
 			this.current_language = 'en-us'
 		else
 			this.current_language = options.language.toLowerCase()
 
-		this.action_tag_open = '[*'
-		this.action_tag_close = '*]'
-
-		this.session_timeout = 30 // minutes
-		this.one_minute = 1000 * 60
-
-		this.history_loaded = false
-
-		this.options = options
-		this.loaded_ui_count = 0
-		this.ui_count = this.options.plugins.length + this.options.core.length
-
+		/**
+		 * Storage to persist dialog during web navigation.
+		 */
 		this.botStorage = WebStorage.createInstance({
 		  driver: 'localStorage',
 		  keyPrefix: 'bot-storage/'
 		})
+
+		/**
+		 * Event emitter.
+		 */
 		this.eventEmitter = new EventEmitter()
 
-		this.disclaimer = options.disclaimer
-		this.presentation = options.presentation
-
-		// let engine_specific = null
-		// if ( options.engine_specific != undefined )
-		// 	engine_specific = options.engine_specific
+		/**
+		 * Back end assistant.
+		 */
 		this.registerBackend({
-			engine: options.engine,
-			endpoint: options.engine_endpoint,
-			engine_specific: options.engine_specific
+			engine: this.options.engine,
+			endpoint: this.options.engine_endpoint,
+			engine_specific: this.options.engine_specific
 		})
-
-		this.inputs = {} // list of input plugins
-		this.outputs = {} // list of output plugins
-		this.ui_outputs = {} // list of output plugins
 
 		/**
 		 * Color scheme
@@ -154,18 +185,33 @@ export default class Bot {
 			this.color = 'blue'
 		}
 
-		const d = new Date()
-		this.lastInteraction = d.getTime()
+		/**
+		 * Load plugins.
+		 */
+		this.loadPlugins()
 
-		this.loadInterfaces()
+		/**
+		 * Listen the event to send messages to backend.
+		 */
+		this.eventEmitter.on( 'core.send_to_backend', ( payload )=>{
+			this.sendToBackend( payload )
+		})
+
+		/**
+		 * Listen the event to spread output to all plugins.
+		 */
+		this.eventEmitter.on( 'core.spread_output', ( response )=>{
+			this.spreadOutput( response )
+		})
 
 	}
 
-	async loadInterfaces () {
+	/**
+	 * Load plugins (inputs and outputs, core and custom).
+	 * @return Void
+	 */
+	async loadPlugins () {
 
-		/**
-		 * Add plugins (inputs and outputs, core and custom).
-		 */
 		let loadSequence = []
 		for ( const core_plugin of this.options.core ) {
 			loadSequence.push( core_plugin )
@@ -176,14 +222,11 @@ export default class Bot {
 			await this.pluginLoader( custom_plugin, 'Plugins' );
 		}
 
-		/**
-		 * Load UIs.
-		 */
 		for ( const plugin of loadSequence ) {
 			this[ plugin.type +'s' ][ plugin.plugin ].ui( plugin ) // load UI of plugin
 		}
 
-		this.rebuildHistory() // history of bot events
+		this.rebuildHistory() // history of bot events and dialogs.
 		if ( this.history.length == 0 ) {
 			if ( this.presentation != undefined ) {
 				this.spreadOutput( this.presentation )
@@ -192,6 +235,10 @@ export default class Bot {
 
 	}
 
+	/**
+	 * Register number of plugins loaded and trigger an event on complete.
+	 * @param Void
+	 */
 	UILoaded (plugin) {
 
 		this.loaded_ui_count++
@@ -203,7 +250,7 @@ export default class Bot {
 	}
 
 	/**
-	 * Bot input caller.
+	 * Register user inputs in history.
 	 * @param  string|stream	payload	Input payload.
 	 * @param  string			plugin	Input plugin name.
 	 * @return void
@@ -221,14 +268,13 @@ export default class Bot {
 	}
 
 	/**
-	 * Bot output caller.
+	 * Register assistant and plugins output into history, or do nothing when input redirections is activated.
 	 * @param  string|stream	payload	Output payload.
-	 * @param  string			plugin	Output plugin name.
 	 * @return void
 	 */
 	spreadOutput ( payload ) {
 
-		if ( this.redirectInput )
+		if ( !payload || this.redirectInput )
 			return
 
 		payload = this.extractActions( payload )
@@ -245,7 +291,7 @@ export default class Bot {
 	/**
 	 * Register bot backend engine.
 	 * @param  Object	obj		Backend object.
-	 * @return void
+	 * @return Void
 	 */
 	async registerBackend ( options ) {
 
@@ -308,7 +354,6 @@ export default class Bot {
 
 	}
 
-
 	/**
 	 * Remove special characters.
 	 * @param  String input Input string.
@@ -333,7 +378,7 @@ export default class Bot {
 	}
 
 	/**
-	 * Add event to bot history.
+	 * Add event and messages to bot history.
 	 * @param  Object 	obj 	P
 	 * @param  String	plugin	Plugin name.
 	 */
@@ -359,7 +404,7 @@ export default class Bot {
 	}
 
 	/**
-	 * Get history from cookies.
+	 * Get history from storage.
 	 * @return void
 	 */
 	rebuildHistory () {
@@ -382,7 +427,7 @@ export default class Bot {
 	}
 
 	/**
-	 * Extract actions from outputs.
+	 * Extract actions from output messages.
 	 * @param  array	payload		Payload data.
 	 * @return array 	payload 	Payload processed.
 	 */
@@ -414,18 +459,24 @@ export default class Bot {
 	 * @param  String	payload Data to send to back end.
 	 * @return String	json	Backend response.
 	 */
-	async sendToBackend ( plugin, payload ) {
+	async sendToBackend ( payload ) {
+
+		let response = '';
 
 		if ( this.redirectInput ) {
-			this.outputs[ this.redirectInput ].redirectedInput( payload )
+			response = this.outputs[ this.redirectInput ].redirectedInput( payload.payload )
+			this.eventEmitter.trigger( payload.trigger, [response] )
 			return
 		}
 
 		this.eventEmitter.trigger( 'core.calling_backend' )
-		let response = await this.backend.send( plugin, payload )
+		response = await this.backend.send( payload.plugin, payload.payload )
 		this.eventEmitter.trigger( 'core.backend_responded' )
+		this.eventEmitter.trigger( payload.trigger, [response] )
 
-		return response
+	}
+
+	queue (  ) {
 
 	}
 

@@ -108,9 +108,8 @@ export default class GUIDed {
 		}
 		this.fuzzy_options = {
 			shouldSort: true,
-			threshold: 0.1,
-			location: 0,
-			distance: 100,
+			threshold: 0.8,
+			ignoreLocation: true,
 			maxPatternLength: 32,
 			minMatchCharLength: 1,
 			keys: [
@@ -130,9 +129,16 @@ export default class GUIDed {
 	 */
 	async output ( payload ) {}
 
-	async redirectedInput ( payload ) {
+	/**
+	 * Intercept user inputs.
+	 * @param  String   payload User input.
+	 * @return Void
+	 */
+	redirectedInput ( payload ) {
 
 		this.navigate( this.fuse.search( payload )[0].item.nav_direction )
+
+		return
 
 	}
 
