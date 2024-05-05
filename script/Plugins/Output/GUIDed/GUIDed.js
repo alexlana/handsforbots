@@ -136,6 +136,8 @@ export default class GUIDed {
 	 */
 	redirectedInput ( payload ) {
 
+		// this.bot.eventEmitter.trigger( 'core.input', [ { 'plugin':'GUIDed', 'payload': payload } ] )
+
 		this.navigate( this.fuse.search( payload )[0].item.nav_direction )
 
 		return
@@ -202,7 +204,8 @@ export default class GUIDed {
 
 			this.options.auto_start = true
 			this.overlay.classList.add( 'show' )
-			this.bot.redirectInput = 'GUIDed'
+			this.bot.eventEmitter.trigger( 'core.redirect_input', ['GUIDed'] )
+			// this.bot.redirectInput = 'GUIDed'
 
 		}
 
@@ -230,7 +233,8 @@ export default class GUIDed {
 			if ( this.guided_balloon )
 				this.guided_balloon.classList.remove( 'show' )
 
-			this.bot.redirectInput = false
+			this.bot.eventEmitter.trigger( 'core.redirect_input', [false] )
+			// this.bot.redirectInput = false
 
 			return;
 
@@ -261,7 +265,10 @@ export default class GUIDed {
 
 		if ( this.options.auto_start ) {
 
-			this.bot.outputs.Voice.output( [ this.sequence[ this.step ] ] )
+			let payload = [ { 'text': this.sequence[ this.step ].text, 'recipient_id': 'GUIDed' } ]
+			this.bot.eventEmitter.trigger( 'core.spread_output', [ payload, true ] )
+
+			// this.bot.outputs.Voice.output( [ this.sequence[ this.step ] ] )
 
 		}
 

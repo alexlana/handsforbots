@@ -129,7 +129,7 @@ export default class Rasa {
 
 	}
 
-	actionSuccess ( to_do, ret ) {}
+	actionSuccess ( response ) {}
 
 }
 

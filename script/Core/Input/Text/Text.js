@@ -86,7 +86,7 @@ export default class TextInput {
 
 		// send data to backend
 		this.bot.eventEmitter.trigger( 'core.input', [{'plugin':'Text', 'payload': payload, 'title': title}] )
-		this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'text', 'payload': payload, 'trigger': 'input_text.receiver' }] )
+		this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'Text', 'payload': payload, 'trigger': 'input_text.receiver' }] )
 
 	}
 
@@ -359,7 +359,7 @@ export default class TextInput {
 				if ( title.trim().length == 0 )
 					continue
 
-				if ( this.bot.history[i][1] == 'text' )
+				if ( this.bot.history[i][1] == 'Text' )
 					ui_window.querySelector('#inner_chat_body').append( this.messageWrapper( title, 'user' ) )
 
 			} else if ( this.bot.history[i][0] == 'output' ) {

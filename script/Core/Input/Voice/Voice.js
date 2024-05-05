@@ -197,7 +197,8 @@ export default class VoiceInput {
 			}
 		]
 
-		this.bot.spreadOutput( payload )
+		// this.bot.spreadOutput( payload )
+		this.bot.eventEmitter.trigger( 'core.spread_output', [payload] )
 
 		console.log( '[✘] Speech UI removed because of some incompatibility.' )
 

@@ -240,13 +240,13 @@ console.log(bot_dt)
 
 	/**
 	 * What we want to do when it works.
-	 * @param  object   to_do Object of bot actions.
+	 * @param  object   response Object of bot actions. Contains `response.to_do` and `response.ret`.
 	 * @param  object   ret   Object of data to return to backend.
 	 * @return void
 	 */
-	actionSuccess ( to_do, ret ) {
+	actionSuccess ( response ) {
 
-		if ( ret.standalone != undefined && ret.standalone == true )
+		if ( response.ret.standalone != undefined && response.ret.standalone == true )
 			return
 
 	}

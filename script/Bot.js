@@ -213,8 +213,8 @@ export default class Bot {
 		/**
 		 * Spread output to all plugins.
 		 */
-		this.eventEmitter.on( 'core.spread_output', ( output )=>{
-			this.spreadOutput( output )
+		this.eventEmitter.on( 'core.spread_output', ( output, force )=>{
+			this.spreadOutput( output, force )
 		})
 
 		/**
@@ -236,6 +236,20 @@ export default class Bot {
 		 */
 		this.eventEmitter.on( 'core.renew_session', ()=>{
 			this.renewSession()
+		})
+
+		/**
+		 * Get tool use result to send as a response to backend.
+		 */
+		this.eventEmitter.on( 'core.action_success', ( response )=>{
+			this.backend.actionSuccess( response )
+		})
+
+		/**
+		 * Make the bot redirect all inputs to one plugin instead of back end.
+		 */
+		this.eventEmitter.on( 'core.redirect_input', ( plugin )=>{
+			this.redirectInput = plugin
 		})
 
 	}
@@ -306,9 +320,9 @@ export default class Bot {
 	 * @param  string|stream	payload	Output payload.
 	 * @return void
 	 */
-	spreadOutput ( payload ) {
+	spreadOutput ( payload, force ) {
 
-		if ( !payload || this.redirectInput )
+		if ( !payload || ( this.redirectInput && force == undefined ) )
 			return
 
 		payload = this.extractActions( payload )
@@ -341,7 +355,7 @@ export default class Bot {
 			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
 		}
 
-		console.log('★  [*_*] The bot is assembled and ready. [*_*]  ★')
+		console.log('★  [•_•] The bot is assembled and ready. [•_•]  ★')
 		this.eventEmitter.trigger( 'core.loaded' )
 
 	}

@@ -17,6 +17,10 @@ export default class PokeInput {
 
 		this.queue = []
 
+		this.bot.eventEmitter.on( 'poke.receiver', ( response )=>{
+			this.receiver( response )
+		})
+
 		console.log('[✔︎] Bot\'s poke input connected.')
 
 	}
@@ -39,12 +43,18 @@ export default class PokeInput {
 		}
 
 		this.queue.forEach(( payload )=>{
-			this.bot.sendToBackend( 'poke', payload ).then( (response)=>{
-				if ( response.length > 0 )
-					this.bot.spreadOutput( response )
-			})
+
+			this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'poke', 'payload': payload, 'trigger': 'poke.receiver' }] )
+
 		})
 		this.queue = []
+
+	}
+
+	receiver ( response ) {
+
+		if ( response.length > 0 )
+			this.bot.eventEmitter.trigger( 'core.spread_output', [response] )
 
 	}
 

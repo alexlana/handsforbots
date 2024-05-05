@@ -1,4 +1,4 @@
-# [\*_\*] Hands for Chatbots
+# [•_•] Hands for Chatbots
 
 ## Basic concepts
 
@@ -135,6 +135,7 @@ The core listen to the following events:
 - **core.input**: receive an input to add to history.
 - **core.ui_loaded**: count a new UI completely loaded.
 - **core.renew_session**: when user interacts, the input plugin can trigger this event to renew user session.
+- **core.action_success**: after call a function, get tool use result to send as a response to back end assistant.
 
 ## Functions call
 

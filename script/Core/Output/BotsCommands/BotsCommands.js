@@ -64,7 +64,12 @@ export default class BotsCommandsOutput {
 
 				if ( ret ) {
 					ret.then(( result )=>{
-						this.bot.backend.actionSuccess( obj.do, result )
+						response  = {
+							'to_do': obj.do,
+							'result': result
+						}
+						this.bot.eventEmitter.trigger( 'core.action_success', [response] )
+						// this.bot.backend.actionSuccess( obj.do, result )
 					})
 				}
 

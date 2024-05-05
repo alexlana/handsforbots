@@ -39,7 +39,7 @@ export default class VoiceOutput {
 		this.marked = new Marked()
 		this.environmentDetection = new EnvironmentDetection()
 
-		this.bot.eventEmitter.on( 'history_cleared', ()=>{
+		this.bot.eventEmitter.on( 'core.history_cleared', ()=>{
 			this.bot.botStorage.removeItem( 'mute' )
 			this.mute = true
 			if ( document.querySelector( '#chat_voice_toggle' ) != undefined )
