@@ -43,6 +43,29 @@ export default class Bot {
 		this.options = options
 
 		/**
+		 * Start bot using minimal configuration options.
+		 */
+		if ( this.options.quick_start ) {
+
+			if ( this.options.quick_start == 'text' ) {
+
+				this.quickStartText()
+
+			} else if ( this.options.quick_start == 'voice' ) {
+
+				this.quickStartVoice()
+
+			} else if ( this.options.quick_start == 'text_and_voice' ) {
+
+				this.quickStartTextAndVoice()
+
+			}
+
+			this.quickStartToolCall()
+
+		}
+
+		/**
 		 * Initial messages.
 		 */
 		this.disclaimer = this.options.disclaimer
@@ -602,4 +625,73 @@ export default class Bot {
 
 	}
 
+	/**
+	 * Add text channels using a simple config.
+	 * @return Void
+	 */
+	quickStartText () {
+
+		let text_input_config = {
+		  plugin: "Text",
+		  type: "input",
+		  start_open: true,
+		  no_css: false,
+		  autofocus: false,
+		}
+		this.options.core.push( text_input_config )
+
+		let text_output_config = {
+		  plugin: "Text",
+		  type: "output",
+		}
+		this.options.core.push( text_output_config )
+
+	}
+
+	/**
+	 * Add voice channels using a simple config.
+	 * @return Void
+	 */
+	quickStartVoice () {
+
+		let VTT_ui_config = {
+		  plugin: "Voice",
+		  type: "input",
+		  prioritize_speech: false,
+		}
+		this.options.core.push( VTT_ui_config )
+
+		let voice_ui_config = {
+		  plugin: "Voice",
+		  type: "output",
+		  name: "Zarvox", // en-US
+		}
+		this.options.core.push( voice_ui_config )
+
+	}
+
+	/**
+	 * Add tool call channel using a simple config.
+	 * @return Void
+	 */
+	quickStartToolCall () {
+
+		let bots_commands_config = {
+		  plugin: "BotsCommands",
+		  type: "output",
+		}
+		this.options.core.push( bots_commands_config )
+
+	}
+
+	/**
+	 * Add text and voice channels using a simple config.
+	 * @return Void
+	 */
+	quickStartTextAndVoice () {
+
+		this.quickStartText()
+		this.quickStartVoice()
+
+	}
 }

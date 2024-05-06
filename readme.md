@@ -1,5 +1,62 @@
 # [•_•] Hands for Chatbots
 
+## Quick start
+
+Once you have a back end assistant working, you can use one of the scripts bellow to start your bot interface using minimal configuration.
+
+```
+// Init text chatbot using RASA as back end.
+
+import Bot from "./handsforchatbots/Bot.js";
+
+let bot_settings = {
+
+   quick_start: "text"
+
+   engine: "rasa",
+   language: "en-US",
+   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
+};
+const bot = new Bot( bot_settings );
+
+```
+
+```
+// Init voice chatbot using RASA as back end.
+
+import Bot from "./handsforchatbots/Bot.js";
+
+let bot_settings = {
+
+   quick_start: "voice"
+
+   engine: "rasa",
+   language: "en-US",
+   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
+};
+const bot = new Bot( bot_settings );
+
+```
+
+```
+// Init text and voice chatbot using RASA as back end.
+
+import Bot from "./handsforchatbots/Bot.js";
+
+let bot_settings = {
+
+   quick_start: "text_and_voice"
+
+   engine: "rasa",
+   language: "en-US",
+   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
+};
+const bot = new Bot( bot_settings );
+
+```
+
+There is a lot of other options, but if you define a `quick_start` option, a back end assistant (engine) and a language, you can start to test.
+
 ## Basic concepts
 
 For now the **Hands for Chatbots** framework is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling. The core do not give to assistants the hability to "view" the screen and do things unless this ability is built into a custom plugin.
@@ -11,14 +68,14 @@ It was built using concepts from Ports and Adapters (Hexagonal Architecture) and
 The framework have three adapter types:
 - **Backend:** connect the framework to chatbots, assistants, online chat APIs etc
 - **Input:** create ways to send data to the back end like text, voice and other
-- **Output:** create interfaces to get data from back end to the user like text, audio, images and other
+- **Output:** create interfaces to show data from back end to the user like text, audio, images and other
 
 To do:
 - **GUI:** will load some visual framework like Botstrap, Material Design or other, and provide chatbot windows, mic button etc.
 
 ### Custom commands / function calls
 
-It is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery etc. You can develop a function and then make the back end call your command / function / method. *The function do not need to be integrated with the framework core*, it will be simple called.
+It is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the framework core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the framework's features.
 
 ### Framework folder structure
 
@@ -97,20 +154,13 @@ The **plugin name can only have letters and numbers**, no special characters is 
 
 ## Events
 
-The plugins needs to use events to comunicate with the core. To handle events:
+The framework requires plugins that interacts with the core using events. To handle events:
 
 1. receive the `bot` variable in your `constructor` method;
 2. save it in the `this.bot` variable. Then...
-3. to trigger an event, use `this.bot.trigger('event_name', variable_to_send)`;
+3. to trigger an event, use `this.bot.trigger( 'event_name', [ variable_1_to_send, variable_2_to_send, variable_n_to_send ] )`;
 4. to listen an event, use `this.bot.on('event_name', myfunction)`.
 
-There is an exception: when the plugin need to send some input to back end, it must do it using a promise to receive, process and decide if the core should spread the output and add it to history. Example, in the plugin `async input` method use:
-
-```
-this.bot.sendToBackend( 'PluginName', message ).then( (response)=>{
-   this.eventEmitter.trigger( 'bot.spread_output', response )
-})
-```
 
 ### Core
 
