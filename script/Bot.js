@@ -4,7 +4,7 @@
  * 
  * Simple flow:
  *
- * Inputs: 				|   > input >   [*_*]   > output >	|  Outputs:
+ * Inputs: 				|   > input >   [•_•]   > output >	|  Outputs:
  * Text					|									|  Text
  * Voice				|									|  Voice
  * Gesture (TODO)		|									|  UI (TODO)
@@ -34,8 +34,8 @@ export default class Bot {
 		/**
 		 * Commands delimiters.
 		 */
-		this.action_tag_open = '[*'
-		this.action_tag_close = '*]'
+		this.action_tag_open = '[•'
+		this.action_tag_close = '•]'
 
 		/**
 		 * Global options.

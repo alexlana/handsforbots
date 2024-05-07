@@ -57,25 +57,64 @@ const bot = new Bot( bot_settings );
 
 There is a lot of other options, but if you define a `quick_start` option, a back end assistant (engine) and a language, you can start to test.
 
-## Basic concepts
-
-For now the **Hands for Chatbots** framework is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling. The core do not give to assistants the hability to "view" the screen and do things unless this ability is built into a custom plugin.
-
-It was built using concepts from Ports and Adapters (Hexagonal Architecture) and use custom **event** triggers to connect the core with the plugins / adapters.
-
-### Adapter types
-
-The framework have three adapter types:
-- **Backend:** connect the framework to chatbots, assistants, online chat APIs etc
-- **Input:** create ways to send data to the back end like text, voice and other
-- **Output:** create interfaces to show data from back end to the user like text, audio, images and other
-
-To do:
-- **GUI:** will load some visual framework like Botstrap, Material Design or other, and provide chatbot windows, mic button etc.
-
 ### Custom commands / function calls
 
-It is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the framework core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the framework's features.
+This is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery, set a marker on a map etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the framework core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the framework's features.
+
+To call a function you need to pass a JSON like this:
+
+```
+// Call an external, not framework dependant, function:
+{
+   "action":"FunctionName",
+   "params":[
+      "params to",
+      "pass to your function",
+      "if needed",
+      "formated according",
+      "the function needs"
+   ]
+}
+```
+
+To call a method of a plugin integrated with the framework you need to pass a JSON like this:
+
+```
+// Call an external, not framework dependant, function:
+{
+   "action":"ClassName.MethodName",
+   "params":[
+      "params to",
+      "pass to your method",
+      "if needed",
+      "formated according",
+      "the method needs"
+   ]
+}
+```
+
+You can add the JSON, delimited by the symbols `[•` (on open), and `•]` (on close) at the end of the chatbot response.
+
+```
+// If you use RASA, this is an example:
+
+In your domain.yaml, at the response section:
+
+responses:
+  utter_please_explain:
+  - text: I can show you! [•{"action":"GUIDed.newGuide","params":[{"type":"modal","title":"Welcome to the guided tutorial","text":"This is the app interface. We want you to know all you can do here!","btn_next":"Let's start!"},{"type":"balloon","title":"Save your work","text":"This button is to save your work. Do not forget to save!","dom_element":"#save_button"},{"type":"balloon","title":"Open old work","text":"And this button is to open your old or in progress work.","dom_element":"#open_button"},{"type":"balloon","title":"Ask me","text":"If you have questions, ask me for more information.","dom_element":"#chat_input"},{"type":"balloon","title":"Ask me","text":"You can ask using your own voice too.","dom_element":"#speech_button"},{"type":"modal","title":"That's all!","text":"Ok! That's all, folks!","btn_previous":"<< Previous","btn_close":"Understood!"}]}•]
+
+```
+
+## Development
+
+### Basic concepts
+
+For now the **Hands for Chatbots** is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from the UIs. The core do not give to assistants the hability to "view" the screen and do things, unless this ability was built into a custom plugin.
+
+It uses concepts from Ports and Adapters (Hexagonal Architecture) and **Event-driven Architecture** through JavaScript triggers connecting the core to plugins / adapters.
+
+Important: the connection to back end are not event-driven, it uses a promise. The event-driven architecture is applyed at front end only.
 
 ### Framework folder structure
 
@@ -114,11 +153,19 @@ It is the way we can interact with the front end. It is possible to navigate in 
    |- Output
 ```
 
+### Adapter types
+
+The framework have three adapter types:
+- **Backend:** connect the framework to chatbots, assistants, online chat APIs etc
+- **Input:** create ways to send data to the back end like text, voice and other
+- **Output:** create interfaces to show data from back end to the user like text, audio, images and other
+
+To do:
+- **GUI:** this adapters will load some visual framework like Botstrap, Material Design or other, and provide chatbot windows, mic button etc.
+
 ### How to extend the framework
 
 Create your plugin and place it in the `Plugins` folder under the folder of the appropriate adapter type (backend, input or output). Remember, if you want simple functions call, you do not need to create a new plugin, do a simple call (view more in *Functions call* section).
-
-## Development
 
 ### Custom plugin
 
@@ -134,15 +181,9 @@ The plugin must have this minimum files/folder structure:
   |- MyPluginName.js
 ```
 
-In the file MyPluginName.js you need to export your class, and the class name need to be the same as the plugin folder and main file:
-```
-export default class MyPluginName {
-  constructor () {
-  }
-}
-```
-
 The **plugin name can only have letters and numbers**, no special characters is allowed.
+
+In the file MyPluginName.js you need to export your class, and the class name need to be the same as the plugin folder and main file.
 
 ### Backend plugins
 
@@ -150,16 +191,93 @@ The **plugin name can only have letters and numbers**, no special characters is 
 
 ### Input plugins
 
+```
+// Input plugin example.
+
+export default class MyPlugin {
+
+   constructor ( bot ) { // inject the initialized instance of bot
+
+      this.bot = bot
+
+      /**
+       * Receive the back end response.
+       */
+      this.bot.eventEmitter.on( 'my_plugin.receiver', ( response )=>{
+         this.receiver( response )
+      })
+
+   }
+
+   /**
+    * Reveive an user input.
+    */
+   input ( payload ) {
+      this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'MyPlugin', 'payload': payload, 'trigger': 'my_plugin.receiver' }] )
+   }
+
+   receiver ( response ) {
+      this.bot.eventEmitter.trigger( 'core.spread_output', [response] ) // authorize to spread the response to output plugins, after modify or not.
+   }
+
+   /**
+    * Append the user interface to bot. The bot call this method.
+    */
+   ui ( options ) {
+
+      this.bot.eventEmitter.trigger( 'core.ui_loaded' )
+
+   }
+
+}
+```
+
 ### Output plugins
+
+```
+// Output plugin example.
+
+export default class MyPlugin {
+
+   constructor ( bot ) { // inject the initialized instance of bot
+
+      this.bot = bot
+
+      /**
+       * Receive an output from bot.
+       */
+      this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
+         this.output( payload )
+      })
+
+   }
+
+   /**
+    * Reveive an output from bot.
+    */
+   output ( payload ) {
+   }
+
+   /**
+    * Append the user interface to bot. The bot call this method.
+    */
+   ui ( options ) {
+
+      this.bot.eventEmitter.trigger( 'core.ui_loaded' )
+
+   }
+
+}
+```
 
 ## Events
 
-The framework requires plugins that interacts with the core using events. To handle events:
+The framework requires plugins that interacts with the core using events. Do that to handle events:
 
 1. receive the `bot` variable in your `constructor` method;
 2. save it in the `this.bot` variable. Then...
-3. to trigger an event, use `this.bot.trigger( 'event_name', [ variable_1_to_send, variable_2_to_send, variable_n_to_send ] )`;
-4. to listen an event, use `this.bot.on('event_name', myfunction)`.
+3. to trigger an event, use `this.bot.eventEmitter.trigger( 'event_name', [ variable_1_to_send, variable_2_to_send, variable_n_to_send ] )`;
+4. to listen an event, use `this.bot.eventEmitter.on('event_name', myfunction)`.
 
 
 ### Core
@@ -187,5 +305,4 @@ The core listen to the following events:
 - **core.renew_session**: when user interacts, the input plugin can trigger this event to renew user session.
 - **core.action_success**: after call a function, get tool use result to send as a response to back end assistant.
 
-## Functions call
 

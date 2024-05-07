@@ -3,7 +3,7 @@
  * Bot's Commands output channel. You can pass commands from the bot text response to plugins.
  * The commands want to be a JSON containing the key `action` where the `class.function` will 
  * be informed, and containing a sequence of keys to pass to your action, wrapped by the "action
- * tags" (open tag: `[*`. close tag: `*]`). Ex.: `[*{"action":"myPlugin.alert","params":"My alert message."}*]`
+ * tags" (open tag: `[•`. close tag: `•]`). Ex.: `[•{"action":"myPlugin.alert","params":"My alert message."}•]`
  * This commands will be extracted by the bot and this plugin will trigger your plugin.
  */
 export default class BotsCommandsOutput {
