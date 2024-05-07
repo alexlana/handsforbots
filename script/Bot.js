@@ -310,12 +310,12 @@ export default class Bot {
 	 * Register number of plugins loaded and trigger an event on complete.
 	 * @param Void
 	 */
-	UILoaded (plugin) {
+	UILoaded ( plugin ) {
 
 		this.loaded_ui_count++
 
 		if ( this.loaded_ui_count == this.ui_count ) {
-			this.eventEmitter.trigger( 'core.ui_loaded' )
+			this.eventEmitter.trigger( 'core.all_ui_loaded' )
 		}
 
 	}

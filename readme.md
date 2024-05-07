@@ -72,7 +72,10 @@ To call a function you need to pass a JSON like this:
       "pass to your function",
       "if needed",
       "formated according",
-      "the function needs"
+      "the function needs",
+      "it can be a string, object...",
+      "do not need to be an array",
+      "like in this example"
    ]
 }
 ```
@@ -88,7 +91,10 @@ To call a method of a plugin integrated with the framework you need to pass a JS
       "pass to your method",
       "if needed",
       "formated according",
-      "the method needs"
+      "the method needs",
+      "it can be a string, object...",
+      "do not need to be an array",
+      "like in this example"
    ]
 }
 ```
@@ -112,9 +118,7 @@ responses:
 
 For now the **Hands for Chatbots** is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from the UIs. The core do not give to assistants the hability to "view" the screen and do things, unless this ability was built into a custom plugin.
 
-It uses concepts from Ports and Adapters (Hexagonal Architecture) and **Event-driven Architecture** through JavaScript triggers connecting the core to plugins / adapters.
-
-Important: the connection to back end are not event-driven, it uses a promise. The event-driven architecture is applyed at front end only.
+Internally, it uses concepts from Ports and Adapters (Hexagonal Architecture) and event triggers and listeners connects the core to plugins / adapters. To call external functions, we should call the function directly, it not depends on the internal architecture.
 
 ### Framework folder structure
 
@@ -285,7 +289,7 @@ The framework requires plugins that interacts with the core using events. Do tha
 The core triggers the following events:
 
 - **core.loaded**: the core and all plugins are loaded. You can use it to trigger actions as soon as everything is available.
-- **core.ui_loaded**: all the UI components, from all plugins, are available.
+- **core.all_ui_loaded**: all the UI components, from all plugins, are available.
 - **core.input_received**: the core receive a input after it was processed by the source plugin.
 - **core.output_ready**: the output received from an conversational framework or agent is available and will be sent to plugins that are listening to the trigger.
 - **core.history_added**: the chat / events history was updated.
