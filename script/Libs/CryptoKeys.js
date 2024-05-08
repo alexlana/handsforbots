@@ -122,7 +122,11 @@ export default class CryptoKeys {
 		let date = new Date()
 		date.setTime( date.getTime() + (min * 60 * 1000) )
 		const expires = "expires=" + date.toUTCString()
-		document.cookie = cName + "=" + encodeURIComponent( cValue ) + "; " + expires + "; path=/"
+		let secure = ""
+		if (location.protocol == 'https:') {
+			secure = "secure"
+		}
+		document.cookie = cName + "=" + encodeURIComponent( cValue ) + ";" + expires + ";path=/;" + secure
 
 	}
 
@@ -141,7 +145,6 @@ export default class CryptoKeys {
 	}
 
 	deleteCookie( name ) {
-alert(name)
 		if( this.getCookie( name ) ) {
 			document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 		}

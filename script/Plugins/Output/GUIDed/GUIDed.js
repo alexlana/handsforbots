@@ -60,6 +60,8 @@ export default class GUIDed {
 				{ input: 'thanx', nav_direction: 1 },
 				{ input: 'whats next', nav_direction: 1 },
 				{ input: 'more', nav_direction: 1 },
+				{ input: 'cool', nav_direction: 1 },
+				{ input: 'great', nav_direction: 1 },
 			],
 			'pt-pt': [
 				{ input: 'próximo', nav_direction: 1 },
@@ -82,6 +84,8 @@ export default class GUIDed {
 				{ input: 'obrigado', nav_direction: 1 },
 				{ input: 'o que mais', nav_direction: 1 },
 				{ input: 'mais', nav_direction: 1 },
+				{ input: 'legal', nav_direction: 1 },
+				{ input: 'ótimo', nav_direction: 1 },
 			],
 			'pt-br': [
 				{ input: 'próximo', nav_direction: 1 },
@@ -104,6 +108,8 @@ export default class GUIDed {
 				{ input: 'obrigado', nav_direction: 1 },
 				{ input: 'o que mais', nav_direction: 1 },
 				{ input: 'mais', nav_direction: 1 },
+				{ input: 'legal', nav_direction: 1 },
+				{ input: 'ótimo', nav_direction: 1 },
 			],
 		}
 		this.fuzzy_options = {

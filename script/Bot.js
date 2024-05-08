@@ -132,6 +132,18 @@ export default class Bot {
 		this.eventEmitter = new EventEmitter()
 
 		/**
+		 * Sync tabs / windows.
+		 */
+		this.bc = new BroadcastChannel( 'bot' )
+		this.bc.addEventListener( 'message', ( e )=>{
+			if ( e.data[0] == 'core.input_received' ) {
+				this.eventEmitter.trigger( 'core.other_window_input', [e.data[1]] )
+			} else if ( e.data[0] == 'core.output_ready' ) {
+				this.eventEmitter.trigger( 'core.other_window_output', [e.data[1]] )
+			}
+		})
+
+		/**
 		 * Back end assistant.
 		 */
 		this.registerBackend({
@@ -347,6 +359,9 @@ export default class Bot {
 		this.addToHistory( 'input', input.plugin, input.payload, input.title ) // add event to bot history
 		this.eventEmitter.trigger( 'core.input_received' )
 
+		let bc_input = ['core.input_received', input.payload]
+		this.bc.postMessage( bc_input )
+
 	}
 
 	/**
@@ -367,6 +382,9 @@ export default class Bot {
 		}
 		this.addToHistory( 'output', plugins, JSON.stringify( payload ) ) // add event to bot history
 		this.eventEmitter.trigger( 'core.output_ready', [payload] )
+
+		let bc_output = ['core.output_ready', payload]
+		this.bc.postMessage( bc_output )
 
 	}
 

@@ -53,9 +53,11 @@ export default class TextInput {
 				document.querySelector( '#chat_window input[type="submit"]' ).setAttribute( 'disabled', 'disabled' )
 			}
 		})
-
 		this.bot.eventEmitter.on( 'input_text.receiver', (response)=>{
 			this.receiver( response )
+		})
+		this.bot.eventEmitter.on( 'core.other_window_input', (payload)=>{
+			this.insertMessage( payload )
 		})
 
 		console.log( '[✔︎] Bot\'s text input connected.' )
@@ -74,10 +76,8 @@ export default class TextInput {
 			title = payload
 		if ( title.trim().length == 0 )
 			return
-		const chat_message = this.messageWrapper( title )
-		document.querySelector( '#inner_chat_body' ).append( chat_message )
 
-		this.setChatMarginTop()
+		this.insertMessage( title )
 
 		// disable user form while waiting for bot response
 		document.querySelector( '#chat_window' ).classList.add( 'waiting' )
@@ -87,6 +87,15 @@ export default class TextInput {
 		// send data to backend
 		this.bot.eventEmitter.trigger( 'core.input', [{'plugin':'Text', 'payload': payload, 'title': title}] )
 		this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'Text', 'payload': payload, 'trigger': 'input_text.receiver' }] )
+
+	}
+
+	insertMessage ( title ) {
+
+		const chat_message = this.messageWrapper( title )
+		document.querySelector( '#inner_chat_body' ).append( chat_message )
+
+		this.setChatMarginTop()
 
 	}
 

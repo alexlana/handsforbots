@@ -21,6 +21,9 @@ export default class TextOutput {
 		this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
 			this.output( payload )
 		})
+		this.bot.eventEmitter.on( 'core.other_window_output', (payload)=>{
+			this.insertMessage( payload, 'bot' )
+		})
 
 		console.log('[✔︎] Bot\'s text output connected.')
 
@@ -33,8 +36,6 @@ export default class TextOutput {
 	 */
 	async output ( payload, side = 'bot' ) {
 
-		let lazyness = 700 // in miliseconds
-
 		let temp = document.querySelectorAll( '.temp_message' )
 		if ( temp != undefined ) {
 			temp.forEach( ( obj )=>{
@@ -43,8 +44,17 @@ export default class TextOutput {
 			})
 		}
 
+		this.insertMessage( payload, side )
+
+	}
+
+	insertMessage ( payload, side ) {
+
+		let lazyness = 700 // in miliseconds
+
 		for ( var i in payload ) {
 			setTimeout( ( payload, i )=>{
+
 				if ( payload[i].text ) {
 					var chat_message = this.messageWrapper( payload[i].text, side, payload[i].recipient_id )
 					chat_message = chat_message
@@ -59,6 +69,7 @@ export default class TextOutput {
 				this.bot.inputs.Text.setChatMarginTop()
 
 			}, i*lazyness, payload, i)
+
 		}
 
 	}
