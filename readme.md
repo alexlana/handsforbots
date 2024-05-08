@@ -1,5 +1,6 @@
 # [•_•] Hands for Chatbots
 
+
 ## Quick start
 
 Once you have a back end assistant working, you can use one of the scripts bellow to start your bot interface using minimal configuration.
@@ -310,3 +311,9 @@ The core listen to the following events:
 - **core.action_success**: after call a function, get tool use result to send as a response to back end assistant.
 
 
+
+## License and notice
+
+[This project is released under MIT license](./LICENSE.md)
+
+[Grateful for the authors of these third-party libraries](./NOTICE.md)
