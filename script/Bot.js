@@ -16,6 +16,7 @@
 
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
+import CryptoKeys from './Libs/CryptoKeys.js'
 
 
 
@@ -110,10 +111,20 @@ export default class Bot {
 		/**
 		 * Storage to persist dialog during web navigation.
 		 */
-		this.botStorage = WebStorage.createInstance({
-		  driver: 'localStorage',
-		  keyPrefix: 'bot-storage/'
-		})
+		if ( this.options.storage_side != 'backend' ) {
+			this.botStorage = WebStorage.createInstance({
+				driver: 'localStorage',
+				keyPrefix: 'bot-storage/'
+			})
+		}
+
+		/**
+		 * Cryptography
+		 */
+		const workerUrl = new URL( './Libs/CriptoWorker.js', import.meta.url );
+		this.crypto_worker = new Worker( workerUrl, {type:'module'} );
+		this.crypto_keys = new CryptoKeys( 'cryptoKey', this.botStorage, this.session_timeout )
+
 
 		/**
 		 * Event emitter.
@@ -297,7 +308,7 @@ export default class Bot {
 			this[ plugin.type +'s' ][ plugin.plugin ].ui( plugin ) // load UI of plugin
 		}
 
-		this.rebuildHistory() // history of bot events and dialogs.
+		await this.rebuildHistory() // history of bot events and dialogs.
 		if ( this.history.length == 0 ) {
 			if ( this.presentation != undefined ) {
 				this.spreadOutput( this.presentation )
@@ -453,7 +464,7 @@ export default class Bot {
 	 * @param  Object 	obj 	P
 	 * @param  String	plugin	Plugin name.
 	 */
-	addToHistory ( type, plugin, payload, title = null ) {
+	async addToHistory ( type, plugin, payload, title = null ) {
 
 		if ( !type )
 			throw new Error( 'The parameter "type" (input or output) is required.' )
@@ -467,7 +478,11 @@ export default class Bot {
 
 		const d = new Date()
 		this.renewSession( d.getTime() )
-		this.botStorage.setItem( 'history', JSON.stringify( this.history ), error => { console.error(error) })
+
+	    const history_json = JSON.stringify( this.history )
+		const encrypted_history = await this.cryptography( history_json, 'encrypt' )
+
+		this.botStorage.setItem( 'history', encrypted_history, error => { console.error(error) })
 		this.botStorage.setItem( 'time', this.lastInteraction, error => { console.error(error) })
 
 		this.eventEmitter.trigger( 'core.history_added' )
@@ -478,16 +493,17 @@ export default class Bot {
 	 * Get history from storage.
 	 * @return void
 	 */
-	rebuildHistory () {
+	async rebuildHistory () {
 		const d = new Date()
-		const h = this.botStorage.getItem( 'history', error => { console.error(error) } )
 		const old_time = this.botStorage.getItem( 'time', error => { console.error(error) } )
 		this.renewSession( d.getTime() )
+		let h = this.botStorage.getItem( 'history', error => { console.error(error) } )
 		if ( h ) {
+			h = await this.cryptography( h, 'decrypt' )
 			if ( old_time && old_time < this.lastInteraction - (this.one_minute * this.session_timeout) ) {
 				this.clearStorage()
 			} else {
-				this.history = JSON.parse( h )
+				this.history = await JSON.parse( h )
 			}
 		} else {
 			this.history = []
@@ -607,6 +623,7 @@ export default class Bot {
 	 */
 	clearStorage () {
 
+		this.crypto_keys.destroyKey()
 		this.botStorage.removeItem( 'history' )
 		this.history = []
 		this.eventEmitter.trigger( 'core.history_cleared' )
@@ -694,4 +711,34 @@ export default class Bot {
 		this.quickStartVoice()
 
 	}
+
+	async cryptography ( data, action ) {
+
+		let key = null
+		try {
+			key = await this.crypto_keys.getKey()
+		} catch (e) {
+			this.clearStorage()
+			key = await this.crypto_keys.generateKey()
+		}
+
+		this.crypto_worker.postMessage({ data, action: action, key: key });
+
+		return new Promise( ( resolve, reject ) => {
+
+			this.crypto_worker.onmessage = ( event ) => {
+
+				if (event.data.error) {
+					reject( event.data.error );
+				} else {
+					resolve( event.data.result );
+				}
+
+			};
+
+		});
+
+	}
+
 }
+
