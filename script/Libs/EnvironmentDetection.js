@@ -2,6 +2,7 @@ export default class EnvironmentDetection {
 
   constructor ()  {}
 
+  // From: https://stackoverflow.com/questions/9847580/how-to-detect-safari-chrome-ie-firefox-and-opera-browsers
   whatBrowser () {
     if ((navigator.userAgent.indexOf("Opera") || navigator.userAgent.indexOf('OPR')) != -1) {
       return 'Opera'
@@ -21,6 +22,7 @@ export default class EnvironmentDetection {
     }
   }
 
+  // From: https://stackoverflow.com/questions/38241480/detect-macos-ios-windows-android-and-linux-os-with-js
   whatOS () {
 
     const userAgent = window.navigator.userAgent,
@@ -45,6 +47,7 @@ export default class EnvironmentDetection {
 
   }
 
+  // Adapted from here: https://stackoverflow.com/questions/11381673/detecting-a-mobile-browser
   whatDeviceType () {
 
     if( /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ) {

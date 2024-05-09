@@ -1,6 +1,3 @@
-import Bot from '../../Bot.js'
-
-
 /**
  * Contact RASA.
  */

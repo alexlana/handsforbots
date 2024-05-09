@@ -5,7 +5,7 @@
 
 Once you have a back end assistant working, you can use one of the scripts bellow to start your bot interface using minimal configuration.
 
-```
+```javascript
 // Init text chatbot using RASA as back end.
 
 import Bot from "./handsforbots/Bot.js";
@@ -22,7 +22,7 @@ const bot = new Bot( bot_settings );
 
 ```
 
-```
+```javascript
 // Init voice chatbot using RASA as back end.
 
 import Bot from "./handsforbots/Bot.js";
@@ -39,7 +39,7 @@ const bot = new Bot( bot_settings );
 
 ```
 
-```
+```javascript
 // Init text and voice chatbot using RASA as back end.
 
 import Bot from "./handsforbots/Bot.js";
@@ -60,21 +60,21 @@ There is a lot of other options, but if you define a `quick_start` option, a bac
 
 ### Custom commands / function calls
 
-This is the way we can interact with the front end. It is possible to navigate in a website, open an image gallery, set a marker on a map etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the framework core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the framework's features.
+This is the way the assistant can interact with the front end using tool calls. It is possible to navigate in a website, open an image gallery, set a marker on a map etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the framework core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the framework's features.
 
 To call a function you need to pass a JSON like this:
 
-```
+```json
 // Call an external, not framework dependant, function:
 {
-   "action":"FunctionName",
+   "action":"FunctionName", // use only the function name
    "params":[
       "params to",
       "pass to your function",
       "if needed",
-      "formated according",
-      "the function needs",
-      "it can be a string, object...",
+      "formatted according to",
+      "the needs of the function",
+      "'params' can be a string, object...",
       "do not need to be an array",
       "like in this example"
    ]
@@ -83,17 +83,17 @@ To call a function you need to pass a JSON like this:
 
 To call a method of a plugin integrated with the framework you need to pass a JSON like this:
 
-```
+```json
 // Call an external, not framework dependant, function:
 {
-   "action":"ClassName.MethodName",
+   "action":"ClassName.MethodName", // use class name and method name separated by a dot
    "params":[
       "params to",
       "pass to your method",
       "if needed",
-      "formated according",
-      "the method needs",
-      "it can be a string, object...",
+      "formatted according to",
+      "the needs of the method",
+      "'params' can be a string, object...",
       "do not need to be an array",
       "like in this example"
    ]
@@ -102,10 +102,9 @@ To call a method of a plugin integrated with the framework you need to pass a JS
 
 You can add the JSON, delimited by the symbols `[•` (on open), and `•]` (on close) at the end of the chatbot response.
 
-```
-// If you use RASA, this is an example:
-
-In your domain.yaml, at the response section:
+```yaml
+# If you use RASA, this is an example:
+# In your domain.yaml, at the response section:
 
 responses:
   utter_please_explain:
@@ -119,7 +118,7 @@ responses:
 
 For now the **Hands for Bots** is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from the UIs. The core do not give to assistants the hability to "view" the screen and do things, unless this ability was built into a custom plugin.
 
-Internally, it uses concepts from Ports and Adapters (Hexagonal Architecture) and event triggers and listeners connects the core to plugins / adapters. To call external functions, we should call the function directly, it not depends on the internal architecture.
+Internally, it uses concepts from Ports and Adapters (Hexagonal Architecture). Event triggers and listeners connects the core to plugins / adapters. To call external functions, we should call the function directly, this not depends on the internal architecture.
 
 ### Framework folder structure
 
@@ -196,7 +195,7 @@ In the file MyPluginName.js you need to export your class, and the class name ne
 
 ### Input plugins
 
-```
+```javascript
 // Input plugin example.
 
 export default class MyPlugin {
@@ -239,7 +238,7 @@ export default class MyPlugin {
 
 ### Output plugins
 
-```
+```javascript
 // Output plugin example.
 
 export default class MyPlugin {

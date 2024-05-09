@@ -667,8 +667,8 @@ export default class Bot {
 	quickStartText () {
 
 		let text_input_config = {
-		  plugin: "Text",
-		  type: "input",
+		  plugin: 'Text',
+		  type: 'input',
 		  start_open: true,
 		  no_css: false,
 		  autofocus: false,
@@ -676,8 +676,8 @@ export default class Bot {
 		this.options.core.push( text_input_config )
 
 		let text_output_config = {
-		  plugin: "Text",
-		  type: "output",
+		  plugin: 'Text',
+		  type: 'output',
 		}
 		this.options.core.push( text_output_config )
 
@@ -690,16 +690,16 @@ export default class Bot {
 	quickStartVoice () {
 
 		let VTT_ui_config = {
-		  plugin: "Voice",
-		  type: "input",
+		  plugin: 'Voice',
+		  type: 'input',
 		  prioritize_speech: false,
 		}
 		this.options.core.push( VTT_ui_config )
 
 		let voice_ui_config = {
-		  plugin: "Voice",
-		  type: "output",
-		  name: "Zarvox", // en-US
+		  plugin: 'Voice',
+		  type: 'output',
+		  name: 'Zarvox', // en-US
 		}
 		this.options.core.push( voice_ui_config )
 
@@ -712,8 +712,8 @@ export default class Bot {
 	quickStartToolCall () {
 
 		let bots_commands_config = {
-		  plugin: "BotsCommands",
-		  type: "output",
+		  plugin: 'BotsCommands',
+		  type: 'output',
 		}
 		this.options.core.push( bots_commands_config )
 
