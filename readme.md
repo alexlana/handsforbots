@@ -8,7 +8,7 @@ Once you have a back end assistant working, you can use one of the scripts bello
 ```
 // Init text chatbot using RASA as back end.
 
-import Bot from "./handsforchatbots/Bot.js";
+import Bot from "./handsforbots/Bot.js";
 
 let bot_settings = {
 
@@ -25,7 +25,7 @@ const bot = new Bot( bot_settings );
 ```
 // Init voice chatbot using RASA as back end.
 
-import Bot from "./handsforchatbots/Bot.js";
+import Bot from "./handsforbots/Bot.js";
 
 let bot_settings = {
 
@@ -42,7 +42,7 @@ const bot = new Bot( bot_settings );
 ```
 // Init text and voice chatbot using RASA as back end.
 
-import Bot from "./handsforchatbots/Bot.js";
+import Bot from "./handsforbots/Bot.js";
 
 let bot_settings = {
 

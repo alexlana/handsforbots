@@ -13,7 +13,7 @@ services:
     volumes:
       - ./vite/src:/usr/src/app/src
       - ./vite/static/img:/usr/src/app/static/img
-      - ./script:/usr/src/app/src/handsforchatbots
+      - ./script:/usr/src/app/src/handsforbots
     networks: ["t4bnet"]
     # links:
     #   - rasa
