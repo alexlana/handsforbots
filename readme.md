@@ -1,4 +1,4 @@
-# [•_•] Hands for Chatbots
+# [•_•] Hands for Bots
 
 
 ## Quick start
@@ -117,7 +117,7 @@ responses:
 
 ### Basic concepts
 
-For now the **Hands for Chatbots** is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from the UIs. The core do not give to assistants the hability to "view" the screen and do things, unless this ability was built into a custom plugin.
+For now the **Hands for Bots** is a conversational framework for browsers and give to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from the UIs. The core do not give to assistants the hability to "view" the screen and do things, unless this ability was built into a custom plugin.
 
 Internally, it uses concepts from Ports and Adapters (Hexagonal Architecture) and event triggers and listeners connects the core to plugins / adapters. To call external functions, we should call the function directly, it not depends on the internal architecture.
 
