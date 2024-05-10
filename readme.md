@@ -3,9 +3,9 @@
 <div align="center">
 <br />
 
-[![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-blue?style=social)]
+![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-blue?style=social)
 
-[![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-blue?style=social)]
+![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-blue?style=social)
 
 ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
 
