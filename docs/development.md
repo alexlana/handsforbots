@@ -1,5 +1,8 @@
 ##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social)](../README.md)
 
+
+##### [\[•_•\] Hands for Bots: home](../README.md)
+
 # Development
 
 ## Framework folder structure
