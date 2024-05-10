@@ -3,10 +3,9 @@
 <div align="center">
 <br />
 
-![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social) &nbsp; ![MIT License](https://img.shields.io/badge/MIT-license-green?style=for-the-badge)
+![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social)
 
-
-![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E) &nbsp; ![Docker](https://img.shields.io/badge/docker-%23323330.svg?style=for-the-badge&logo=docker&logoColor=%230db7ed)
+![MIT License](https://img.shields.io/badge/MIT-license-green?style=for-the-badge) &nbsp; ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E) &nbsp; ![Docker](https://img.shields.io/badge/docker-%23323330.svg?style=for-the-badge&logo=docker&logoColor=%230db7ed)
 
 😩 [![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
 
