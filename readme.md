@@ -7,7 +7,7 @@
 
 ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
 
-[![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
+😩 [![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
 
 </div>
 
