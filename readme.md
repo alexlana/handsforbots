@@ -3,6 +3,10 @@
 <div align="center">
 <br />
 
+[![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-blue?style=social)]
+
+[![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-blue?style=social)]
+
 ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)
 
 [![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
@@ -24,6 +28,10 @@ Internally, it uses concepts from Ports and Adapters (Hexagonal Architecture). E
 ## Acknowledgment
 
 Grateful for the authors of [these third-party libraries](./NOTICE.md)
+
+## Roadmap
+
+There is an intention to improve the quality of the Hands for Bots code and develop functionalities ready-to-use in virtual reality and conversational applications, perhaps even in wearable technologies.
 
 <hr>
 
