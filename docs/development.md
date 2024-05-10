@@ -1,4 +1,4 @@
-##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social): docs home](../README.md)
+##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) <br>docs home](../README.md)
 
 # Development
 
