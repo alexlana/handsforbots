@@ -3,9 +3,7 @@
 <div align="center">
 <br />
 
-[![made-with-javascript](https://img.shields.io/badge/Made%20with-JavaScript-1f425f.svg)](https://www.javascript.com)
-
-[![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots.svg)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
+[![made-with-javascript](https://img.shields.io/badge/Made%20with-JavaScript-1f425f.svg)](https://www.javascript.com) [![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
 
 </div>
 
@@ -23,6 +21,6 @@ Internally, it uses concepts from Ports and Adapters (Hexagonal Architecture). E
 
 ## License and notice
 
-[![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE)
+[![Licence](https://img.shields.io/github/license/alexlana/handsforbots?style=for-the-badge)](./LICENSE)
 
 [Grateful for the authors of these third-party libraries](./NOTICE.md)
