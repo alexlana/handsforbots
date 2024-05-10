@@ -3,7 +3,9 @@
 <div align="center">
 <br />
 
-[![made-with-javascript](https://img.shields.io/badge/Made%20with-JavaScript-1f425f.svg)](https://www.javascript.com) [![GitHub contributors](https://img.shields.io/github/contributors/handsforbots/badges.svg)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/)😥
+[![made-with-javascript](https://img.shields.io/badge/Made%20with-JavaScript-1f425f.svg)](https://www.javascript.com)
+
+[![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots.svg)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
 
 </div>
 
