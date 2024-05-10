@@ -3,7 +3,8 @@
 <div align="center">
 <br />
 
-![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social)
+![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social) &nbsp; ![MIT License](https://img.shields.io/badge/MIT-license-green?style=for-the-badge)
+
 
 ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E) &nbsp; ![Docker](https://img.shields.io/badge/docker-%23323330.svg?style=for-the-badge&logo=docker&logoColor=%230db7ed)
 
@@ -29,8 +30,4 @@ Grateful for the authors of [these third-party libraries](./NOTICE.md)
 ## Roadmap
 
 There is an intention to improve the quality of the Hands for Bots code and develop functionalities ready-to-use in virtual reality and conversational applications, perhaps even in wearable technologies.
-
-<hr>
-
-[![Licence](https://img.shields.io/github/license/Ileriayo/markdown-badges?style=for-the-badge)](./LICENSE.md)
 
