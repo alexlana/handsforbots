@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, user-scalable=no"
+        />
+
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+        <style>
+            nav {
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX( -50% );
+                width: 100%;
+                max-width: 1100px;
+                padding: 0 10px;
+                box-sizing: border-box;
+            }
+            nav button {
+                width: 50px;
+                height: 50px;
+                appearance: none;
+                border: none;
+                background: silver;
+                font-size: 25px;
+                color: white;
+                border-radius: 5px;
+                box-shadow: 0 0 5px rgba( 0, 0, 0, 0.2 );
+                box-sizing: border-box;
+                margin-right: 10px;
+                transition: 0.2s;
+            }
+            nav button:hover {
+                background: lightgray;
+            }
+        </style>
+
+        <title>Hands for Bots</title>
+    </head>
+    <body>
+        <nav>
+            <button id="save_button"><i class="fas fa-save"></i></button>
+            <button id="open_button"><i class="fas fa-folder-open"></i></button>
+        </nav>
+        <section id="chatbot"></section>
+        <script type="module" src="./guided-init.js"></script>
+
+    </body>
+</html>
