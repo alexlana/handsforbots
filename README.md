@@ -27,5 +27,5 @@ Grateful for the authors of [these third-party libraries](./NOTICE.md)
 
 ## Roadmap
 
-There is an intention to improve the quality of the Hands for Bots code and develop functionalities ready-to-use in virtual reality and conversational applications, perhaps even in wearable technologies.
+There is an intention to improve the quality of the Hands for Bots' code and develo ready-to-use features for virtual reality and conversational applications, perhaps even in wearable technologies. That's a long way off, but let's get it.
 
