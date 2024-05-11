@@ -1,4 +1,4 @@
-##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) <br>&lt;&lt; docs home](../README.md)
+##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) <br>&lt;&lt; docs' home](../README.md)
 
 # Development
 
@@ -54,7 +54,7 @@ To do:
 
 Create your plugin and place it in the `Plugins` folder under the folder of the appropriate plugin type (backend, input or output). Remember, if you want simple functions call, you do not need to create a new plugin, do a simple call (view more in *Functions call* section).
 
-## Custom plugin
+## Custom plugins
 
 You do not need to create a plugin to actions like "open a popup". In this case you can simple call a function (view more in *Functions call* section).
 
@@ -73,11 +73,11 @@ The **plugin name can only have letters and numbers**, no special characters is 
 
 In the file MyPluginName.js you need to export your class, and the class name need to be the same as the plugin folder and main file.
 
-## Backend plugins
+### Backend plugins
 
-## GUI plugins
+### GUI plugins
 
-## Input plugins
+### Input plugins
 
 ```javascript
 // Input plugin example.
@@ -120,7 +120,7 @@ export default class MyPlugin {
 }
 ```
 
-## Output plugins
+### Output plugins
 
 ```javascript
 // Output plugin example.

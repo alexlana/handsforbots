@@ -1,4 +1,4 @@
-##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) <br>&lt;&lt; docs home](../README.md)
+##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) <br>&lt;&lt; docs' home](../README.md)
 
 # Get started
 
@@ -21,7 +21,7 @@ When you are done, run in terminal:
 
 **Please, do not use it in production.** But you can play locally working on files at `./handsforbots/`, `./examples/vite/` and `./examples/rasa/`.
 
-If you work on RASA, you can train it and restart the RASA container:
+If you work on RASA, you can train it and restart the RASA container after run the `docker-compose` command according the above instructions:
 
 1. `docker exec -it t4b-bot sh`
 2. then `rasa train` inside the container
@@ -145,3 +145,4 @@ responses:
   - text: I can show you! [•{"action":"GUIDed.newGuide","params":[{"type":"modal","title":"Welcome to the guided tutorial","text":"This is the app interface. We want you to know all you can do here!","btn_next":"Let's start!"},{"type":"balloon","title":"Save your work","text":"This button is to save your work. Do not forget to save!","dom_element":"#save_button"},{"type":"balloon","title":"Open old work","text":"And this button is to open your old or in progress work.","dom_element":"#open_button"},{"type":"balloon","title":"Ask me","text":"If you have questions, ask me for more information.","dom_element":"#chat_input"},{"type":"balloon","title":"Ask me","text":"You can ask using your own voice too.","dom_element":"#speech_button"},{"type":"modal","title":"That's all!","text":"Ok! That's all, folks!","btn_previous":"<< Previous","btn_close":"Understood!"}]}•]
 
 ```
+
