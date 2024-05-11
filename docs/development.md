@@ -2,7 +2,7 @@
 
 # Development
 
-## Framework folder structure
+## Library folder structure
 
 ```
 .
@@ -40,27 +40,27 @@
    +- Output
 ```
 
-## Adapter types
+## Plugin types
 
-The framework have three adapter types:
-- **Backend:** connect the framework to chatbots, assistants, online chat APIs etc
+The library have three plugin types:
+- **Backend:** connect the library to chatbots, assistants, online chat APIs etc
 - **Input:** create ways to send data to the back end like text, voice and other
 - **Output:** create interfaces to show data from back end to the user like text, audio, images and other
 
 To do:
-- **GUI:** this adapters will load some visual framework like Botstrap, Material Design or other, and provide chatbot windows, mic button etc.
+- **GUI:** this plugins will load some visual framework like Botstrap, Material Design or other, and provide chatbot windows, mic button etc.
 
-## How to extend the framework
+## How to extend the library
 
-Create your plugin and place it in the `Plugins` folder under the folder of the appropriate adapter type (backend, input or output). Remember, if you want simple functions call, you do not need to create a new plugin, do a simple call (view more in *Functions call* section).
+Create your plugin and place it in the `Plugins` folder under the folder of the appropriate plugin type (backend, input or output). Remember, if you want simple functions call, you do not need to create a new plugin, do a simple call (view more in *Functions call* section).
 
 ## Custom plugin
 
 You do not need to create a plugin to actions like "open a popup". In this case you can simple call a function (view more in *Functions call* section).
 
-**When it is better to create a plugin**: if you want to interact with the conversation, access messages, use history... a plugin will be usefull. Explore the **GUIDed** plugin (`/Plugins/Output/GUIDed/`), this adapter can use the user messages to choose a tutorial and navigate through the tutorial.
+**When it is better to create a plugin**: if you want to interact with the conversation, access messages, use history... a plugin will be usefull. Explore the **GUIDed** plugin (`/Plugins/Output/GUIDed/`), this plugin can use the user messages to choose a tutorial and navigate through the tutorial.
 
-Your plugin need to be one of the three adapter types described on the beggining of this manual. If you want to create an experience involving user inputs **and** bot outputs you will need to create two plugins, one adapter for each end of interaction.
+Your plugin need to be one of the three plugin types described on the beggining of this manual. If you want to create an experience involving user inputs **and** bot outputs you will need to create two plugins, one plugin for each end of interaction.
 
 The plugin must have this minimum files/folder structure:
 ```
@@ -160,7 +160,7 @@ export default class MyPlugin {
 
 ## Events
 
-The framework requires plugins that interacts with the core using events. Do that to handle events:
+The library requires plugins that interacts with the core using events. Do that to handle events:
 
 1. receive the `bot` variable in your `constructor` method;
 2. save it in the `this.bot` variable. Then...
@@ -177,7 +177,7 @@ The core triggers the following events:
 - **core.input_received**: the core receive a input after it was processed by the source plugin.
 - **core.output_ready**: the output received from an conversational framework or agent is available and will be sent to plugins that are listening to the trigger.
 - **core.history_added**: the chat / events history was updated.
-- **core.history_loaded**: when the framework was started, the messages / events history was loaded from the storage.
+- **core.history_loaded**: when the library was started, the messages / events history was loaded from the storage.
 - **core.calling_backend**: the core is sending some information to the back end. You can use this event to show some "loading/waiting" component.
 - **core.backend_responded**: the core received the response from the back end.
 - **Custom event on back end response**: the core received the response from the back end and send the response to the plugin responsible for the input. The plugin want to send the custom event name and listen this event.

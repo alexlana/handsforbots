@@ -94,12 +94,12 @@ There is a lot of other options, but if you define a `quick_start` option, a bac
 
 ### Custom commands / function calls
 
-This is the way the assistant can interact with the front end using tool calls. It is possible to navigate in a website, open an image gallery, set a marker on a map etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the framework core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the framework's features.
+This is the way the assistant can interact with the front end using tool calls. It is possible to navigate in a website, open an image gallery, set a marker on a map etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the library core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the library's features.
 
 To call a function you need to pass a JSON like this:
 
 ```json
-// Call an external, not framework dependant, function:
+// Call an external, not library dependant, function:
 {
    "action":"FunctionName", // use only the function name
    "params":[
@@ -115,10 +115,10 @@ To call a function you need to pass a JSON like this:
 }
 ```
 
-To call a method of a plugin integrated with the framework you need to pass a JSON like this:
+To call a method of a plugin integrated with the library you need to pass a JSON like this:
 
 ```json
-// Call an external, not framework dependant, function:
+// Call an external, not library dependant, function:
 {
    "action":"ClassName.MethodName", // use class name and method name separated by a dot
    "params":[

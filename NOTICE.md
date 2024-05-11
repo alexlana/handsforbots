@@ -22,7 +22,7 @@ This software contains the following third-party libraries and frameworks:
 * License: MIT
 
 
-### Inside the Hands for Bots framework
+### Inside the Hands for Bots library
 
 **@georapbox/web-storage**
 
