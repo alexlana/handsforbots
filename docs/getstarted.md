@@ -1,5 +1,13 @@
 ##### [![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) <br>&lt;&lt; docs' home](../README.md)
 
+<div align="right">
+
+[![pt-BR](https://img.shields.io/badge/pt-BR-white)](./pt-br/getstarted.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](./getstarted.md)
+
+</div>
+
+
 # Get started
 
 ## Docker playgrounds
