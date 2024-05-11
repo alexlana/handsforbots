@@ -104,6 +104,8 @@ Existem muitas outras opções, mas se você definir uma opção `quick_start`, 
 
 Esta é a maneira como o assistente pode interagir com o front-end usando chamadas de ferramentas. É possível navegar em um site, abrir uma galeria de imagens, definir um marcador em um mapa etc. Você pode desenvolver uma função e então fazer o back-end chamá-la. <u>*Você não precisa integrar a função com o núcleo da biblioteca*</u>, ela será simplesmente chamada, então você não precisa trabalhar mais, a menos que queira aproveitar alguns dos recursos da biblioteca.
 
+Se você quiser chamar uma classe externa, crie uma função para isso e chame a função.
+
 Para chamar uma função, você precisa passar um JSON como este:
 
 ```json
@@ -149,8 +151,12 @@ Você pode adicionar o JSON, delimitado pelos símbolos `[•` (na abertura), e 
 # No seu domain.yaml, na seção de resposta:
 
 responses:
+  # essa resposta dispara o método "newGuide" do plugin "GUIDed". Você pode encontrar esse plugin em /Plugins/Output/GUIDed/.
   utter_please_explain:
   - text: Eu posso te mostrar! [•{"action":"GUIDed.newGuide","params":[{"type":"modal","title":"Bem-vindo ao tutorial guiado","text":"Esta é a interface do aplicativo. Queremos que você saiba tudo o que pode fazer aqui!","btn_next":"Vamos começar!"},{"type":"balloon","title":"Salve seu trabalho","text":"Este botão é para salvar seu trabalho. Não se esqueça de salvar!","dom_element":"#save_button"},{"type":"balloon","title":"Abra um trabalho antigo","text":"E este botão é para abrir seus trabalhos antigos ou em andamento.","dom_element":"#open_button"},{"type":"balloon","title":"Pergunte-me","text":"Se você tiver dúvidas, peça-me mais informações.","dom_element":"#chat_input"},{"type":"balloon","title":"Pergunte-me","text":"Você pode perguntar usando sua própria voz também.","dom_element":"#speech_button"},{"type":"modal","title":"É isso aí!","text":"Ok! É isso aí, pessoal!","btn_previous":"<< Anterior","btn_close":"Entendi!"}]}•]
+  # essa resposta dispara a função "stop_doomsday_clock()" externa à biblioteca.
+  utter_please_explain:
+  - text: Stopping the Doomsday Clock... [•{"action":"stop_doomsday_clock","params":"Você salvou o dia!"}•]
 
 ```
 

@@ -11,7 +11,7 @@
 
 ![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social)
 
-[![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)](https://www.javascript.com) &nbsp; [![MIT License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge&color=%23750014)](./LICENSE.md) &nbsp; [![GitHub Repo](https://img.shields.io/badge/github-%23323330.svg?style=for-the-badge&logo=github&logoColor=%23FFFFFF)](https://github.com/alexlana/handsforbots)
+[![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)](https://www.javascript.com) &nbsp; [![MIT License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge&color=%23750014)](../../LICENSE.md) &nbsp; [![GitHub Repo](https://img.shields.io/badge/github-%23323330.svg?style=for-the-badge&logo=github&logoColor=%23FFFFFF)](https://github.com/alexlana/handsforbots)
 
 😩 [![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/) 😥
 

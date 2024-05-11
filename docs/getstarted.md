@@ -104,6 +104,8 @@ There is a lot of other options, but if you define a `quick_start` option, a bac
 
 This is the way the assistant can interact with the front end using tool calls. It is possible to navigate in a website, open an image gallery, set a marker on a map etc. You can develop a function and then make the back end call it. <u>*You don't need to integrate the function with the library core*</u>, it will be simple called, so you don't need to work harder, unless you want to take advantage of some of the library's features.
 
+If you want to call an external class, create a function to do it and call the function.
+
 To call a function you need to pass a JSON like this:
 
 ```json
@@ -149,8 +151,12 @@ You can add the JSON, delimited by the symbols `[•` (on open), and `•]` (on 
 # In your domain.yaml, at the response section:
 
 responses:
+  # this response triggers the method "newGuide" from the plugin "GUIDed". You can find this plugin in /Plugins/Output/GUIDed/.
   utter_please_explain:
   - text: I can show you! [•{"action":"GUIDed.newGuide","params":[{"type":"modal","title":"Welcome to the guided tutorial","text":"This is the app interface. We want you to know all you can do here!","btn_next":"Let's start!"},{"type":"balloon","title":"Save your work","text":"This button is to save your work. Do not forget to save!","dom_element":"#save_button"},{"type":"balloon","title":"Open old work","text":"And this button is to open your old or in progress work.","dom_element":"#open_button"},{"type":"balloon","title":"Ask me","text":"If you have questions, ask me for more information.","dom_element":"#chat_input"},{"type":"balloon","title":"Ask me","text":"You can ask using your own voice too.","dom_element":"#speech_button"},{"type":"modal","title":"That's all!","text":"Ok! That's all, folks!","btn_previous":"<< Previous","btn_close":"Understood!"}]}•]
+  # this response triggers the function "stop_doomsday_clock()" outside the library.
+  utter_please_explain:
+  - text: Stopping the Doomsday Clock... [•{"action":"stop_doomsday_clock","params":"You saved the day!"}•]
 
 ```
 

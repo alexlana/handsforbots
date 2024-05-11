@@ -50,17 +50,22 @@ export default class BotsCommandsOutput {
 				 */
 				let command = JSON.parse( obj.do )
 
-				const classMethod = command.action.split('.')
+				let fn = window[ command.action ];
+				if ( !fn ) {
 
-				if ( !this.bot.outputs[ classMethod[0] ] )
-					return
+					const classMethod = command.action.split( '.' );
+					if (this.bot.outputs[ classMethod[0] ] && classMethod.length === 2) {
+						fn = this.bot.outputs[ classMethod[0] ][ classMethod[1] ];
+					}
 
-				let ret;
-				if ( this.bot.outputs[ classMethod[0] ] != undefined && classMethod.length == 2 ) {
-					ret = this.bot.outputs[ classMethod[0] ][ classMethod[1] ]( command.params )
-				} else {
-					ret = window[ classMethod[0] ]( command.params )
 				}
+
+				if (!fn) {
+					console.warn( `Can not find function "${command.action}".` );
+					return;
+				}
+
+				let ret = fn( command.params );
 
 				if ( ret ) {
 					ret.then(( result )=>{
