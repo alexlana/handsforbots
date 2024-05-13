@@ -109,9 +109,10 @@ Se você quiser chamar uma classe externa, crie uma função para isso e chame a
 Para chamar uma função, você precisa passar um JSON como este:
 
 ```json
-// Chamar uma função externa, não dependente da biblioteca:
 {
-   "action":"FunctionName", // use apenas o nome da função
+   "Comments": "Para chamar uma função externa, não dependente da biblioteca (comentários como esse serão ignorados pela lib):",
+   "Comment_about_action": "Em 'action' use apenas o nome da função",
+   "action":"FunctionName",
    "params":[
       "params to",
       "pass to your function",
@@ -128,9 +129,10 @@ Para chamar uma função, você precisa passar um JSON como este:
 Para chamar um método de um plugin integrado com a biblioteca, você precisa passar um JSON como este:
 
 ```json
-// Chamar uma função externa, não dependente da biblioteca:
 {
-   "action":"ClassName.MethodName", // use o nome da classe e o nome do método separados por um ponto
+   "Comments": "Para uma classe externa, não dependente da biblioteca (comentários como esse serão ignorados pela lib):",
+   "Comment_about_action": "Em 'action' use o nome da classe e o nome do método separados por um ponto",
+   "action":"ClassName.MethodName",
    "params":[
       "params to",
       "pass to your method",

@@ -17,7 +17,7 @@
 
 </div>
 
-Por enquanto, a **Hands for Bots** é uma biblioteca de interface de usuário conversacional para navegadores. Ele dá aos chatbots / assistentes a habilidade de interagir com a GUI e outras interfaces de usuário através da chamada de funções e receber entradas das interfaces de usuário. 
+Por enquanto, a **Hands for Bots** é uma biblioteca de interface conversacional de usuário para navegadores. Ela dá aos chatbots / assistentes a habilidade de interagir com a GUI e outras interfaces de usuário através da chamada de funções e receber entradas das interfaces de usuário. 
 
 Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um alto nível de flexibilidade, modularidade e extensibilidade para construir o front-end de chatbots. Gatilhos de eventos e ouvintes conectam o núcleo aos plugins. Para chamar funções externas, devemos chamar a função diretamente, isso não depende da arquitetura interna.
 

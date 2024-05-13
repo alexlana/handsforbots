@@ -33,7 +33,7 @@ If you work on RASA, you can train it and restart the RASA container after run t
 
 1. `docker exec -it t4b-bot sh`
 2. then `rasa train` inside the container
-3. when the model was trained, run `exit`
+3. when model training ends, run `exit`
 4. `docker rm -f t4b-bot`
 5. `docker-compose up -d`
 
@@ -109,9 +109,10 @@ If you want to call an external class, create a function to do it and call the f
 To call a function you need to pass a JSON like this:
 
 ```json
-// Call an external, not library dependant, function:
 {
-   "action":"FunctionName", // use only the function name
+   "Comments": "To call an external, not library dependant, function (comments like this will be ignored by the lib):",
+   "Comment_about_action": "At 'action' use only the function name",
+   "action":"FunctionName",
    "params":[
       "params to",
       "pass to your function",
@@ -128,9 +129,10 @@ To call a function you need to pass a JSON like this:
 To call a method of a plugin integrated with the library you need to pass a JSON like this:
 
 ```json
-// Call an external, not library dependant, function:
 {
-   "action":"ClassName.MethodName", // use class name and method name separated by a dot
+   "Comments": "To call an external, not library dependant, class (comments like this will be ignored by the lib):",
+   "Comment_about_action": "At 'action' use class name and method name separated by a dot",
+   "action":"ClassName.MethodName",
    "params":[
       "params to",
       "pass to your method",
