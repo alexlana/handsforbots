@@ -1,4 +1,4 @@
-<div align="center"><img src="./hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
+<div align="center"><img src="../hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
 
 <div align="right">
 
@@ -27,6 +27,21 @@ Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um a
 
 - [Começar](./getstarted.md)
 - [Desenvolvimento](./development.md)
+- [Core](./core.md)
+  - [Backend](./core/backend.md)
+	- [RASA](./core/backend/rasa.md)
+	- [OpenAI](./core/backend/openai.md)
+  - [Input](./core/input.md)
+	- [Texto](./core/input/text.md)
+	- [Voz](./core/input/voice.md)
+	- [Poke](./core/input/poke.md)
+  - [Output](./core/output.md)
+	- [Bots Commands](./core/output/botscommands.md)
+	- [Texto](./core/output/text.md)
+	- [Voz](./core/output/voice.md)
+- [Plugins](./plugins.md)
+  - [GUIDed](./plugins/guided.md)
+- [Eventos](./events.md)
 
 ## Agradecimento
 

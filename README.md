@@ -1,4 +1,4 @@
-<div align="center"><img src="./hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
+<div align="center"><img src="./docs/hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
 
 <div align="right">
 
@@ -25,8 +25,25 @@ Hands for Bots uses a modular archtecture based on plugins to grant a high level
 
 ## Table of contents
 
-- [Get started](./docs/getstarted.md)
-- [Development](./docs/development.md)
+- [Get started](./docs/en-us/getstarted.md)
+- [Development](./docs/en-us/development.md)
+- [Core](./docs/en-us/core.md)
+  - [Backend](./docs/en-us/core/backend.md)
+	- [RASA](./docs/en-us/core/backend/rasa.md)
+	- [OpenAI](./docs/en-us/core/backend/openai.md)
+  - [Input](./docs/en-us/core/input.md)
+	- [Text](./docs/en-us/core/input/text.md)
+	- [Voice](./docs/en-us/core/input/voice.md)
+	- [Poke](./docs/en-us/core/input/poke.md)
+  - [Output](./docs/en-us/core/output.md)
+	- [Bots Commands](./docs/en-us/core/output/botscommands.md)
+	- [Text](./docs/en-us/core/output/text.md)
+	- [Voice](./docs/en-us/core/output/voice.md)
+- [Plugins](./docs/en-us/plugins.md)
+  - [GUIDed](./docs/en-us/plugins/guided.md)
+- [Events](./docs/en-us/events.md)
+
+
 
 ## Acknowledgment
 
