@@ -8,10 +8,23 @@
 </div>
 
 
-# Plugin de Backend RASA
+# Plugin de Entrada Poke
 
 
-O plugin de backend RASA conecta o Hands for Bots a um servidor RASA, permitindo que seu aplicativo da web interaja com um chatbot alimentado por RASA. Este plugin lida com a comunicação entre seu front-end e o servidor RASA, enviando mensagens do usuário e recebendo as respostas do chatbot.
+O plugin de entrada Poke fornece um mecanismo para engajar proativamente os usuários ou acionar ações com base em diversos eventos ou condições dentro de sua aplicação web. Este plugin atua como uma forma para sua aplicação "cutucar" o chatbot, incentivando-o a responder ou iniciar comportamentos específicos.
+
+
+## Propósito
+
+
+O plugin Poke é útil para:
+
+
+- **Manter o Fluxo da Conversa:** Incentivar o chatbot a sugerir tópicos ou re-engajar os usuários após períodos de inatividade.
+
+- **Reagir a Ações do Usuário:** Acionar respostas do chatbot com base em interações do usuário com sua aplicação web, como clicar em um botão, completar um formulário ou alcançar um determinado ponto em um processo.
+
+- **Entregar Mensagens Temporizadas:** Mostrar mensagens aos usuários em horários ou intervalos específicos.
 
 
 ## Referência da API
@@ -22,7 +35,7 @@ O plugin de backend RASA conecta o Hands for Bots a um servidor RASA, permitindo
 
 ```javascript
 
-constructor(bot, options) 
+constructor(bot)
 
 ```
 
@@ -32,21 +45,19 @@ constructor(bot, options)
 
 - `bot`: A instância inicializada da classe `Bot`.
 
-- `options`: Um objeto contendo opções de configuração:
-  - `endpoint`: (Obrigatório) A URL do endpoint do webhook REST do seu servidor RASA.
 
 ### Métodos
 
 
-#### `send(plugin, payload)`
+#### `input(payload)`
 
 
-Envia uma mensagem do usuário para o servidor RASA e retorna a resposta do chatbot.
+Coloca na fila um payload "poke" e o envia para o mecanismo de backend quando o backend estiver disponível.
 
 
 ```javascript
 
-async send(plugin = false, payload)
+input(payload)
 
 ```
 
@@ -54,46 +65,35 @@ async send(plugin = false, payload)
 **Parâmetros:**
 
 
-- `plugin`: (Opcional) O nome do plugin que envia a mensagem. O padrão é `false`.
+- `payload`: Um objeto contendo informações sobre o poke. A estrutura deste payload é flexível e pode ser definida com base nas necessidades de sua aplicação. Propriedades comuns podem incluir:
+  - `time`: Um timestamp ou intervalo de tempo.
+  - `event`: O nome de um evento que acionou o poke.
+  - `target_type`: O tipo de alvo (por exemplo, 'plugin', 'função').
+  - `target_plugin`: O nome de um plugin ou função específico.
+  - `parameters`: Quaisquer dados adicionais relevantes ao poke.
 
-- `payload`: A mensagem do usuário como uma string.
+#### `receiver(response)`
 
 
-**Valor de Retorno:**
+Trata a resposta do mecanismo de backend e aciona plugins de saída para exibir a resposta ao usuário.
 
 
-- Uma Promise que se resolve em uma matriz de objetos representando as respostas do chatbot. Cada objeto de resposta segue o formato:
+```javascript
 
-
-```json
-
-{
-  "recipient_id": "sender_id", // O remetente da mensagem (geralmente o ID do chatbot)
-  "text": "Texto de resposta",       // O conteúdo de texto da resposta
-  "image": "image_url",        // URL de uma imagem (opcional)
-  "buttons": [                   // Matriz de botões (opcional)
-    { "title": "Texto do Botão", "payload": "carga útil do botão" },
-    // ...
-  ]
-}
+receiver(response)
 
 ```
 
 
-#### `receive(payload)`
+**Parâmetros:**
 
 
-Este método não é usado atualmente pelo plugin de backend RASA. É um espaço reservado para potenciais melhorias futuras.
+- `response`: A resposta do mecanismo de backend.
 
 
-#### `imagesFirst(bot_dt)`
+#### `ui(options)`
 
 
-Método interno que reordena as respostas do bot, colocando as respostas de imagem antes das respostas de texto.  
+Este método atualmente não cria nenhum elemento de UI, pois os gatilhos de poke são normalmente iniciados por eventos ou condições dentro de sua aplicação web. 
 
-
-#### `actionSuccess(response)`
-
-
-Este método não é usado atualmente pelo plugin de backend RASA. É um espaço reservado para potenciais melhorias futuras relacionadas a ações personalizadas.
 

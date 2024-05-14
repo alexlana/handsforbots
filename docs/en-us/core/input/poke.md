@@ -8,90 +8,90 @@
 </div>
 
 
-  # Poke Input Plugin
+# Poke Input Plugin
 
 
-  The Poke input plugin provides a mechanism to proactively engage users or trigger actions based on various events or conditions within your web application. This plugin acts as a way for your application to "poke" the chatbot, prompting it to respond or initiate specific behaviors. 
+The Poke input plugin provides a mechanism to proactively engage users or trigger actions based on various events or conditions within your web application. This plugin acts as a way for your application to "poke" the chatbot, prompting it to respond or initiate specific behaviors. 
 
 
-  ## Purpose
+## Purpose
 
 
-  The Poke plugin is useful for:
+The Poke plugin is useful for:
 
 
-  - **Maintaining Conversation Flow:** Prompting the chatbot to suggest topics or re-engage users after periods of inactivity.
+- **Maintaining Conversation Flow:** Prompting the chatbot to suggest topics or re-engage users after periods of inactivity.
 
-  - **Reacting to User Actions:** Triggering chatbot responses based on user interactions with your web application, such as clicking a button, completing a form, or reaching a certain point in a process.
+- **Reacting to User Actions:** Triggering chatbot responses based on user interactions with your web application, such as clicking a button, completing a form, or reaching a certain point in a process.
 
-  - **Delivering Timed Messages:** Displaying messages to users at specific times or intervals.
-
-
-  ## API Reference
+- **Delivering Timed Messages:** Displaying messages to users at specific times or intervals.
 
 
-  ### Constructor
+## API Reference
 
 
-  ```javascript
-
-  constructor(bot)
-
-  ```
+### Constructor
 
 
-  **Parameters:**
+```javascript
+
+constructor(bot)
+
+```
 
 
-  - `bot`: The initialized instance of the `Bot` class.
+**Parameters:**
 
 
-  ### Methods
+- `bot`: The initialized instance of the `Bot` class.
 
 
-  #### `input(payload)`
+### Methods
 
 
-  Queues a "poke" payload and sends it to the backend engine when the backend is available.
+#### `input(payload)`
 
 
-  ```javascript
-
-  input(payload)
-
-  ```
+Queues a "poke" payload and sends it to the backend engine when the backend is available.
 
 
-  **Parameters:**
+```javascript
+
+input(payload)
+
+```
 
 
-  - `payload`:  An object containing information about the poke. The structure of this payload is flexible and can be defined based on your application's needs. Common properties might include: 
-    - `time`: A timestamp or time interval. 
-    - `event`: The name of an event that triggered the poke.
-    - `target_type`: The type of target (e.g., 'plugin', 'function'). 
-    - `target_plugin`: The name of a specific plugin or function. 
-    - `parameters`: Any additional data relevant to the poke.
-
-  #### `receiver(response)`
+**Parameters:**
 
 
-  Handles the response from the backend engine and triggers output plugins to display the response to the user.
+- `payload`:  An object containing information about the poke. The structure of this payload is flexible and can be defined based on your application's needs. Common properties might include: 
+  - `time`: A timestamp or time interval. 
+  - `event`: The name of an event that triggered the poke.
+  - `target_type`: The type of target (e.g., 'plugin', 'function'). 
+  - `target_plugin`: The name of a specific plugin or function. 
+  - `parameters`: Any additional data relevant to the poke.
+
+#### `receiver(response)`
 
 
-  ```javascript
-
-  receiver(response)
-
-  ```
+Handles the response from the backend engine and triggers output plugins to display the response to the user.
 
 
-  **Parameters:**
+```javascript
+
+receiver(response)
+
+```
 
 
-  - `response`: The response from the backend engine. 
+**Parameters:**
 
 
-  #### `ui(options)`
+- `response`: The response from the backend engine. 
 
 
-  This method currently does not create any UI elements, as poke triggers are typically initiated by events or conditions within your web application. 
+#### `ui(options)`
+
+
+This method currently does not create any UI elements, as poke triggers are typically initiated by events or conditions within your web application. 
