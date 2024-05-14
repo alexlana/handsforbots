@@ -3,7 +3,7 @@
 <div align="right">
 
 [![pt-BR](https://img.shields.io/badge/pt-BR-white)](./rasa.md)
-[![en-US](https://img.shields.io/badge/en-US-white)](../../en-us/core/backend/rasa.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](../../../en-us/core/backend/rasa.md)
 
 </div>
 

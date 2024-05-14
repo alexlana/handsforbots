@@ -3,7 +3,7 @@
 <div align="right">
 
 [![pt-BR](https://img.shields.io/badge/pt-BR-white)](./voice.md)
-[![en-US](https://img.shields.io/badge/en-US-white)](../../en-us/core/output/voice.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](../../../en-us/core/output/voice.md)
 
 </div>
 

@@ -3,7 +3,7 @@
 <div align="right">
 
 [![pt-BR](https://img.shields.io/badge/pt-BR-white)](./poke.md)
-[![en-US](https://img.shields.io/badge/en-US-white)](../../en-us/core/input/poke.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](../../../en-us/core/input/poke.md)
 
 </div>
 

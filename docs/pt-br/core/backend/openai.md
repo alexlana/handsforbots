@@ -3,7 +3,7 @@
 <div align="right">
 
 [![pt-BR](https://img.shields.io/badge/pt-BR-white)](./openai.md)
-[![en-US](https://img.shields.io/badge/en-US-white)](../../en-us/core/backend/openai.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](../../../en-us/core/backend/openai.md)
 
 </div>
 
