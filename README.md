@@ -1,4 +1,4 @@
-# [•_•] Hands for Bots
+<div align="center"><img src="./hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
 
 <div align="right">
 
@@ -17,9 +17,9 @@
 
 </div>
 
-For now the **Hands for Bots** is a conversational UI library for browsers. It gives to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from the UIs. 
+For now the **Hands for Bots** is a hybrid conversational UI library for browsers. This means that graphic, sound and other inputs and outputs can be present. It gives to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from diferent UIs.
 
-Hands for Bots uses a modular archtecture based on plugins to grant a high level of flexibility, modularity and extensibility to build chatbots' front end. Event triggers and listeners connects the core to plugins. To call external functions, we should call the function directly, this not depends on the internal architecture.
+Hands for Bots uses a modular archtecture based on plugins to grant a high level of flexibility, modularity and extensibility to build chatbot's front end. Event triggers and listeners connects the core to plugins. To call external functions, we should call the function directly, this not depends on the internal architecture.
 
 **Important:** this library don't give to assistants the hability to "view" the screen and do things in your computer.
 
@@ -30,7 +30,7 @@ Hands for Bots uses a modular archtecture based on plugins to grant a high level
 
 ## Acknowledgment
 
-Grateful for the authors of [these third-party libraries](./NOTICE.md)
+Grateful for the authors of [these third-party libraries and frameworks](./NOTICE.md)
 
 ## Roadmap
 

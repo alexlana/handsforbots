@@ -1,4 +1,4 @@
-# [•_•] Hands for Bots
+<div align="center"><img src="./hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
 
 <div align="right">
 
@@ -17,7 +17,7 @@
 
 </div>
 
-Por enquanto, a **Hands for Bots** é uma biblioteca de interface conversacional de usuário para navegadores. Ela dá aos chatbots / assistentes a habilidade de interagir com a GUI e outras interfaces de usuário através da chamada de funções e receber entradas das interfaces de usuário. 
+Por enquanto, a **Hands for Bots** é uma biblioteca de UI conversacional híbrida para navegadores. Isso quer dizer que inputs e outputs gráficos, sonoros e outros podem estar presentes. Ela dá aos chatbots / assistentes a habilidade de interagir com a GUI e outras interfaces de usuário através da chamada de funções e receber entradas de diferentes UIs. 
 
 Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um alto nível de flexibilidade, modularidade e extensibilidade para construir o front-end de chatbots. Gatilhos de eventos e ouvintes conectam o núcleo aos plugins. Para chamar funções externas, devemos chamar a função diretamente, isso não depende da arquitetura interna.
 
@@ -30,7 +30,7 @@ Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um a
 
 ## Agradecimento
 
-Grato pelos autores [destas bibliotecas de terceiros](./NOTICE.md)
+Grato pelos autores [destas bibliotecas e frameworks de terceiros](./NOTICE.md)
 
 ## Roadmap
 

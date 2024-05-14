@@ -3,162 +3,317 @@
 <div align="right">
 
 [![pt-BR](https://img.shields.io/badge/pt-BR-white)](./getstarted.md)
-[![en-US](https://img.shields.io/badge/en-US-white)](../getstarted.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](../en-us/getstarted.md)
 
 </div>
 
+ # Começando com Hands for Bots
 
-# Começando
+ Bem-vindo ao Hands for Bots, uma poderosa biblioteca JavaScript para criar interfaces de usuário conversacionais híbridas, que unem componentes conversacionais, gráficos e outros. Este guia irá guiá-lo pelos fundamentos da configuração e uso do Hands for Bots em seus projetos web.
 
-## Ambientes Docker
 
-Se você tem o Docker instalado, você pode simplesmente:
+ ## Início Rápido
 
-- [baixar o repositório](https://github.com/alexlana/handsforbots)
-- usando o terminal, entre na pasta `./handsforbots/examples/`
-- execute `docker-compose up -d`
-- acesse [http://localhost/](http://localhost/) em seu navegador
 
-Quando terminar, execute no terminal:
+ Hands for Bots simplifica o processo de integração de interfaces conversacionais com configuração mínima. Todas as opções de início rápido ativam o plugin de chamadas de função. Vamos mergulhar em alguns exemplos de início rápido:
 
-- `docker rm -f t4b-duckling`
-- `docker rm -f t4b-actions`
-- `docker rm -f t4b-bot`
-- `docker rm -f t4b-vite`
-- `docker rm -f t4b-webserver`
 
-**Por favor, não use isso em produção.** Mas você pode brincar localmente trabalhando nos arquivos em `./handsforbots/`, `./examples/vite/` and `./examples/rasa/`.
+ ### Chatbot de Texto com RASA
 
-Se você trabalha com RASA, você pode treiná-lo e reiniciar o contêiner RASA após rodar o `docker-compose` conforme instruções acima:
 
-1. `docker exec -it t4b-bot sh`
-2. então `rasa train` dentro do contêiner
-3. quando o modelo foi treinado, execute `exit`
-4. `docker rm -f t4b-bot`
-5. `docker-compose up -d`
+ Este exemplo configura um chatbot baseado em texto usando o RASA como o mecanismo conversacional de back-end:
 
-Seu chatbot será atualizado e o modelo será salvo fora do contêiner Docker em `./examples/rasa/models/`.
 
-## Início rápido
+ ```javascript
 
-Uma vez que você tenha um assistente de back-end funcionando, você pode usar um dos scripts abaixo para iniciar sua interface de bot usando configuração mínima.
+ import Bot from "./handsforbots/Bot.js";
 
-### Vanila JavaScript
 
-Baixe a versão que você quer usar, descompacte, copie para o seu projeto e você pode usar algumas das opções de início rápido:
-
-```javascript
-// Inicia chatbot de texto usando RASA como back-end.
-
-import Bot from "./handsforbots/Bot.js";
-
-let bot_settings = {
-
-   quick_start: "text"
-
+ let bot_settings = {
+   quick_start: "text", 
    engine: "rasa",
-   language: "en-US",
-   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
-};
-const bot = new Bot( bot_settings );
+   language: "pt-BR",
+   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook", 
+ };
 
-```
 
-```javascript
-// Inicia chatbot de voz usando RASA como back-end.
+ const bot = new Bot(bot_settings);
 
-import Bot from "./handsforbots/Bot.js";
+ ```
 
-let bot_settings = {
 
-   quick_start: "voice"
+ **Explicação:**
 
+
+ - `quick_start: "text"`: Esta opção instrui o Hands for Bots a incluir automaticamente os plugins principais de entrada e saída de texto, criando uma interface básica de bate-papo por texto.
+
+ - `engine: "rasa"`: Especifica o RASA como o mecanismo de back-end.
+
+ - `language: "pt-BR"`: Define o idioma para a interface do chatbot. *Isso não se trata do idioma dos assistentes de back-end.*
+
+ - `engine_endpoint`: Neste exemplo, a URL do endpoint do webhook REST do seu servidor RASA.
+
+
+ ### Chatbot de Voz com RASA
+
+
+ Veja como você pode criar um chatbot habilitado para voz usando o RASA:
+
+
+ ```javascript
+
+ import Bot from "./handsforbots/Bot.js";
+
+
+ let bot_settings = {
+   quick_start: "voice", 
    engine: "rasa",
-   language: "en-US",
-   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
-};
-const bot = new Bot( bot_settings );
+   language: "pt-BR",
+   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook", 
+ };
 
-```
 
-```javascript
-// Inicia chatbot de texto e voz usando RASA como back-end.
+ const bot = new Bot(bot_settings);
 
-import Bot from "./handsforbots/Bot.js";
+ ```
 
-let bot_settings = {
 
-   quick_start: "text_and_voice"
+ **Explicação:**
 
+
+ - `quick_start: "voice"`: Hands for Bots inclui automaticamente os plugins principais de entrada e saída de voz.
+
+ - O restante das configurações é idêntico ao exemplo de chatbot de texto.
+
+
+ ### Chatbot de Texto e Voz com RASA
+
+
+ Para combinar recursos de texto e voz:
+
+
+ ```javascript
+
+ import Bot from "./handsforbots/Bot.js";
+
+
+ let bot_settings = {
+   quick_start: "text_and_voice",
    engine: "rasa",
-   language: "en-US",
-   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
-};
-const bot = new Bot( bot_settings );
+   language: "pt-BR",
+   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook", 
+ };
 
-```
 
-Existem muitas outras opções, mas se você definir uma opção `quick_start`, um assistente de back-end (engine) e um idioma, você pode começar a testar.
+ const bot = new Bot(bot_settings);
 
-### Comandos personalizados / chamadas de funções
+ ```
 
-Esta é a maneira como o assistente pode interagir com o front-end usando chamadas de ferramentas. É possível navegar em um site, abrir uma galeria de imagens, definir um marcador em um mapa etc. Você pode desenvolver uma função e então fazer o back-end chamá-la. <u>*Você não precisa integrar a função com o núcleo da biblioteca*</u>, ela será simplesmente chamada, então você não precisa trabalhar mais, a menos que queira aproveitar alguns dos recursos da biblioteca.
 
-Se você quiser chamar uma classe externa, crie uma função para isso e chame a função.
+ **Explicação:**
 
-Para chamar uma função, você precisa passar um JSON como este:
 
-```json
-{
-   "Comments": "Para chamar uma função externa, não dependente da biblioteca (comentários como esse serão ignorados pela lib):",
-   "Comment_about_action": "Em 'action' use apenas o nome da função",
-   "action":"FunctionName",
-   "params":[
-      "params to",
-      "pass to your function",
-      "if needed",
-      "formatted according to",
-      "the needs of the function",
-      "'params' can be a string, object...",
-      "do not need to be an array",
-      "like in this example"
-   ]
-}
-```
+ - `quick_start: "text_and_voice"`: Hands for Bots incluirá os plugins de texto e voz, fornecendo uma CUI abrangente.
 
-Para chamar um método de um plugin integrado com a biblioteca, você precisa passar um JSON como este:
 
-```json
-{
-   "Comments": "Para uma classe externa, não dependente da biblioteca (comentários como esse serão ignorados pela lib):",
-   "Comment_about_action": "Em 'action' use o nome da classe e o nome do método separados por um ponto",
-   "action":"ClassName.MethodName",
-   "params":[
-      "params to",
-      "pass to your method",
-      "if needed",
-      "formatted according to",
-      "the needs of the method",
-      "'params' can be a string, object...",
-      "do not need to be an array",
-      "like in this example"
-   ]
-}
-```
+ Lembre-se de ajustar o `language` e o `engine_endpoint` para corresponder à sua configuração. Você pode explorar configurações mais avançadas e opções de personalização na seção [Desenvolvimento](./development.md) da documentação.
 
-Você pode adicionar o JSON, delimitado pelos símbolos `[•` (na abertura), e `•]` (no fechamento) ao final da resposta do chatbot.
 
-```yaml
-# Se você usa RASA, este é um exemplo:
-# No seu domain.yaml, na seção de resposta:
+ ## Comandos Personalizados/Chamadas de Função
 
-responses:
-  # essa resposta dispara o método "newGuide" do plugin "GUIDed". Você pode encontrar esse plugin em /Plugins/Output/GUIDed/.
-  utter_please_explain:
-  - text: Eu posso te mostrar! [•{"action":"GUIDed.newGuide","params":[{"type":"modal","title":"Bem-vindo ao tutorial guiado","text":"Esta é a interface do aplicativo. Queremos que você saiba tudo o que pode fazer aqui!","btn_next":"Vamos começar!"},{"type":"balloon","title":"Salve seu trabalho","text":"Este botão é para salvar seu trabalho. Não se esqueça de salvar!","dom_element":"#save_button"},{"type":"balloon","title":"Abra um trabalho antigo","text":"E este botão é para abrir seus trabalhos antigos ou em andamento.","dom_element":"#open_button"},{"type":"balloon","title":"Pergunte-me","text":"Se você tiver dúvidas, peça-me mais informações.","dom_element":"#chat_input"},{"type":"balloon","title":"Pergunte-me","text":"Você pode perguntar usando sua própria voz também.","dom_element":"#speech_button"},{"type":"modal","title":"É isso aí!","text":"Ok! É isso aí, pessoal!","btn_previous":"<< Anterior","btn_close":"Entendi!"}]}•]
-  # essa resposta dispara a função "stop_doomsday_clock()" externa à biblioteca.
-  utter_please_explain:
-  - text: Stopping the Doomsday Clock... [•{"action":"stop_doomsday_clock","params":"Você salvou o dia!"}•]
 
-```
+ Hands for Bots capacita seu chatbot a interagir diretamente com seu aplicativo da web por meio de comandos personalizados ou chamadas de função. Isso permite uma ampla gama de ações, como:
+
+
+ - Navegar dentro do seu site
+
+ - Exibir galerias de imagens
+
+ - Definir marcadores em um mapa
+
+ - Desencadear animações
+
+
+ **Importante:** Você não precisa integrar essas funções ao núcleo do Hands for Bots. A biblioteca fornece um mecanismo simples para chamá-las.
+
+
+ ### Estrutura JSON
+
+
+ Para invocar uma função personalizada, você precisará estruturar o comando como um objeto JSON na resposta do chatbot. Aqui está o formato geral:
+
+
+ **Para funções JavaScript padrão:**
+
+
+ ```json
+
+ {
+   "action": "NomeDaFunção", // Nome da função apenas
+   "params": ["param1", "param2", {"param3": "valor"}] // Matriz de parâmetros (opcional)
+ }
+
+ ```
+
+
+ **Para métodos de plugins do Hands for Bots:**
+
+
+ ```json
+
+ {
+   "action": "NomeDaClasse.NomeDoMétodo", // Nome da classe e do método do plugin
+   "params": ["param1", "param2", {"param3": "valor"}] // Matriz de parâmetros (opcional)
+ }
+
+ ```
+
+
+ **Observação:**
+
+
+ - A matriz `params` é opcional. Você pode passar um único parâmetro (string, objeto, etc.) ou omiti-lo inteiramente se a função não exigir argumentos.
+
+
+ ### Posicionamento nas Respostas do Chatbot
+
+
+ Para acionar o comando personalizado, inclua o objeto JSON, entre os delimitadores especiais `[•` (abrir) e `•]` (fechar), no final da resposta de texto do chatbot.
+
+
+ **Exemplo para RASA (domain.yml):**
+
+
+ ```yaml
+
+ responses:
+   utter_open_gallery:
+   - text: "Aqui está nossa galeria: [•{'action': 'displayGallery', 'params': ['summer-collection']}•]"
+
+   utter_set_marker:
+   - text: "Marcando sua localização no mapa... [•{'action': 'MapPlugin.setMarker', 'params': {'lat': 40.7128, 'lng': -74.0060}}•]"
+ ```
+
+
+ ### Exemplo: Chamando uma Função JavaScript
+
+
+ ```javascript
+
+ // Exemplo de função para exibir uma galeria de imagens
+
+ function displayGallery(collectionName) {
+   // Lógica para buscar e exibir imagens com base no nome da coleção
+   console.log(`Exibindo galeria para: ${collectionName}`);
+ }
+
+
+ // ... (código de inicialização do Hands for Bots) ...
+
+
+ let bot_settings = {
+   // ... (suas configurações) ...
+ };
+
+
+ const bot = new Bot(bot_settings);
+
+ ```
+
+
+ Quando o chatbot RASA envia a resposta `utter_open_gallery`, o Hands for Bots irá extrair o comando JSON e chamar a função `displayGallery`, passando "summer-collection" como parâmetro.
+
+
+ ### Exemplo: Chamando um Método de Plugin
+
+
+ Digamos que você tenha um "MapPlugin" personalizado com um método `setMarker`:
+
+
+ ```javascript
+
+ // Em Plugins/Output/MapPlugin/MapPlugin.js
+
+ export default class MapPlugin {
+   // ... (outro código do plugin) ...
+
+   setMarker(coordinates) {
+     // Lógica para definir um marcador no mapa usando as coordenadas fornecidas
+     console.log(`Definindo marcador em:`, coordinates);
+   }
+ }
+
+ ```
+
+
+ A resposta `utter_set_marker` em seu RASA domain.yml invocará o método `setMarker` do `MapPlugin`.
+
+
+ ## Playgrounds Docker
+
+
+ Se você está ansioso para colocar a mão na massa com o Hands for Bots, nossos playgrounds Docker fornecem um ambiente pronto para experimentação.
+
+
+ ### Configuração
+
+
+ 1. **Baixe o repositório:** [https://github.com/alexlana/handsforbots](https://github.com/alexlana/handsforbots)
+
+ 2. **Navegue até o diretório de exemplos:** Usando seu terminal, entre na pasta `./handsforbots/examples/`.
+
+ 3. **Inicie os contêineres Docker:** Execute `docker-compose up -d` para iniciar os serviços necessários (RASA, Vite, etc.).
+
+ 4. **Acesse o playground:** Abra [http://localhost/](http://localhost/) em seu navegador.
+
+
+ ### Trabalhando com o Playground
+
+
+ - Você pode modificar o código do Hands for Bots no diretório `./handsforbots/`.
+
+ - O servidor de desenvolvimento Vite serve o código front-end de `./examples/vite/`.
+
+ - O projeto RASA está localizado em `./examples/rasa/`.
+
+
+ ### Treinando e Atualizando Seu Modelo RASA
+
+
+ Para atualizar seu chatbot com alterações no seu projeto RASA, siga estas etapas:
+
+
+ 1. **Acesse o contêiner RASA:** Execute `docker exec -it t4b-bot sh` para abrir um shell dentro do contêiner.
+
+ 2. **Treine seu modelo:** Dentro do contêiner, execute `rasa train` para retreinar o modelo RASA.
+
+ 3. **Saia do contêiner:** Digite `exit` para sair do shell do contêiner.
+
+ 4. **Reinicie o contêiner RASA:** Execute `docker rm -f t4b-bot` seguido por `docker-compose up -d` para reiniciar o contêiner RASA com o modelo atualizado.
+
+
+ Seu modelo treinado será salvo fora do contêiner Docker no diretório `./examples/rasa/models/`.
+
+
+ ### Limpeza
+
+
+ Quando terminar com o playground, pare os contêineres usando:
+
+
+ - `docker rm -f t4b-duckling`
+
+ - `docker rm -f t4b-actions`
+
+ - `docker rm -f t4b-bot`
+
+ - `docker rm -f t4b-vite`
+
+ - `docker rm -f t4b-webserver`
+
+
+ **Importante:** Esta configuração de playground é destinada ao desenvolvimento e experimentação local. Não o use para implantações de produção.
+
+
+ Vamos prosseguir para a compreensão dos componentes principais e do sistema de plugins do Hands for Bots no guia de [Desenvolvimento](./development.md). 
 

@@ -3,203 +3,197 @@
 <div align="right">
 
 [![pt-BR](https://img.shields.io/badge/pt-BR-white)](./development.md)
-[![en-US](https://img.shields.io/badge/en-US-white)](../development.md)
+[![en-US](https://img.shields.io/badge/en-US-white)](../en-us/development.md)
 
 </div>
 
 
-# Desenvolvimento
+ # Estendendo o Hands for Bots
 
-## Estrutura de pastas da biblioteca
 
-```
-.
-+- Bot.js
-+- Core
-|  +- Backend
-|  |  +- OpenAI.js
-|  |  +- Rasa.js
-|  +- GUI (to do)
-|  +- Input
-|  |  +- Poke.js
-|  |  +- Text.js
-|  |  +- TextChatCSS.js
-|  |  +- Voice.js
-|  |  +- VoiceChatCSS.js
-|  +- Output
-|     +- BotsCommands.js
-|     +- Text.js
-|     +- Voice.js
-+- Libs
-|     +- EasySpeech.es5.js
-|     +- EnvironmentDetection.js
-|     +- EventEmitter.js
-|     +- js.cookie.min.js
-|     +- Marked.js
-|     +- nl2br.js
-|     +- SpeechRecognition.js
-|     +- Vosk
-|     +- VoskConnector.js
-|     +- WebStorage.umd.min.js
-+- Plugins
-   +- Backend
-   +- GUI (to do)
-   +- Input
-   +- Output
-```
+ O Hands for Bots foi projetado para ser altamente extensível por meio de seu sistema de plugins. Este guia irá se aprofundar na arquitetura da biblioteca, nos tipos de plugins e em como você pode criar seus próprios plugins personalizados para aprimorar suas experiências conversacionais híbridas.
 
-## Tipos de plugins
 
-A biblioteca possui três tipos de plugins:
-- **Backend:** conecta a biblioteca a chatbots, assistentes, APIs de chat online etc
-- **Input:** cria maneiras de enviar dados para o backend como texto, voz e outros
-- **Output:** cria interfaces para mostrar dados do backend para o usuário como texto, áudio, imagens e outros
+ ## Estrutura de Pastas da Biblioteca
 
-A fazer:
-- **GUI:** esses plugins carregarão algum framework visual como Botstrap, Material Design ou outro, e fornecerão janelas de chatbot, botão de microfone etc.
 
-## Como estender a biblioteca
+ Compreender a organização da base de código do Hands for Bots é essencial para o desenvolvimento. Aqui está uma análise das pastas principais da biblioteca:
 
-Crie seu plugin e coloque-o na pasta `Plugins` sob a pasta do tipo de plugin apropriado (backend, input ou output). Lembre-se, se você quiser chamadas de funções simples, não precisa criar um novo plugin, faça uma chamada simples (veja mais na seção *Chamadas de funções*).
 
-## Plugins customizados
+ ```
+ .
+ +- Bot.js          // O núcleo do Hands for Bots, gerenciando o gerenciamento de plugins e o fluxo de eventos
+ +- Core            // Contém plugins principais integrados
+ |  +- Backend     // Plugins que se conectam aos backends do chatbot
+ |  |  +- OpenAI.js
+ |  |  +- Rasa.js
+ |  +- Input       // Plugins para lidar com entradas do usuário
+ |  |  +- Poke.js
+ |  |  +- Text.js
+ |  |  +- TextChatCSS.js
+ |  |  +- Voice.js
+ |  |  +- VoiceChatCSS.js
+ |  +- Output      // Plugins para apresentar as saídas do chatbot
+ |     +- BotsCommands.js
+ |     +- Text.js
+ |     +- Voice.js
+ +- Libs            // Bibliotecas externas e utilitários usados pelo Hands for Bots
+ |     +- EasySpeech.es5.js
+ |     +- EnvironmentDetection.js
+ |     +- EventEmitter.js
+ |     +- js.cookie.min.js
+ |     +- Marked.js
+ |     +- nl2br.js
+ |     +- SpeechRecognition.js
+ |     +- Vosk
+ |     +- VoskConnector.js
+ |     +- WebStorage.umd.min.js
+ +- Plugins         // O diretório para seus plugins personalizados
+    +- Backend     // Plugins de backend personalizados
+    +- Input       // Plugins de entrada personalizados
+    +- Output      // Plugins de saída personalizados
+ ```
 
-Você não precisa criar um plugin para ações como "abrir um popup". Neste caso, você pode simplesmente chamar uma função (veja mais na seção *Chamadas de funções*).
 
-**Quando é melhor criar um plugin**: se você quiser interagir com a conversa, acessar mensagens, usar histórico… um plugin será útil. Explore o plugin **GUIDed** (`/Plugins/Output/GUIDed/`), este plugin pode usar as mensagens do usuário para escolher um tutorial e navegar pelo tutorial.
+ ## Tipos de Plugins
 
-Seu plugin precisa ser um dos três tipos de plugins descritos no início deste manual. Se você quiser criar uma experiência envolvendo entradas do usuário **+** saídas do bot, você precisará criar dois plugins, um plugin para cada extremidade da interação.
 
-O plugin deve ter esta estrutura mínima de arquivos/pastas:
-```
-.
-+- MyPluginName
-   +- MyPluginName.js
-```
+ Os plugins do Hands for Bots são categorizados em quatro tipos principais:
 
-O **nome do plugin só pode ter letras e números**, não são permitidos caracteres especiais.
 
-No arquivo NomeDoMeuPlugin.js, você precisa exportar sua classe, e o nome da classe precisa ser o mesmo da pasta e do arquivo principal do plugin.
+ - **Backend:** Esses plugins atuam como a ponte entre sua interface front-end e seu mecanismo conversacional escolhido (RASA, OpenAI ou outros). Eles lidam com a comunicação, enviando as entradas do usuário para o backend e recebendo as respostas do chatbot.
 
-### Plugins de back-end
+ - **Input:** Os plugins de entrada são responsáveis por capturar as interações do usuário e convertê-las em um formato adequado para envio ao backend.  Exemplos comuns incluem entrada de texto, reconhecimento de voz e gatilhos de eventos.
 
-### Plugins de GUI
+ - **Output:** Os plugins de saída pegam as respostas do chatbot e as apresentam para o usuário de forma visualmente envolvente e informativa. Eles lidam com a renderização de texto, reprodução de áudio, exibição de imagens e muito mais.
 
-### Plugins de input
+ - **GUI:** (A fazer) Esses plugins serão integrados a frameworks visuais como Bootstrap ou Material Design, fornecendo componentes pré-construídos para janelas de chatbot, botões de microfone e outros elementos de interface.
 
-```javascript
-// Exemplo de plugin de Input.
 
-export default class MyPlugin {
+ ## Como Estender a Biblioteca
 
-   constructor ( bot ) { // injeta a instância inicializada do bot
 
-      this.bot = bot
+ O Hands for Bots incentiva a personalização por meio da criação de seus próprios plugins. Aqui está um guia geral:
 
-      /**
-       * Recebe a resposta do backend.
-       */
-      this.bot.eventEmitter.on( 'my_plugin.receiver', ( response )=>{
-         this.receiver( response )
-      })
 
+ 1. **Escolha o Tipo de Plugin:** Determine qual tipo de plugin melhor se adapta à funcionalidade que você deseja adicionar (Backend, Input ou Output).
+
+ 2. **Crie o Diretório do Plugin:** Dentro da pasta `Plugins`, crie um subpasta para seu plugin usando seu tipo (por exemplo, `Plugins/Input/MeuPluginDeEntrada`).
+
+ 3. **Crie o Arquivo do Plugin:** Dentro do diretório do plugin, crie um arquivo JavaScript com o mesmo nome do seu plugin (por exemplo, `MeuPluginDeEntrada.js`).
+
+ 4. **Exporte sua Classe:** No arquivo do plugin, exporte uma classe JavaScript com o mesmo nome do plugin. Esta classe conterá a lógica para seu plugin. Consulte os exemplos de plugin de Entrada e Saída abaixo para a base estrutura.
+
+
+ **Convenções Importantes de Nomenclatura:**
+
+
+ - Os nomes dos plugins devem usar apenas letras e números (sem espaços ou caracteres especiais).
+
+ - O nome da classe do plugin, o nome do arquivo e o nome da pasta devem ser todos idênticos.
+
+
+ ## Exemplos de Plugins Personalizados
+
+
+ ### Exemplo de Plugin de Entrada
+
+
+ ```javascript
+
+ // Plugins/Input/MeuPluginDeEntrada/MeuPluginDeEntrada.js
+
+
+ export default class MeuPluginDeEntrada {
+
+   constructor(bot) { // Injete a instância inicializada do bot
+     this.bot = bot;
+
+     // Ouça o evento de resposta do backend
+     this.bot.eventEmitter.on('meu_plugin.receptor', (response) => {
+       this.receptor(response);
+     });
    }
 
-   /**
-    * Recebe uma entrada do usuário.
-    */
-   input ( payload ) {
-      this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'MyPlugin', 'payload': payload, 'trigger': 'my_plugin.receiver' }] )
+   // Receba a entrada do usuário e envie para o backend
+   input(payload) {
+     this.bot.eventEmitter.trigger('core.send_to_backend', [{
+       'plugin': 'MeuPluginDeEntrada', 
+       'payload': payload, 
+       'trigger': 'meu_plugin.receptor'
+     }]);
    }
 
-   receiver ( response ) {
-      this.bot.eventEmitter.trigger( 'core.spread_output', [response] ) // autoriza a dispersar a resposta para os plugins de output, após modificar ou não.
+   // Lide com a resposta do backend
+   receptor(response) {
+     // Modifique a resposta se necessário
+
+     // Autorize os plugins de saída para exibir a resposta
+     this.bot.eventEmitter.trigger('core.spread_output', [response]);
    }
 
-   /**
-    * Anexa a interface do usuário ao bot. O bot chama este método.
-    */
-   ui ( options ) {
+   // Anexe a interface do usuário ao bot
+   ui(options) {
+     // Código para criar e anexar os elementos da IU
+     // ...
 
-      this.bot.eventEmitter.trigger( 'core.ui_loaded' )
+     this.bot.eventEmitter.trigger('core.ui_loaded'); 
+   }
+ }
 
+ ```
+
+
+ ### Exemplo de Plugin de Saída
+
+
+ ```javascript
+
+ // Plugins/Output/MeuPluginDeSaida/MeuPluginDeSaida.js
+
+
+ export default class MeuPluginDeSaida {
+
+   constructor(bot) { // Injete a instância inicializada do bot
+     this.bot = bot;
+
+     // Ouça o evento de saída pronta
+     this.bot.eventEmitter.on('core.output_ready', (payload) => {
+       this.output(payload);
+     });
    }
 
-}
-```
-
-### Plugins de output
-
-```javascript
-// Exemplo de plugin de Output.
-
-export default class MyPlugin {
-
-   constructor ( bot ) { // injeta a instância inicializada do bot
-
-      this.bot = bot
-
-      /**
-       * Recebe uma saída do bot.
-       */
-      this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
-         this.output( payload )
-      })
-
+   // Lide com a saída do chatbot
+   output(payload) {
+     // Código para processar e exibir a saída
+     // ...
    }
 
-   /**
-    * Recebe uma saída do bot.
-    */
-   output ( payload ) {
+   // Anexe a interface do usuário ao bot
+   ui(options) {
+     // Código para criar e anexar os elementos da IU
+     // ...
+
+     this.bot.eventEmitter.trigger('core.ui_loaded');
    }
+ }
 
-   /**
-    * Anexa a interface do usuário ao bot. O bot chama este método.
-    */
-   ui ( options ) {
-
-      this.bot.eventEmitter.trigger( 'core.ui_loaded' )
-
-   }
-
-}
-```
-
-## Eventos
-
-A biblioteca requer plugins que interagem com o núcleo usando eventos. Faça isso para lidar com eventos:
-
-1. receba a variável `bot` no método `constructor`;
-2. salve-a na variável `this.bot`. Então...
-3. para disparar um evento, use `this.bot.eventEmitter.trigger( 'event_name', [ variable_1_to_send, variable_2_to_send, variable_n_to_send ] )`;
-4. para ouvir um evento, use `this.bot.eventEmitter.on('event_name', myfunction)`.
+ ```
 
 
-### Núcleo
-
-O núcleo dispara os seguintes eventos:
-
-- **core.loaded**: o núcleo e todos os plugins estão carregados. Você pode usar isso para disparar ações assim que tudo estiver disponível.
-- **core.all_ui_loaded**: todos os componentes da UI, de todos os plugins, estão disponíveis.
-- **core.input_received**: o núcleo recebe uma entrada depois que ela foi processada pelo plugin de origem.
-- **core.output_ready**: a saída recebida de um framework ou agente conversacional está disponível e será enviada para os plugins que estão ouvindo o gatilho.
-- **core.history_added**: o histórico de chat / eventos foi atualizado.
-- **core.history_loaded**: quando a biblioteca foi iniciada, o histórico de mensagens / eventos foi carregado do armazenamento.
-- **core.calling_backend**: o núcleo está enviando alguma informação para o backend. Você pode usar este evento para mostrar algum componente de "carregamento/aguardando".
-- **core.backend_responded**: o núcleo recebeu a resposta do backend.
-- **Custom event on back end response**: o núcleo recebeu a resposta do backend e envia a resposta para o plugin responsável pela entrada. O plugin quer enviar o nome do evento personalizado e ouvir este evento.
-- **core.history_cleared**: o histórico foi excluído. Isso ocorre por causa da privacidade, então após um tempo definido de inatividade o histórico expira.
-
-O núcleo ouve os seguintes eventos:
-
-- **core.send_to_backend**: recebe a carga útil para enviar para o backend.
-- **core.backend_responded**: este não é para disparar a partir de plugins. Ao receber este evento, o núcleo verifica se temos mensagens enfileiradas para enviar para o backend.
-- **core.spread_output**: recebe output para dispersar para todos os plugins.
-- **core.input**: recebe uma entrada para adicionar ao histórico.
-- **core.ui_loaded**: conta uma nova UI completamente carregada.
-- **core.renew_session**: quando o usuário interage, o plugin de entrada pode disparar este evento para renovar a sessão do usuário.
-- **core.action_success**: após chamar uma função, obtenha o resultado do uso da ferramenta para enviar como uma resposta para o assistente do backend.
+ ## Eventos: A espinha dorsal da comunicação
 
 
+ O Hands for Bots aproveita uma arquitetura orientada a eventos para perfeita comunicação entre o núcleo, os plugins e seu aplicativo da web. Isso permite para acoplamento flexível e interações flexíveis.
+
+
+ ### Como os Eventos Funcionam
+
+
+ 1. **Disparando Eventos:** Para iniciar uma ação ou notificar outras partes do sistema, você usa `this.bot.eventEmitter.trigger('nome_do_evento', [dado1, dado2, ...])`. Substitua `nome_do_evento` pelo evento específico que você deseja disparar e inclua quaisquer dados relevantes na matriz.
+
+ 2. **Ouvindo Eventos:** Para responder a um evento específico, use `this.bot.eventEmitter.on('nome_do_evento', minhaFuncao)`.  A `minhaFuncao` será executada quando o `nome_do_evento` for disparado.
+
+
+ Consulte o guia [Eventos](./events.md) para obter uma lista abrangente de eventos principais e como lidar com eles de forma eficaz dentro de seus plugins.
 

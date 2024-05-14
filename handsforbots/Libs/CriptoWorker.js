@@ -1,4 +1,4 @@
-import Cryptography from "./Cryptography";
+import Cryptography from "./Cryptography.js";
 
 const crypto = new Cryptography( "cryptoDB", "key" );
 
