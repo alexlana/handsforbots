@@ -49,5 +49,5 @@ Grato pelos autores [destas bibliotecas e frameworks de terceiros](./NOTICE.md)
 
 ## Roadmap
 
-Há a intenção de melhorar a qualidade do código da Hands for Bots e desenvolver recursos prontos para uso para aplicações de realidade virtual e conversacionais, talvez até mesmo em tecnologias vestíveis. Isso está longe, mas vamos buscar.
+Há a intenção de melhorar a qualidade do código da Hands for Bots e desenvolver puglins de captura de gestos, assim como recursos prontos para uso para aplicações de realidade virtual e conversacionais, talvez até mesmo em tecnologias vestíveis. Isso está longe, mas vamos buscar.
 
