@@ -85,6 +85,7 @@ export default class Bot {
 		 */
 		this.calling_backend = false
 		this.history_loaded = false
+		this.history = []
 		this.loaded_ui_count = 0
 		this.ui_count = this.options.plugins.length + this.options.core.length
 
@@ -520,6 +521,7 @@ export default class Bot {
 			h = await this.cryptography( h, 'decrypt' )
 			if ( old_time && old_time < this.lastInteraction - (this.one_minute * this.session_timeout) ) {
 				this.clearStorage()
+				this.history = []
 			} else {
 				this.history = await JSON.parse( h )
 			}

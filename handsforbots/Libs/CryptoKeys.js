@@ -71,21 +71,23 @@ export default class CryptoKeys {
 	async getKey () {
 
 		let skey = this.getCookie( '__rand' )
-		if ( skey != undefined ) {
-			this.setCookie( '__rand', skey, this.expire_time )
-			skey = JSON.parse( skey )
-			let importedSKey = await window.crypto.subtle.importKey(
-				"jwk",
-				skey,
-				{ name: "AES-GCM" },
-				true,
-				["encrypt", "decrypt"]
-			)
-			.then( ( importedSKey )=>{
-				this.importedSKey = importedSKey
-			})
-			.catch( err => reject( err ) )
+		if ( skey == undefined ) {
+			skey = this.generateSecondKey();
 		}
+
+		this.setCookie( '__rand', skey, this.expire_time )
+		skey = JSON.parse( skey )
+		let importedSKey = await window.crypto.subtle.importKey(
+			"jwk",
+			skey,
+			{ name: "AES-GCM" },
+			true,
+			["encrypt", "decrypt"]
+		)
+		.then( ( importedSKey )=>{
+			this.importedSKey = importedSKey
+		})
+		.catch( err => reject( err ) )
 
 
 		return new Promise( async ( resolve, reject ) => {
