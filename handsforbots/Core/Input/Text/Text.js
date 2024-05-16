@@ -108,7 +108,7 @@ export default class TextInput {
 		document.querySelector( '#chat_input_wrapper input[type="text"]' ).removeAttribute( 'disabled' )
 		document.querySelector( '#chat_input_wrapper input[type="submit"]' ).removeAttribute( 'disabled' )
 		if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
-			document.querySelector( 'input[type="text"]' ).focus()
+			document.querySelector( '#chat_window input[type="text"]' ).focus()
 		}
 
 	}
@@ -212,7 +212,7 @@ export default class TextInput {
 			if ( e.target.parentElement.classList.contains( 'open_chat' ) ) {
 				if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
 					setTimeout( (e)=>{
-						e.target.parentElement.querySelector( 'input[type="text"]' ).focus()
+						e.target.parentElement.querySelector( '#chat_window input[type="text"]' ).focus()
 					}, 450, e )
 				}
 			} else {
@@ -223,7 +223,7 @@ export default class TextInput {
 		if ( this.autofocus ) {
 			ui_window.addEventListener( 'click', ()=>{
 				if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
-					ui_window.querySelector( 'input[type="text"]' ).focus()
+					ui_window.querySelector( '#chat_window input[type="text"]' ).focus()
 				}
 			})
 		}
@@ -245,7 +245,7 @@ export default class TextInput {
 			document.querySelector( '#chat_window input[type="submit"]' ).removeAttribute( 'disabled' )
 			document.querySelector( '#inner_chat_body' ).innerHTML = ''
 			if ( document.querySelector('#chat_window').classList.contains( 'keyboard_active' ) ) {
-				document.querySelector( 'input[type="text"]' ).focus()
+				document.querySelector( '#chat_window input[type="text"]' ).focus()
 			}
 			this.bot.eventEmitter.trigger( 'core.renew_session' )
 		})
@@ -323,8 +323,11 @@ export default class TextInput {
 		wrapper.setAttribute( 'payload', payload )
 		wrapper.innerHTML = title
 		wrapper.addEventListener( 'click', (e)=>{
-			this.bot.eventEmitter.trigger( 'core.input', [{'plugin':'Text', 'payload': e.target.getAttribute( 'payload' ), 'title': e.target.innerText}] )
+			const payload = e.target.getAttribute( 'payload' )
+			this.bot.eventEmitter.trigger( 'core.input', [{'plugin':'Text', 'payload': payload, 'title': e.target.innerText}] )
+			this.bot.eventEmitter.trigger( 'core.send_to_backend', [{ 'plugin': 'Text', 'payload': payload, 'trigger': 'input_text.receiver' }] )
 			e.target.parentElement.remove()
+			this.insertMessage( e.target.innerText )
 		})
 		return wrapper
 	}

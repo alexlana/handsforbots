@@ -343,6 +343,11 @@ const ChatCSS = `
 		.disconnected #chat_overlay {
 			display:flex;
 		}
+		.buttons_wrapper:after {
+			content: '';
+			display: block;
+			clear: both;
+		}
 		#chat_overlay button {
 			appearance:none;
 			background:${bot.color_schemes[bot.color].primary};
@@ -369,7 +374,7 @@ const ChatCSS = `
 			padding:5px 8px;
 			border-radius:5px;
 			cursor:pointer;
-			font-size:0.7em;
+			font-size:0.8em;
 			transition:0.2s background, 0.2s box-shadow;
 		}
 		.chat_rounded_box button:hover {
