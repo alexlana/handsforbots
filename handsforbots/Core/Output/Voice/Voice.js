@@ -198,7 +198,7 @@ export default class VoiceOutput {
 		if ( this.mute )
 			button.classList.add('voice-off')
 
-		if ( document.querySelector( '#chat_window' ) != undefined )
+		if ( document.querySelector( '#chat_window' ) != undefined && !this.options.hide_text_ui )
 			document.querySelector( '#chat_window' ).append( button )
 		else
 			document.querySelector( 'body' ).append( button )

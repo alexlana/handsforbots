@@ -42,6 +42,12 @@ export default class Bot {
 		 * Global options.
 		 */
 		this.options = options
+		if ( this.options.plugins == undefined ) {
+			this.options.plugins = []
+		}
+		if ( this.options.core == undefined ) {
+			this.options.core = []
+		}
 
 		/**
 		 * Start bot using minimal configuration options.
@@ -691,10 +697,13 @@ export default class Bot {
 	 */
 	quickStartVoice () {
 
+		this.quickStartText()
+
 		let VTT_ui_config = {
 		  plugin: 'Voice',
 		  type: 'input',
-		  prioritize_speech: false,
+		  prioritize_speech: true,
+		  hide_text_ui: true,
 		}
 		this.options.core.push( VTT_ui_config )
 
@@ -702,6 +711,7 @@ export default class Bot {
 		  plugin: 'Voice',
 		  type: 'output',
 		  name: 'Zarvox', // en-US
+		  hide_text_ui: true,
 		}
 		this.options.core.push( voice_ui_config )
 

@@ -88,6 +88,10 @@ export default class VoiceInput {
 
 		this.prioritize_speech = options.prioritize_speech || false
 
+		if ( options.hide_text_ui ) {
+			document.querySelector( '#chat_window' ).classList.add( 'hide_text_ui' )
+		}
+
 		if ( 
 			this.environmentDetection.whatBrowser() != 'Chrome' &&
 			this.environmentDetection.whatBrowser() != 'Safari'
@@ -119,16 +123,19 @@ export default class VoiceInput {
 			this.listenToUser()
 		})
 
-		let keyboard_button = document.createElement( 'BUTTON' )
-		keyboard_button.setAttribute( 'id', 'keyboard_button' )
-		keyboard_button.innerHTML = '<svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M264.96 567.04a39.68 39.68 0 0 0-14.08-8.96 42.666667 42.666667 0 0 0-32.426667 0 38.4 38.4 0 0 0-23.04 23.04 42.666667 42.666667 0 1 0 78.506667 0 42.666667 42.666667 0 0 0-8.96-14.08zM576 469.333333h42.666667a42.666667 42.666667 0 0 0 0-85.333333h-42.666667a42.666667 42.666667 0 0 0 0 85.333333z m-170.666667 0h42.666667a42.666667 42.666667 0 0 0 0-85.333333h-42.666667a42.666667 42.666667 0 0 0 0 85.333333z m-128-85.333333h-42.666666a42.666667 42.666667 0 0 0 0 85.333333h42.666666a42.666667 42.666667 0 0 0 0-85.333333zM853.333333 213.333333H170.666667a128 128 0 0 0-128 128v341.333334a128 128 0 0 0 128 128h682.666666a128 128 0 0 0 128-128V341.333333a128 128 0 0 0-128-128z m42.666667 469.333334a42.666667 42.666667 0 0 1-42.666667 42.666666H170.666667a42.666667 42.666667 0 0 1-42.666667-42.666666V341.333333a42.666667 42.666667 0 0 1 42.666667-42.666666h682.666666a42.666667 42.666667 0 0 1 42.666667 42.666666z m-256-128H384a42.666667 42.666667 0 0 0 0 85.333333h256a42.666667 42.666667 0 0 0 0-85.333333z m149.333333-170.666667h-42.666666a42.666667 42.666667 0 0 0 0 85.333333h42.666666a42.666667 42.666667 0 0 0 0-85.333333z m30.293334 183.04a42.666667 42.666667 0 0 0-14.08-8.96 42.666667 42.666667 0 0 0-32.426667 0 39.68 39.68 0 0 0-14.08 8.96 42.666667 42.666667 0 0 0-8.96 14.08 42.666667 42.666667 0 1 0 81.92 16.213333 35.84 35.84 0 0 0-3.413333-16.213333 42.666667 42.666667 0 0 0-8.96-14.08z"  /></svg>'
-		keyboard_button.addEventListener( 'click', (e)=>{
-			this.stop()
-			document.querySelector( '#chat_window' ).classList.add('keyboard_active')
-			setTimeout( ()=>{
-				document.querySelector('#chat_window input[type="text"]').focus()
-			}, 400 )
-		})
+		if ( !options.hide_text_ui ) {
+			let keyboard_button = document.createElement( 'BUTTON' )
+			keyboard_button.setAttribute( 'id', 'keyboard_button' )
+			keyboard_button.innerHTML = '<svg class="svg-icon" style="width: 1em; height: 1em;vertical-align: middle;fill: currentColor;overflow: hidden;" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M264.96 567.04a39.68 39.68 0 0 0-14.08-8.96 42.666667 42.666667 0 0 0-32.426667 0 38.4 38.4 0 0 0-23.04 23.04 42.666667 42.666667 0 1 0 78.506667 0 42.666667 42.666667 0 0 0-8.96-14.08zM576 469.333333h42.666667a42.666667 42.666667 0 0 0 0-85.333333h-42.666667a42.666667 42.666667 0 0 0 0 85.333333z m-170.666667 0h42.666667a42.666667 42.666667 0 0 0 0-85.333333h-42.666667a42.666667 42.666667 0 0 0 0 85.333333z m-128-85.333333h-42.666666a42.666667 42.666667 0 0 0 0 85.333333h42.666666a42.666667 42.666667 0 0 0 0-85.333333zM853.333333 213.333333H170.666667a128 128 0 0 0-128 128v341.333334a128 128 0 0 0 128 128h682.666666a128 128 0 0 0 128-128V341.333333a128 128 0 0 0-128-128z m42.666667 469.333334a42.666667 42.666667 0 0 1-42.666667 42.666666H170.666667a42.666667 42.666667 0 0 1-42.666667-42.666666V341.333333a42.666667 42.666667 0 0 1 42.666667-42.666666h682.666666a42.666667 42.666667 0 0 1 42.666667 42.666666z m-256-128H384a42.666667 42.666667 0 0 0 0 85.333333h256a42.666667 42.666667 0 0 0 0-85.333333z m149.333333-170.666667h-42.666666a42.666667 42.666667 0 0 0 0 85.333333h42.666666a42.666667 42.666667 0 0 0 0-85.333333z m30.293334 183.04a42.666667 42.666667 0 0 0-14.08-8.96 42.666667 42.666667 0 0 0-32.426667 0 39.68 39.68 0 0 0-14.08 8.96 42.666667 42.666667 0 0 0-8.96 14.08 42.666667 42.666667 0 1 0 81.92 16.213333 35.84 35.84 0 0 0-3.413333-16.213333 42.666667 42.666667 0 0 0-8.96-14.08z"  /></svg>'
+			keyboard_button.addEventListener( 'click', (e)=>{
+				this.stop()
+				document.querySelector( '#chat_window' ).classList.add('keyboard_active')
+				setTimeout( ()=>{
+					document.querySelector('#chat_window input[type="text"]').focus()
+				}, 400 )
+			})
+		}
+
 		document.querySelector( '#chat_input' ).addEventListener( 'focus', (e)=>{
 			if ( !document.querySelector('#chat_window').classList.contains( 'keyboard_active' ) ) {
 				e.target.blur()
@@ -141,8 +148,13 @@ export default class VoiceInput {
 		})
 
 		if ( document.querySelector( '#chat_input_wrapper' ) != undefined ) {
-			document.querySelector( '#chat_input_wrapper' ).append( speech_button )
-			document.querySelector( '#chat_input_wrapper' ).append( keyboard_button )
+			if ( !options.hide_text_ui ) {
+				document.querySelector( '#chat_input_wrapper' ).append( speech_button )
+				document.querySelector( '#chat_input_wrapper' ).append( keyboard_button )
+			} else {
+				speech_button.classList.add( 'force_show' )
+				document.querySelector( 'body' ).append( speech_button )
+			}
 			let partial = document.createElement( 'DIV' )
 			partial.setAttribute( 'id', 'speech_partial' )
 			document.querySelector( '#chat_input_wrapper' ).append( partial )

@@ -17,7 +17,12 @@ function VoiceCSS ( bot ) {
 			position:absolute;
 			opacity: 0;
 			pointer-events: none;
+			z-index: 10;
 			transition: 0.3s all;
+		}
+		#speech_button.force_show {
+			opacity: 1;
+			pointer-events: all;
 		}
 		.open_chat #speech_button {
 			pointer-events: all;
@@ -238,6 +243,11 @@ function VoiceCSS ( bot ) {
 		#keyboard_button path {
 			opacity: 1;
 			fill: white;
+		}
+
+		#chat_window.hide_text_ui {
+			opacity: 0;
+			pointer-events: none;
 		}
 
 		`
