@@ -180,6 +180,50 @@
 
  ```
 
+ ## Como carregar seu plugin customizado
+
+ Os plugins devem ser carregados durante a inicialização do Hands for Bots, quando também devem ser informadas as opções de configuração que o plugin suporta, além do tipo de plugin e do nome do plugin em letras minúsculas.
+
+ ```javascript
+  // estas são as configurações para informar o motor / assistente que você deseja usar, além de listar entradas, saídas e plugins personalizados
+  let bot_settings = {
+    engine: "rasa",
+    language: "pt-br",
+    engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
+
+    core: [],
+    plugins: [],
+  }
+
+  // adicione seu plugin customizado
+  let guided_settings = {
+    plugin: 'GUIDed', // este é o nome do plugin
+    type: 'output', // este é o tipo de plugin
+    wait_user: true, // esta é uma opção de configuração deste plugin
+    auto_start: false, // esta é uma opção de configuração deste plugin
+    sequence: [ // esta é uma opção de configuração deste plugin
+      {
+        type: 'modal',
+        title: 'Welcome to the guided tutorial',
+        text: 'This is the app interface. We want you to know all you can do here!',
+        btn_next: 'Let\'s start!'
+      },
+      {
+        type: 'balloon',
+        title: 'Save your work',
+        text: 'This button is to save your work, but it is fake. Do not forget to save!',
+        dom_element: '#save_button'
+      },
+    ]
+  }
+  bot_settings.plugins.push( guided_settings ) // adicione as informações do plugin na lista de plugins
+
+  // inicialize seu bot
+  const bot = new Bot( bot_settings )
+ ```
+
+ Mais informações sobre inicialização do seu chatbot no [guia de início](./getstarted.md).
+
 
  ## Eventos: A espinha dorsal da comunicação
 
@@ -196,4 +240,21 @@
 
 
  Consulte o guia [Eventos](./events.md) para obter uma lista abrangente de eventos principais e como lidar com eles de forma eficaz dentro de seus plugins.
+
+
+ ## Z-index: onde estão as camadas padrão da UI?
+
+ Essas são as profundidades de cada elemento padrão, você pode alterar com seu próprio CSS e posicionar seus plugins customizados entre essas camadas de acordo com suas necessidades.
+
+ - **Janela do chatbot (core)**: 999
+
+ - **Botão de fala do usuário (core)**: quando desacoplado da janela do chatbot, 10
+
+ - **Botão de fala do bot (core)**: quando desacoplado da janela do chatbot, 20
+
+ - **Balões do GUIDed (plugin)**: 1001 (acima da janela do chatbot)
+
+ - **Overlay do GUIDed (plugin)**: 998 (abaixo da janela do chatbot)
+
+ - **Preview da imagem do Photo (plugin)**: 997 (abaixo da janela do chatbot e do overlay do GUIDed)
 

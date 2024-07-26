@@ -180,6 +180,50 @@
 
   ```
 
+  ## How to load your custom plugin
+
+  Plugins must be loaded during Hands for Bots initialization, when the configuration options that the plugin supports must also be informed, in addition to the plugin type and the plugin name in lowercase letters.
+
+  ```javascript
+  // this is the settings to inform the engine / assistant you want to use, and list inputs, outputs and custom plugins
+  let bot_settings = {
+    engine: "rasa",
+    language: "pt-br",
+    engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
+
+    core: [],
+    plugins: [],
+  }
+
+  // add your custom plugin
+  let guided_settings = {
+    plugin: 'GUIDed', // this is the plugin name
+    type: 'output', // this is the plugin type
+    wait_user: true, // this is a configuration option of this plugin
+    auto_start: false, // this is a configuration option of this plugin
+    sequence: [ // this is a configuration option of this plugin
+      {
+        type: 'modal',
+        title: 'Welcome to the guided tutorial',
+        text: 'This is the app interface. We want you to know all you can do here!',
+        btn_next: 'Let\'s start!'
+      },
+      {
+        type: 'balloon',
+        title: 'Save your work',
+        text: 'This button is to save your work, but it is fake. Do not forget to save!',
+        dom_element: '#save_button'
+      },
+    ]
+  }
+  bot_settings.plugins.push( guided_settings ) // add the plugin info in the list of the plugins
+
+  // initialize your bot
+  const bot = new Bot( bot_settings )
+  ```
+
+  Find more about the chatbot's initilization at [Get Started](./getstarted.md) guide.
+
 
   ## Events: The Communication Backbone
 
@@ -196,3 +240,21 @@
 
 
   Refer to the [Events](./events.md) guide for a comprehensive list of core events and how to handle them effectively within your plugins.
+
+
+  ## Z-index: where are default UI's layers?
+
+  These are the depths of each default element, you can change them with your own CSS and position your custom plugins between these layers according to your needs.
+
+  - **Chatbot window (core)**: 1000
+
+  - **User talk button (core)**: when detached from the chatbot window, 10
+
+  - **Bot talk button (core)**: when detached from the chatbot window, 20
+
+  - **GUIDed balloons (plugin)**: 1010 (above the chatbot window)
+
+  - **GUIDed overlay (plugin)**: 990 (below the chatbot window)
+
+  - **Photo image preview (plugin)**: 980 (below the chatbot window and GUIDed overlay)
+

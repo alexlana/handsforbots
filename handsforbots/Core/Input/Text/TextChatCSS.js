@@ -17,7 +17,7 @@ const ChatCSS = `
 			overflow:hidden;
 			font-size:16px;
 			max-height:38px;
-			z-index: 999;
+			z-index: 1000;
 			transition: 0.3s max-height, 0.3s border-radius;
 		}
 		.chat_rounded_box.open_chat {

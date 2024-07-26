@@ -14,7 +14,7 @@ function GUIDedCSS ( bot ) {
 			transform: translate( -50%, -50% );
 			max-height: 95vh;
 			height: auto;
-			z-index: 1001;
+			z-index: 1010;
 			overflow: visible;
 			pointer-events: none;
 			transition: 0.3s opacity ease-in-out, 0.3s top ease-in-out, 0.3s left ease-in-out, 0.3s border-radius ease-in-out;
@@ -130,7 +130,7 @@ function GUIDedCSS ( bot ) {
 			transform: translate( -50%, -50% );
 			width: 0;
 			height: 0;
-			z-index: 998;
+			z-index: 990;
 			background: rgba( 0, 0, 0, 0 );
 			pointer-events: none;
 			transition: 0.1s width 0.4s ease-in-out, 0.1s height 0.4s ease-in-out, 0.4s background ease-in-out;
