@@ -412,6 +412,9 @@ export default class Bot {
 		} else if ( !options.engine || options.engine.toLowerCase() == 'openai' ) {
 			let BackendEngine = await import( './Core/Backend/OpenAI.js' )
 			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
+		} else if ( !options.engine || options.engine.toLowerCase() == 'insecure-local-ollama' ) {
+			let BackendEngine = await import( './Core/Backend/InsecureLocalOllama.js' )
+			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
 		}
 
 		console.log('★  [•_•] The bot is assembled and ready. [•_•]  ★')
