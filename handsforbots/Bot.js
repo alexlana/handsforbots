@@ -17,7 +17,7 @@
 import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
 import CryptoKeys from './Libs/CryptoKeys.js'
-
+import MCPHelper from './Libs/MCPHelper.js'
 
 
 /**
@@ -47,6 +47,46 @@ export default class Bot {
 		}
 		if ( this.options.core == undefined ) {
 			this.options.core = []
+		}
+
+
+		/*
+		 * MCP options.
+		*/
+		this.mcp = {
+			availableTools: [],
+			availableModels: [],
+			availableFunctions: [],
+		}
+		this.mcp.availableTools = this.options.availableTools ?? []
+		this.mcp.availableModels = this.options.availableModels ?? []
+		this.mcp.availableFunctions = this.options.availableFunctions ?? []
+
+		/**
+		 * Initialize MCP Helper if MCP items are available
+		 */
+		if (this.mcp.availableTools.length > 0 || 
+			this.mcp.availableModels.length > 0 || 
+			this.mcp.availableFunctions.length > 0) {
+			
+			this.mcpHelper = new MCPHelper(this)
+			
+			// Register existing tools
+			this.mcp.availableTools.forEach(tool => {
+				this.mcpHelper.registerTool(tool)
+			})
+			
+			// Register existing models
+			this.mcp.availableModels.forEach(model => {
+				this.mcpHelper.registerModel(model)
+			})
+			
+			// Register existing functions
+			this.mcp.availableFunctions.forEach(func => {
+				this.mcpHelper.registerFunction(func)
+			})
+			
+			console.log('[✔︎] MCP Helper loaded with existing items.')
 		}
 
 		/**
@@ -296,6 +336,13 @@ export default class Bot {
 		 */
 		this.eventEmitter.on( 'core.action_success', ( response )=>{
 			this.backend.actionSuccess( response )
+		})
+
+		/**
+		 * Handle MCP tool feedback
+		 */
+		this.eventEmitter.on( 'mcp.tool_feedback_received', ( feedback )=>{
+			this.handleToolFeedback( feedback )
 		})
 
 		/**
@@ -771,6 +818,24 @@ export default class Bot {
 
 		});
 
+	}
+
+	/**
+	 * Handle tool feedback from MCP
+	 * @param {Object} feedback - Tool feedback data
+	 */
+	handleToolFeedback(feedback) {
+		if (feedback && feedback.success && feedback.feedback) {
+			// Add feedback to conversation history
+			this.addToHistory('feedback', 'mcp', feedback.feedback, 'Tool Feedback')
+			
+			// Optionally display feedback to user
+			this.spreadOutput([{
+				recipient_id: "user",
+				text: feedback.feedback,
+				type: "feedback"
+			}])
+		}
 	}
 
 }
