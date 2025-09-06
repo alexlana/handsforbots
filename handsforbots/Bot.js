@@ -18,6 +18,7 @@ import WebStorage from './Libs/WebStorage.umd.min.js'
 import EventEmitter from './Libs/EventEmitter.js'
 import CryptoKeys from './Libs/CryptoKeys.js'
 import MCPHelper from './Libs/MCPHelper.js'
+import BotSessionAdapter from './Libs/BotSessionAdapter.js'
 
 
 /**
@@ -142,11 +143,24 @@ export default class Bot {
 		this.crypto_worker = new Worker( workerUrl, {type:'module'} );
 		this.crypto_keys = new CryptoKeys( 'cryptoKey', this.botStorage, this.session_timeout )
 
-
 		/**
 		 * Event emitter.
 		 */
 		this.eventEmitter = new EventEmitter()
+
+		/**
+		 * Initialize history array before SessionAdapter
+		 */
+		this.history = []
+
+		/**
+		 * Session adapter
+		 */
+		this.sessionAdapter = new BotSessionAdapter(this, {
+			session_timeout: this.session_timeout,
+			crypto_worker: this.crypto_worker,
+			storage_side: this.options.storage_side
+		})
 
 		/**
 		 * Sync tabs / windows.
@@ -383,7 +397,7 @@ export default class Bot {
 
 		this.addToHistory( 'input', input.plugin, input.payload, input.title ) // add event to bot history
 		this.eventEmitter.trigger( 'core.input_received' )
-
+console.log('inputReceived', this.history)
 		let bc_input = ['core.input_received', input.payload]
 		this.bc.postMessage( bc_input )
 
@@ -695,26 +709,10 @@ export default class Bot {
 	 */
 	async addToHistory ( type, plugin, payload, title = null ) {
 
-		if ( !type )
-			throw new Error( 'The parameter "type" (input or output) is required.' )
-		if ( !plugin )
-			throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
-		if ( !payload )
-			throw new Error( 'The parameter "payload" (event\'s data) is required.' )
-
-		const history = [ type, plugin, payload, title ] // history event item
-		this.history.push( history ) // add event to history
-
-		const d = new Date()
-		this.renewSession( d.getTime() )
-
-	    const history_json = JSON.stringify( this.history )
-		const encrypted_history = await this.cryptography( history_json, 'encrypt' )
-
-		this.botStorage.setItem( 'history', encrypted_history, error => { console.error(error) })
-		this.botStorage.setItem( 'time', this.lastInteraction, error => { console.error(error) })
-
+		await this.sessionAdapter.addToHistory( type, plugin, payload, title )
+console.log('addToHistory', this.history)
 		this.eventEmitter.trigger( 'core.history_added' )
+console.log('addToHistory2', this.history)
 
 	}
 
@@ -723,24 +721,11 @@ export default class Bot {
 	 * @return void
 	 */
 	async rebuildHistory () {
-		const d = new Date()
-		const old_time = this.botStorage.getItem( 'time', error => { console.error(error) } )
-		this.renewSession( d.getTime() )
-		let h = this.botStorage.getItem( 'history', error => { console.error(error) } )
-		if ( h ) {
-			h = await this.cryptography( h, 'decrypt' )
-			if ( old_time && old_time < this.lastInteraction - (this.one_minute * this.session_timeout) ) {
-				this.clearStorage()
-				this.history = []
-			} else {
-				this.history = await JSON.parse( h )
-			}
-		} else {
-			this.history = []
-		}
 
+		await this.sessionAdapter.rebuildHistory()
 		this.history_loaded = true
 		this.eventEmitter.trigger( 'core.history_loaded' )
+
 	}
 
 	/**
@@ -834,19 +819,13 @@ export default class Bot {
 	 */
 	checkSessionExpired () {
 
-		const d = new Date()
-		if ( this.lastInteraction < d.getTime() - (this.one_minute * this.session_timeout) ) {
-			if ( this.history.length == 0 ) {
-				this.renewSession( d.getTime() )
-				return
-			}
-			this.clearStorage()
-		} else {
-			let divider = 2
-			if ( d.getTime() - this.lastInteraction > (this.one_minute * this.session_timeout) * 0.9 ) // if 90% of the session time has passed
-				divider = 1000
-			setTimeout( ( bot )=>{ bot.checkSessionExpired() }, this.one_minute/divider, this )
-		}
+		return this.sessionAdapter.checkSessionExpired()
+
+	}
+
+	clearSessionIfExpired () {
+
+		this.sessionAdapter.clearSessionIfExpired()
 
 	}
 
@@ -856,9 +835,7 @@ export default class Bot {
 	 */
 	clearStorage () {
 
-		this.crypto_keys.destroyKey()
-		this.botStorage.removeItem( 'history' )
-		this.history = []
+		this.sessionAdapter.clearStorage()
 		this.eventEmitter.trigger( 'core.history_cleared' )
 
 	}
@@ -868,10 +845,10 @@ export default class Bot {
 	 * @param  Integer  time Time in milisseconds
 	 * @return void
 	 */
-	renewSession ( time ) {
+	renewSession ( time = null ) {
 
-		this.lastInteraction = time
-		this.checkSessionExpired()
+		this.sessionAdapter.renewSession( time )
+		this.eventEmitter.trigger( 'core.history_renewed' )
 
 	}
 
@@ -951,29 +928,7 @@ export default class Bot {
 
 	async cryptography ( data, action ) {
 
-		let key = null
-		try {
-			key = await this.crypto_keys.getKey()
-		} catch (e) {
-			this.clearStorage()
-			key = await this.crypto_keys.generateKey()
-		}
-
-		this.crypto_worker.postMessage({ data, action: action, key: key });
-
-		return new Promise( ( resolve, reject ) => {
-
-			this.crypto_worker.onmessage = ( event ) => {
-
-				if (event.data.error) {
-					reject( event.data.error );
-				} else {
-					resolve( event.data.result );
-				}
-
-			};
-
-		});
+		return await this.sessionAdapter.cryptography(data, action)
 
 	}
 
