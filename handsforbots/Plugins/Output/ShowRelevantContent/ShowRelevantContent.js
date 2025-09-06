@@ -16,6 +16,8 @@ export default class ShowRelevantContent {
 		this.name = 'ShowRelevantContent'
 		this.type = 'output'
 
+        this.isMCPTool = true
+
 		this.bot = bot
 		this.emitter = new EventEmitter()
 
@@ -39,27 +41,38 @@ export default class ShowRelevantContent {
                 nodeList = document.querySelectorAll(`[${attributeType}]`)
             }
             this.elements = Array.from(nodeList).map(el => el.getAttribute(attributeType))
-
-            this.bot.mcp.availableTools.push({
-                name: 'show_relevant_content',
-                description: `Show content relevant to the user's question. Available options: ${this.elements.join(', ')}`,
-                parameters: {
-                    type: 'object',
-                    properties: {
-                        query: {
-                            type: 'string',
-                            description: `The query to use to find the element. Available options: ${this.elements.join(', ')}`,
-                            enum: this.elements
-                        }
-                    },
-                    required: ['query']
-                },
-                execute: async (params) => {
-                    console.log(params)
-                    return await this.executeShowRelevantContent(params.query)
-                }
-            })
         }
+	}
+
+	/**
+	 * Get MCP Tool Definition for this plugin
+	 * @return Object MCP tool definition
+	 */
+	getMCPToolDefinition() {
+		if (this.elements.length === 0 || !this.options.attributeType) {
+			return null // No elements available or no attribute type configured, don't register tool
+		}
+
+		return {
+			name: 'show_relevant_content',
+			description: `Show content relevant to the user's question. It's important to use this tool when the user asks for a specific section of the page. Available options/enums (use exactly as is, do change any character): ${this.elements.join(', ')}`,
+			parameters: {
+				type: 'object',
+				properties: {
+					query: {
+						type: 'string',
+						description: `The query to use to find the element. Must be one of the available options/enums (use exactly as is, do change any character): ${this.elements.join(', ')}`,
+						enum: this.elements,
+						examples: this.elements.slice(0, 3) // Show first 3 examples
+					}
+				},
+				required: ['query']
+			},
+			execute: async (params) => {
+				console.log('ShowRelevantContent called with params:', params)
+				return await this.executeTool(params.query)
+			}
+		}
 	}
 
 	/**
@@ -83,38 +96,33 @@ export default class ShowRelevantContent {
 		this.bot.eventEmitter.trigger( 'core.ui_loaded' )
 	}
 
-    // async scrollTo ( payload ) {
-    //     const element = document.querySelector( `[${payload.attribute}="${payload.value}"]` )
-    //     if ( element ) {
-    //         element.scrollIntoView({ behavior: 'smooth' })
-    //     }
-    // }
-
     /**
      * Executa a ferramenta show_relevant_content
      * @param {string} query - A query para encontrar o elemento
      * @return {Promise<Object>} Resultado da execução
      */
-    async executeShowRelevantContent(query) {
+    async executeTool(query) {
         try {
             // Verificar se a query está nas opções disponíveis
             if (!this.elements.includes(query)) {
                 return {
                     success: false,
-                    error: `Query "${query}" not found. Available options: ${this.elements.join(', ')}`
+                    error: `Query "${query}" not found. Available options: ${this.elements.join(', ')}`,
+                    availableOptions: this.elements,
+                    suggestion: `Please use one of the available options: ${this.elements.join(', ')}`
                 }
             }
 
             // Buscar o elemento no DOM
             const element = document.querySelector(`[${this.options.attributeType}="${query}"]`)
-            
+
             if (element) {
-                // Fazer scroll para o elemento
-                element.scrollIntoView({ behavior: 'smooth' })
+                // Fazer scroll para o elemento com duração controlada de 2 segundos
+                await this.smoothScrollToElement(element, 2000)
                 
                 // Opcional: destacar o elemento temporariamente
                 this.highlightElement(element)
-                
+
                 return {
                     success: true,
                     message: `Successfully scrolled to content: ${query}`,
@@ -139,6 +147,41 @@ export default class ShowRelevantContent {
                 error: `Error executing show_relevant_content: ${error.message}`
             }
         }
+    }
+
+    /**
+     * Faz scroll suave para um elemento com duração controlada
+     * @param {Element} element - Elemento para onde fazer scroll
+     * @param {number} duration - Duração do scroll em milissegundos
+     * @return {Promise} Promise que resolve quando o scroll termina
+     */
+    smoothScrollToElement(element, duration = 2000) {
+        return new Promise((resolve) => {
+            const startPosition = window.pageYOffset
+            const targetPosition = element.offsetTop - 100 // 100px de margem do topo
+            const distance = targetPosition - startPosition
+            let startTime = null
+
+            function animation(currentTime) {
+                if (startTime === null) startTime = currentTime
+                const timeElapsed = currentTime - startTime
+                const progress = Math.min(timeElapsed / duration, 1)
+                
+                // Função de easing para movimento mais suave
+                const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1
+                const easedProgress = easeInOutCubic(progress)
+                
+                window.scrollTo(0, startPosition + distance * easedProgress)
+                
+                if (timeElapsed < duration) {
+                    requestAnimationFrame(animation)
+                } else {
+                    resolve()
+                }
+            }
+            
+            requestAnimationFrame(animation)
+        })
     }
 
     /**
