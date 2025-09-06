@@ -49,46 +49,6 @@ export default class Bot {
 			this.options.core = []
 		}
 
-
-		/*
-		 * MCP options.
-		*/
-		this.mcp = {
-			availableTools: [],
-			availableModels: [],
-			availableFunctions: [],
-		}
-		this.mcp.availableTools = this.options.availableTools ?? []
-		this.mcp.availableModels = this.options.availableModels ?? []
-		this.mcp.availableFunctions = this.options.availableFunctions ?? []
-
-		/**
-		 * Initialize MCP Helper if MCP items are available
-		 */
-		if (this.mcp.availableTools.length > 0 || 
-			this.mcp.availableModels.length > 0 || 
-			this.mcp.availableFunctions.length > 0) {
-			
-			this.mcpHelper = new MCPHelper(this)
-			
-			// Register existing tools
-			this.mcp.availableTools.forEach(tool => {
-				this.mcpHelper.registerTool(tool)
-			})
-			
-			// Register existing models
-			this.mcp.availableModels.forEach(model => {
-				this.mcpHelper.registerModel(model)
-			})
-			
-			// Register existing functions
-			this.mcp.availableFunctions.forEach(func => {
-				this.mcpHelper.registerFunction(func)
-			})
-			
-			console.log('[✔︎] MCP Helper loaded with existing items.')
-		}
-
 		/**
 		 * Start bot using minimal configuration options.
 		 */
@@ -110,6 +70,16 @@ export default class Bot {
 
 			this.quickStartToolCall()
 
+		}
+
+		/**
+		 * MCP
+		 */
+		this.mcpHelper = new MCPHelper(this)
+		this.mcp = {
+			availableTools: [],
+			availableModels: [],
+			availableFunctions: [],
 		}
 
 		/**
@@ -289,6 +259,7 @@ export default class Bot {
 		 */
 		this.loadPlugins()
 
+		
 		/**
 		 * Send messages to backend.
 		 */
@@ -462,6 +433,9 @@ export default class Bot {
 		} else if ( !options.engine || options.engine.toLowerCase() == 'insecure-local-ollama' ) {
 			let BackendEngine = await import( './Core/Backend/InsecureLocalOllama.js' )
 			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
+		} else if ( options.engine.toLowerCase() == 'universal-llm' ) {
+			let BackendEngine = await import( './Core/Backend/UniversalLLM.js' )
+			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
 		}
 
 		console.log('★  [•_•] The bot is assembled and ready. [•_•]  ★')
@@ -498,6 +472,9 @@ export default class Bot {
 				  .then(({ default: LoadedPlugin }) => {
 				  	const LoadedPluginInit = new LoadedPlugin( this, options )
 					this[ type +'s' ][ options.plugin ] = LoadedPluginInit
+					
+					// Register MCP tools, models, and functions if plugin defines them
+					this.registerPluginMCPItems(LoadedPluginInit)
 				  })
 
 			if ( type == 'output' )
@@ -509,6 +486,183 @@ export default class Bot {
 
 		}
 
+	}
+
+	/**
+	 * Register MCP tools, models, and functions from a plugin if they are defined
+	 * @param  Object plugin The loaded plugin instance
+	 * @return Void
+	 */
+	registerPluginMCPItems(plugin) {
+		// Skip if plugin is not an MCP plugin
+		if (!plugin.isMCPTool) {
+			return
+		}
+
+		// Register MCP Tool
+		this.registerPluginMCPTool(plugin)
+		
+		// Register MCP Model
+		this.registerPluginMCPModel(plugin)
+		
+		// Register MCP Function
+		this.registerPluginMCPFunction(plugin)
+	}
+
+	/**
+	 * Register MCP tool from a plugin if defined
+	 * @param  Object plugin The loaded plugin instance
+	 * @return Void
+	 */
+	registerPluginMCPTool(plugin) {
+		if (plugin.getMCPToolDefinition) {
+			try {
+				const toolDefinition = plugin.getMCPToolDefinition()
+				
+				// Only proceed if tool definition is valid and not null
+				if (toolDefinition && this.validateMCPToolDefinition(toolDefinition)) {
+					this.mcpHelper.registerTool(toolDefinition)
+					console.log(`[✔︎] MCP Tool "${toolDefinition.name}" registered from plugin "${plugin.name}"`)
+				} else if (toolDefinition === null) {
+					// Plugin decided not to register a tool (e.g., no elements available)
+					console.log(`[ℹ] Plugin "${plugin.name}" skipped MCP tool registration (conditions not met)`)
+				} else {
+					console.warn(`[⚠] Invalid MCP tool definition from plugin "${plugin.name}"`)
+				}
+			} catch (error) {
+				console.error(`[✗] Error registering MCP tool from plugin "${plugin.name}":`, error)
+			}
+		}
+	}
+
+	/**
+	 * Register MCP model from a plugin if defined
+	 * @param  Object plugin The loaded plugin instance
+	 * @return Void
+	 */
+	registerPluginMCPModel(plugin) {
+		if (plugin.getMCPModelDefinition) {
+			try {
+				const modelDefinition = plugin.getMCPModelDefinition()
+				
+				// Only proceed if model definition is valid and not null
+				if (modelDefinition && this.validateMCPModelDefinition(modelDefinition)) {
+					this.mcpHelper.registerModel(modelDefinition)
+					console.log(`[✔︎] MCP Model "${modelDefinition.name}" registered from plugin "${plugin.name}"`)
+				} else if (modelDefinition === null) {
+					// Plugin decided not to register a model
+					console.log(`[ℹ] Plugin "${plugin.name}" skipped MCP model registration (conditions not met)`)
+				} else {
+					console.warn(`[⚠] Invalid MCP model definition from plugin "${plugin.name}"`)
+				}
+			} catch (error) {
+				console.error(`[✗] Error registering MCP model from plugin "${plugin.name}":`, error)
+			}
+		}
+	}
+
+	/**
+	 * Register MCP function from a plugin if defined
+	 * @param  Object plugin The loaded plugin instance
+	 * @return Void
+	 */
+	registerPluginMCPFunction(plugin) {
+		if (plugin.getMCPFunctionDefinition) {
+			try {
+				const functionDefinition = plugin.getMCPFunctionDefinition()
+				
+				// Only proceed if function definition is valid and not null
+				if (functionDefinition && this.validateMCPFunctionDefinition(functionDefinition)) {
+					this.mcpHelper.registerFunction(functionDefinition)
+					console.log(`[✔︎] MCP Function "${functionDefinition.name}" registered from plugin "${plugin.name}"`)
+				} else if (functionDefinition === null) {
+					// Plugin decided not to register a function
+					console.log(`[ℹ] Plugin "${plugin.name}" skipped MCP function registration (conditions not met)`)
+				} else {
+					console.warn(`[⚠] Invalid MCP function definition from plugin "${plugin.name}"`)
+				}
+			} catch (error) {
+				console.error(`[✗] Error registering MCP function from plugin "${plugin.name}":`, error)
+			}
+		}
+	}
+
+	/**
+	 * Validate MCP tool definition structure
+	 * @param  Object toolDefinition The tool definition to validate
+	 * @return Boolean True if valid, false otherwise
+	 */
+	validateMCPToolDefinition(toolDefinition) {
+		if (!toolDefinition || typeof toolDefinition !== 'object') {
+			return false
+		}
+
+		// Required fields
+		const requiredFields = ['name', 'description', 'parameters', 'execute']
+		for (const field of requiredFields) {
+			if (!toolDefinition.hasOwnProperty(field)) {
+				console.warn(`[⚠] MCP tool definition missing required field: ${field}`)
+				return false
+			}
+		}
+
+		// Validate parameters structure
+		if (!toolDefinition.parameters || typeof toolDefinition.parameters !== 'object') {
+			console.warn(`[⚠] MCP tool definition has invalid parameters structure`)
+			return false
+		}
+
+		// Validate execute function
+		if (typeof toolDefinition.execute !== 'function') {
+			console.warn(`[⚠] MCP tool definition execute must be a function`)
+			return false
+		}
+
+		return true
+	}
+
+	/**
+	 * Validate MCP model definition structure
+	 * @param  Object modelDefinition The model definition to validate
+	 * @return Boolean True if valid, false otherwise
+	 */
+	validateMCPModelDefinition(modelDefinition) {
+		if (!modelDefinition || typeof modelDefinition !== 'object') {
+			return false
+		}
+		
+		// Required fields for models
+		const requiredFields = ['name', 'description']
+		for (const field of requiredFields) {
+			if (!modelDefinition.hasOwnProperty(field)) {
+				console.warn(`[⚠] MCP model definition missing required field: ${field}`)
+				return false
+			}
+		}
+		
+		return true
+	}
+
+	/**
+	 * Validate MCP function definition structure
+	 * @param  Object functionDefinition The function definition to validate
+	 * @return Boolean True if valid, false otherwise
+	 */
+	validateMCPFunctionDefinition(functionDefinition) {
+		if (!functionDefinition || typeof functionDefinition !== 'object') {
+			return false
+		}
+		
+		// Required fields for functions
+		const requiredFields = ['name', 'description']
+		for (const field of requiredFields) {
+			if (!functionDefinition.hasOwnProperty(field)) {
+				console.warn(`[⚠] MCP function definition missing required field: ${field}`)
+				return false
+			}
+		}
+		
+		return true
 	}
 
 	/**
@@ -599,7 +753,9 @@ export default class Bot {
 		payload.map(( obj )=>{
 
 			obj.do = null
-			if ( obj.text.indexOf( this.action_tag_open ) > -1 ) {
+			
+			// Check if obj.text exists and is a string
+			if ( obj.text && typeof obj.text === 'string' && obj.text.indexOf( this.action_tag_open ) > -1 ) {
 				let part1 = obj.text.substr( 0, obj.text.indexOf( this.action_tag_open ) )
 				let part2 = obj.text.substr( obj.text.indexOf( this.action_tag_close ) + this.action_tag_close.length )
 				let to_say = part1 + part2
@@ -639,6 +795,7 @@ export default class Bot {
 
 		this.eventEmitter.trigger( 'core.calling_backend' )
 		response = await this.backend.send( payload.plugin, payload.payload )
+		response = await this.mcpHelper.processIfHasTools(response)
 		this.eventEmitter.trigger( 'core.backend_responded' )
 		this.eventEmitter.trigger( payload.trigger, [response] )
 
@@ -828,7 +985,7 @@ export default class Bot {
 		if (feedback && feedback.success && feedback.feedback) {
 			// Add feedback to conversation history
 			this.addToHistory('feedback', 'mcp', feedback.feedback, 'Tool Feedback')
-			
+
 			// Optionally display feedback to user
 			this.spreadOutput([{
 				recipient_id: "user",

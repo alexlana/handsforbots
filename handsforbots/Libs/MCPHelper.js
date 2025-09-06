@@ -18,6 +18,14 @@ export default class MCPHelper {
 		console.log('[✔︎] MCP Helper initialized.')
 	}
 
+	async processIfHasTools(response) {
+		const toolCalls = this.extractToolCalls(response)
+		if (toolCalls.length > 0) {
+			return await this.executeToolCalls(toolCalls, response)
+		}
+		return response
+	}
+
 	/**
 	 * Register a tool with the MCP system
 	 * @param {Object} tool - Tool configuration
@@ -159,12 +167,39 @@ export default class MCPHelper {
 			return ''
 		}
 
-		let instructions = `INSTRUÇÕES IMPORTANTES:
+		let step = 1;
 
-Você tem acesso às seguintes ferramentas que pode usar quando necessário:
+		let instructions = `### INSTRUÇÕES FUNDAMENTAIS
 
 `
+		if ( typeof this.bot.options.assistent_persona === 'string' ) {
+			instructions += `**${step}. Sua persona e objetivo:**\n`
+			step++;
+			instructions += `Você é um assistente especialista em documentação técnica. Seu objetivo é responder às perguntas do usuário de forma clara, direta e útil. Você deve usar as ferramentas disponíveis para buscar informações precisas, mas o usuário NUNCA deve saber que uma ferramenta foi usada. Para o usuário, deve parecer que você já conhece a resposta. Aja como um especialista, não como um robô que apenas chama funções.\n`
+		}
+
+		instructions += `**${step}. O Processo de Trabalho (MUITO IMPORTANTE):**\n`
+		step++;
+		instructions += `Seu fluxo de trabalho tem duas etapas:
+- **Etapa 1: Obter a Informação.** Quando a pergunta do usuário exigir informações da documentação, sua PRIMEIRA resposta deve ser APENAS a chamada da ferramenta no formato '<tool>'. Não escreva mais nada.
+- **Etapa 2: Formular a Resposta.** Após a ferramenta ser executada, você receberá o resultado. Use esse resultado para construir uma resposta final, completa e amigável em linguagem natural para o usuário.
+`
+
+		instructions += `**${step}. Regra de Ouro: NUNCA Fale Sobre as Ferramentas:**\n`
+		step++;
+		instructions += `- **NÃO** diga "Vou usar a ferramenta para buscar...".
+- **NÃO** diga "A ferramenta retornou a seguinte informação...".
+- **NÃO** explique o que é a ferramenta selecionada.
+- A interação deve ser 100% natural. A ferramenta é um mecanismo interno seu, invisível para o usuário.
+`
+
+		instructions += `---
+
+### FERRAMENTAS DISPONÍVEIS
 		
+Você tem acesso à seguinte(s) ferramenta(s):
+`
+
 		this.tools.forEach(tool => {
 			instructions += `🔧 ${tool.name.toUpperCase()}: ${tool.description}\n`
 			
@@ -173,44 +208,98 @@ Você tem acesso às seguintes ferramentas que pode usar quando necessário:
 				Object.entries(tool.parameters.properties).forEach(([paramName, paramConfig]) => {
 					instructions += `   - ${paramName}: ${paramConfig.description}`
 					if (paramConfig.enum) {
-						instructions += ` (opções: ${paramConfig.enum.join(', ')})`
+						instructions += ` (opções válidas: ${paramConfig.enum.join(', ')})`
+					}
+					if (paramConfig.examples) {
+						instructions += ` (exemplos: ${paramConfig.examples.join(', ')})`
 					}
 					instructions += `\n`
 				})
 			}
 			instructions += `\n`
 		})
-		
-		instructions += `FORMATO DE RESPOSTA:
 
-Quando você quiser usar uma ferramenta, responda EXATAMENTE neste formato:
+		instructions += `---
+
+### FORMATO DE RESPOSTA DA FERRAMENTA
+
+Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de código XML, sem nenhum texto antes ou depois.
 
 <tool>
 {
   "name": "nome_da_ferramenta",
   "parameters": {
-    "parametro1": "valor1",
-    "parametro2": "valor2"
+    "parametro": "valor"
   }
 }
 </tool>
 
-Depois de usar a ferramenta, continue sua resposta normalmente.
+---
 
-Se não precisar usar ferramentas, responda diretamente ao usuário.
+### EXEMPLO DE FLUXO COMPLETO (Siga este modelo):
 
-EXEMPLO:
-Usuário: "Mostre a seção sobre Docker"
-Assistente: <tool>
-{
-  "name": "show_relevant_content",
-  "parameters": {
-    "query": "docker"
-  }
-}
-</tool>
+**Exemplo 1:**
 
-Agora vou mostrar a seção sobre Docker para você...`
+*   **O usuário pergunta:**
+    'preciso entender melhor o processo do sql'
+
+*   **Sua primeira resposta (para o sistema, para chamar a ferramenta):**
+    <tool>
+    {
+      "name": "nome_da_ferramenta",
+      "parameters": {
+        "query": "criar-instancia-cloud-sql"
+      }
+    }
+    </tool>
+*   **(O sistema executa a ferramenta e te fornece o resultado. Por exemplo: "Para criar uma instância do Cloud SQL, acesse o console, vá para a seção SQL, clique em Criar Instância, escolha MySQL e defina um ID e senha.")**
+
+*   **Sua resposta final (para o usuário, baseada no resultado da ferramenta):**
+    Claro! Para criar uma instância do Cloud SQL, o processo geral envolve os seguintes passos:
+    1. Acessar o console do Google Cloud e navegar até a seção "SQL".
+    2. Clicar em "Criar Instância" e escolher o tipo de banco de dados que deseja, como o MySQL.
+    3. Definir um ID para a instância e uma senha segura para o usuário administrador.
+
+    Precisa de mais detalhes em alguma dessas etapas?
+
+`
+		
+		// // Gerar exemplos dinâmicos baseados nas ferramentas disponíveis
+		// this.tools.forEach((tool, index) => {
+		// 	if (tool.parameters && tool.parameters.properties) {
+		// 		const paramNames = Object.keys(tool.parameters.properties)
+		// 		const exampleParams = {}
+				
+		// 		paramNames.forEach(paramName => {
+		// 			const param = tool.parameters.properties[paramName]
+		// 			if (param.enum && param.enum.length > 0) {
+		// 				exampleParams[paramName] = param.enum[0]
+		// 			} else if (param.examples && param.examples.length > 0) {
+		// 				exampleParams[paramName] = param.examples[0]
+		// 			} else {
+		// 				// Valor padrão baseado no tipo
+		// 				exampleParams[paramName] = param.type === 'string' ? 'exemplo' : 
+		// 										  param.type === 'number' ? 1 : 
+		// 										  param.type === 'boolean' ? true : 'valor'
+		// 			}
+		// 		})
+				
+		// 		instructions += `\n${index + 1}. Para ${tool.description.toLowerCase()}:`
+		// 		instructions += `\nUsuário: "Use ${tool.name.replace(/_/g, ' ')}"`
+		// 		instructions += `\nAssistente: <tool>`
+		// 		instructions += `\n{`
+		// 		instructions += `\n  "name": "${tool.name}",`
+		// 		instructions += `\n  "parameters": {`
+		// 		Object.entries(exampleParams).forEach(([key, value], i, arr) => {
+		// 			const comma = i < arr.length - 1 ? ',' : ''
+		// 			const formattedValue = typeof value === 'string' ? `"${value}"` : value
+		// 			instructions += `\n    "${key}": ${formattedValue}${comma}`
+		// 		})
+		// 		instructions += `\n  }`
+		// 		instructions += `\n}`
+		// 		instructions += `\n</tool>`
+		// 	}
+		// })
 
 		return instructions
 	}
@@ -230,23 +319,165 @@ Agora vou mostrar a seção sobre Docker para você...`
 	}
 
 	/**
+	 * Build contextual prompt with MCP instructions
+	 * @param {*} userPrompt - User prompt
+	 * @returns {string} Formatted prompt
+	 */
+	buildContextualPrompt(userPrompt) {
+		let fullPrompt = '';
+		
+		if (this.bot.options.systemPrompt) {
+			fullPrompt += `SYSTEM: ${this.bot.options.systemPrompt}\n\n`;
+		}
+		
+		const mcpContext = this.prepareContext();
+		// if (mcpContext && mcpContext.tools && mcpContext.tools.length > 0) {
+		// 	fullPrompt += `FERRAMENTAS DISPONÍVEIS:\n`;
+		// 	mcpContext.tools.forEach(tool => {
+		// 		fullPrompt += `- ${tool.name}: ${tool.description}\n`;
+		// 	});
+		// 	fullPrompt += '\n';
+		// }
+		
+		fullPrompt += `USER: ${userPrompt}`;
+		
+		return fullPrompt;
+	}
+
+	/**
 	 * Extract tool calls from model response
+	 * @param {string|Array} response - Model response (string or object)
+	 * @return {Array} Array of tool calls
+	 */
+	extractToolCalls(response) {
+		// Determinar se a resposta é string ou objeto
+		if (typeof response === 'string') {
+			return this.extractToolCallsFromString(response)
+		} else if (Array.isArray(response)) {
+			return this.extractToolCallsFromObject(response)
+		} else {
+			console.warn('MCPHelper: Tipo de resposta não suportado:', typeof response)
+			return []
+		}
+	}
+
+	/**
+	 * Extract tool calls from string response
 	 * @param {string} responseText - Model response text
 	 * @return {Array} Array of tool calls
 	 */
-	extractToolCalls(responseText) {
+	extractToolCallsFromString(responseText) {
 		const toolCalls = []
-		const toolRegex = /<tool>\s*(\{[\s\S]*?\})\s*<\/tool>/g
-		let match
+
+		// Obter nomes das ferramentas disponíveis para validação
+		const availableToolNames = this.tools.map(t => t.name)
+		const availableToolNamesUpper = availableToolNames.map(name => name.toUpperCase().replace(/-/g, '_'))
 		
-		while ((match = toolRegex.exec(responseText)) !== null) {
-			try {
-				const toolCall = JSON.parse(match[1])
-				toolCalls.push(toolCall)
-			} catch (error) {
-				console.error('Erro ao parsear chamada de ferramenta:', error)
+		// Regex para capturar diferentes formatos de chamada de ferramenta
+		const toolRegexes = [
+			// Formato padrão <tool>{...}</tool>
+			{
+				regex: /<tool>\s*(\{[\s\S]*?\})\s*<\/tool>/g,
+				handler: (match) => {
+					try {
+						const toolCall = JSON.parse(match[1])
+						return toolCall
+					} catch (error) {
+						console.error('Erro ao parsear JSON do formato <tool>:', error)
+						return null
+					}
+				}
+			},
+			// Formato 🔧 FERRAMENTA: {...} - mais específico
+			{
+				regex: /🔧\s*([A-Z_]+):\s*(\{[\s\S]*?\})/g,
+				handler: (match) => {
+					try {
+						const toolNameUpper = match[1]
+						const toolParams = JSON.parse(match[2])
+						
+						// Verificar se é uma ferramenta válida
+						if (!availableToolNamesUpper.includes(toolNameUpper)) {
+							console.warn(`Ferramenta não reconhecida: ${toolNameUpper}`)
+							return null
+						}
+						
+						// Converter para formato padrão
+						const toolName = toolNameUpper.toLowerCase().replace(/_/g, '-')
+						
+						return {
+							name: toolName,
+							parameters: toolParams
+						}
+					} catch (error) {
+						console.error('Erro ao parsear formato 🔧:', error)
+						return null
+					}
+				}
+			}
+		]
+		
+		for (const { regex, handler } of toolRegexes) {
+			let match
+			while ((match = regex.exec(responseText)) !== null) {
+				const toolCall = handler(match)
+				
+				if (toolCall && toolCall.name && toolCall.parameters) {
+					// Validar se a ferramenta existe
+					if (availableToolNames.includes(toolCall.name)) {
+						toolCalls.push(toolCall)
+					} else {
+						console.warn(`Ferramenta não encontrada: ${toolCall.name}`)
+					}
+				}
 			}
 		}
+		
+		console.log('MCPHelper: Ferramentas disponíveis:', availableToolNames)
+		console.log('MCPHelper: Tool calls extraídos (string):', toolCalls)
+		
+		return toolCalls
+	}
+
+	/**
+	 * Extract tool calls from object response
+	 * @param {Array} responseArray - Model response array
+	 * @return {Array} Array of tool calls
+	 */
+	extractToolCallsFromObject(responseArray) {
+		const toolCalls = []
+
+		// Obter nomes das ferramentas disponíveis para validação
+		const availableToolNames = this.tools.map(t => t.name)
+
+		// Iterar sobre array de resposta
+		for (const responseItem of responseArray) {
+			// Verificar se o item tem tool_result e action: "execute_tool"
+			if (responseItem.tool_result && 
+				responseItem.tool_result.tool_name &&
+				responseItem.tool_result.parameters) {
+
+				const toolName = responseItem.tool_result.tool_name
+				const parameters = responseItem.tool_result.parameters
+
+				// Validar se a ferramenta existe
+				if (availableToolNames.includes(toolName)) {
+					toolCalls.push({
+						name: toolName,
+						parameters: parameters
+					})
+				} else {
+					console.warn(`Ferramenta não encontrada: ${toolName}`)
+				}
+			} else if ( responseItem.text.indexOf('<tool>') > -1 ) {
+				toolCalls.push(...this.extractToolCallsFromString(responseItem.text))
+			} else {
+				console.warn('Ferramenta não encontrada: ', responseItem)
+			}
+		}
+		
+		console.log('MCPHelper: Ferramentas disponíveis:', availableToolNames)
+		console.log('MCPHelper: Tool calls extraídos (object):', toolCalls)
 		
 		return toolCalls
 	}
@@ -263,7 +494,7 @@ Agora vou mostrar a seção sobre Docker para você...`
 
 		for (const toolCall of toolCalls) {
 			try {
-				// Find the tool
+				// Find the tool in registered tools
 				const tool = this.tools.find(t => t.name === toolCall.name)
 				
 				if (tool && tool.execute) {
@@ -276,34 +507,50 @@ Agora vou mostrar a seção sobre Docker para você...`
 						parameters: toolCall.parameters,
 						result: result
 					})
-					
-					// Add result to response
-					messages.push({
-						recipient_id: "user",
-						text: `Executando ${toolCall.name}...`,
-						tool_result: result
-					})
+
 				} else {
-					const errorResult = {
-						success: false,
-						error: `Ferramenta ${toolCall.name} não encontrada ou não pode ser executada.`
+					// Try to find MCP plugin with executeTool method
+					const mcpPlugin = this.findMCPPlugin(toolCall.name)
+					
+					if (mcpPlugin && mcpPlugin.executeTool) {
+						// Execute the MCP plugin
+						const result = await mcpPlugin.executeTool(toolCall.parameters.query || toolCall.parameters)
+						
+						// Store tool result for feedback
+						toolResults.push({
+							tool: toolCall.name,
+							parameters: toolCall.parameters,
+							result: result
+						})
+
+					} else {
+						const availableTools = this.tools.map(t => t.name).join(', ')
+						const errorResult = {
+							success: false,
+							error: `Ferramenta ${toolCall.name} não encontrada ou não pode ser executada.`,
+							availableTools: this.tools.map(t => t.name),
+							suggestion: `Ferramentas disponíveis: ${availableTools}`
+						}
+						
+						toolResults.push({
+							tool: toolCall.name,
+							parameters: toolCall.parameters,
+							result: errorResult
+						})
+						
+						messages.push({
+							recipient_id: "user",
+							text: `${errorResult.error} Ferramentas disponíveis: ${availableTools}`
+						})
 					}
-					
-					toolResults.push({
-						tool: toolCall.name,
-						parameters: toolCall.parameters,
-						result: errorResult
-					})
-					
-					messages.push({
-						recipient_id: "user",
-						text: errorResult.error
-					})
 				}
 			} catch (error) {
 				const errorResult = {
 					success: false,
-					error: `Erro ao executar ferramenta ${toolCall.name}: ${error.message}`
+					error: `Erro ao executar ferramenta ${toolCall.name}: ${error.message}`,
+					toolName: toolCall.name,
+					parameters: toolCall.parameters,
+					availableTools: this.tools.map(t => t.name)
 				}
 				
 				toolResults.push({
@@ -314,23 +561,27 @@ Agora vou mostrar a seção sobre Docker para você...`
 				
 				messages.push({
 					recipient_id: "user",
-					text: errorResult.error
+					text: `${errorResult.error}. Ferramentas disponíveis: ${this.tools.map(t => t.name).join(', ')}`
 				})
 			}
 		}
-		
+
 		// Send tool results back to LLM for feedback
 		if (toolResults.length > 0) {
 			await this.sendToolResultsToLLM(toolResults)
 		}
-		
-		// Add original model response (without tool tags)
-		const cleanResponse = originalResponse.replace(/<tool>[\s\S]*?<\/tool>/g, '').trim()
-		if (cleanResponse) {
-			messages.push({
-				recipient_id: "user",
-				text: cleanResponse
-			})
+
+		for (const message of originalResponse) {
+			if ( message.text.length == 0 ) {
+				continue
+			}
+			const cleanResponse = message.text.replace(/<tool>[\s\S]*?<\/tool>/g, '').trim()
+			if (cleanResponse) {
+				messages.push({
+					recipient_id: "user",
+					text: cleanResponse
+				})
+			}
 		}
 		
 		return messages
@@ -352,7 +603,7 @@ Agora vou mostrar a seção sobre Docker para você...`
 				// Process feedback response if needed
 				if (feedbackResponse) {
 					console.log('LLM Feedback received:', feedbackResponse)
-					
+
 					// Trigger event for feedback processing
 					this.bot.eventEmitter.trigger('mcp.tool_feedback_received', [feedbackResponse])
 				}
@@ -371,42 +622,131 @@ Agora vou mostrar a seção sobre Docker para você...`
 		let feedbackPrompt = `FEEDBACK DAS FERRAMENTAS EXECUTADAS:
 
 `
+
+		// Incluir as últimas 3 mensagens do histórico para contexto
+		if (this.bot && this.bot.history && this.bot.history.length > 0) {
+			feedbackPrompt += `CONTEXTO - ÚLTIMAS 3 MENSAGENS:\n`
+			
+			// Pegar as últimas 3 mensagens do histórico
+			const lastMessages = this.bot.history.slice(-3)
+			
+			lastMessages.forEach((historyItem, index) => {
+				// Estrutura do histórico: [type, plugin, payload, title]
+				const [type, plugin, payload, title] = historyItem
+				
+				// Formatar mensagem baseada no tipo
+				if (type === 'input' && payload) {
+					// Para input, o payload pode ser string ou objeto
+					let content = ''
+					if (typeof payload === 'string') {
+						content = payload
+					} else if (payload && typeof payload === 'object') {
+						content = payload.text || payload.message || payload.content || JSON.stringify(payload)
+					}
+					
+					if (content.trim()) {
+						feedbackPrompt += `${index + 1}. USUÁRIO: ${content.trim()}\n`
+					}
+				} else if (type === 'output' && payload) {
+					// Para output, o payload é uma string JSON que precisa ser parseada
+					try {
+						if (typeof payload === 'string') {
+							const parsed = JSON.parse(payload)
+							if (Array.isArray(parsed)) {
+								// Se for array de mensagens
+								parsed.forEach((msg, msgIndex) => {
+									if (msg.text && msg.text.trim()) {
+										feedbackPrompt += `${index + 1}.${msgIndex + 1}. ASSISTENTE: ${msg.text.trim()}\n`
+									}
+								})
+							} else if (parsed.text && parsed.text.trim()) {
+								// Se for objeto único
+								feedbackPrompt += `${index + 1}. ASSISTENTE: ${parsed.text.trim()}\n`
+							}
+						} else if (payload.text) {
+							feedbackPrompt += `${index + 1}. ASSISTENTE: ${payload.text}\n`
+						}
+					} catch (parseError) {
+						// Se falhar no parsing, usar o payload como está
+						console.warn('Error parsing output payload:', parseError, payload)
+						if (typeof payload === 'string' && payload.trim()) {
+							feedbackPrompt += `${index + 1}. ASSISTENTE: ${payload.trim()}\n`
+						}
+					}
+				}
+			})
+			
+			feedbackPrompt += `\n`
+		}
 		
+		// Adicionar informações sobre ferramentas disponíveis
+		feedbackPrompt += `FERRAMENTAS DISPONÍVEIS:\n`
+		this.tools.forEach(tool => {
+			feedbackPrompt += `- ${tool.name}: ${tool.description}\n`
+			if (tool.parameters && tool.parameters.properties) {
+				Object.keys(tool.parameters.properties).forEach(paramName => {
+					const param = tool.parameters.properties[paramName]
+					feedbackPrompt += `  - ${paramName}: ${param.description || 'No description'}`
+					if (param.enum) {
+						feedbackPrompt += ` (opções: ${param.enum.join(', ')})`
+					}
+					feedbackPrompt += `\n`
+				})
+			}
+		})
+		feedbackPrompt += `\n`
+
+		// Adicionar informações sobre o contexto de execução
+		feedbackPrompt += `CONTEXTO DE EXECUÇÃO:\n`
+		feedbackPrompt += `- Timestamp: ${new Date().toISOString()}\n`
+		feedbackPrompt += `- Total de ferramentas executadas: ${toolResults.length}\n`
+		if (toolResults.length > 0) {
+			const successCount = toolResults.filter(r => r.success).length
+			const errorCount = toolResults.length - successCount
+			feedbackPrompt += `- Ferramentas com sucesso: ${successCount}\n`
+			feedbackPrompt += `- Ferramentas com erro: ${errorCount}\n`
+		}
+		feedbackPrompt += `\n`
+
 		toolResults.forEach((toolResult, index) => {
 			feedbackPrompt += `${index + 1}. Ferramenta: ${toolResult.tool}\n`
+			feedbackPrompt += `   Status: ${toolResult.result.success ? '✅ Sucesso' : '❌ Erro'}\n`
 			feedbackPrompt += `   Parâmetros: ${JSON.stringify(toolResult.parameters)}\n`
-			feedbackPrompt += `   Resultado: ${JSON.stringify(toolResult.result, null, 2)}\n\n`
+			feedbackPrompt += `   Resultado: ${JSON.stringify(toolResult.result, null, 2)}\n`
+			if (toolResult.execution_type) {
+				feedbackPrompt += `   Tipo de execução: ${toolResult.execution_type}\n`
+			}
+			feedbackPrompt += `\n`
 		})
+
+		feedbackPrompt += `INSTRUÇÕES PARA FEEDBACK:
 		
-		feedbackPrompt += `INSTRUÇÕES:
-- Analise os resultados das ferramentas executadas
-- Se alguma ferramenta falhou, explique o problema
-- Se necessário, sugira correções ou alternativas
-- Continue a conversa baseado nos resultados obtidos
-- Seja útil e direto ao ponto
+1. ANÁLISE DO CONTEXTO:
+   - Analise as últimas 3 mensagens para entender o fluxo da conversa
+   - Identifique o que o usuário está tentando fazer
+   - Entenda o estado atual da conversa
+
+2. ANÁLISE DAS FERRAMENTAS:
+   - Verifique se as ferramentas executaram com sucesso
+   - Identifique erros de parâmetros ou execução
+   - Sugira correções específicas baseadas nas opções disponíveis
+
+3. RESPOSTA ESTRUTURADA:
+   - Confirme que você entendeu o contexto
+   - Explique o que aconteceu com as ferramentas (sucesso/erro)
+   - Se houver erros, sugira soluções específicas
+   - Continue a conversa de forma natural e útil
+   - Seja direto e prático nas sugestões
+
+4. FORMATO DE RESPOSTA:
+   - Comece confirmando o entendimento do contexto
+   - Analise os resultados das ferramentas
+   - Forneça soluções ou continue a conversa
+   - Mantenha o tom de assistente útil
 
 Responda como assistente:`
 
 		return feedbackPrompt
-	}
-
-	/**
-	 * Process model response and handle tool calls with feedback loop
-	 * @param {string} responseText - Model response
-	 * @return {Array|string} Processed response
-	 */
-	async processResponse(responseText) {
-		const toolCalls = this.extractToolCalls(responseText)
-		
-		if (toolCalls.length > 0) {
-			return await this.executeToolCalls(toolCalls, responseText)
-		}
-		
-		// Return simple response if no tools
-		return [{
-			recipient_id: "user",
-			text: responseText
-		}]
 	}
 
 	/**
@@ -430,5 +770,30 @@ Responda como assistente:`
 		this.models = []
 		this.functions = []
 		console.log('[✔︎] MCP Helper cleared.')
+	}
+
+	/**
+	 * Find MCP plugin by tool name
+	 * @param {string} toolName - Tool name to find
+	 * @return {Object|null} MCP plugin instance or null
+	 */
+	findMCPPlugin(toolName) {
+		// Check if bot.outputs exists
+		if (this.bot && this.bot.outputs) {
+			// Iterate through all output plugins
+			for (const pluginName in this.bot.outputs) {
+				const plugin = this.bot.outputs[pluginName];
+				
+				// Check if the plugin is an MCP tool
+				if (plugin && typeof plugin === 'object' && plugin.isMCPTool === true) {
+					// Check if this plugin handles the requested tool
+					if (plugin.name === toolName || plugin.toolName === toolName) {
+						return plugin;
+					}
+				}
+			}
+		}
+		
+		return null;
 	}
 }
