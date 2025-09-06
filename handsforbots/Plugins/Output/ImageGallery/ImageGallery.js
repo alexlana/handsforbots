@@ -201,7 +201,8 @@ export default class ImageGallery {
 
         document.querySelector('#gallery-modal-images').innerHTML = queries.map((query) => {
             const image = this.getImagesForQuery(query)
-            const alt = document.querySelector(`[data-image-gallery-id="${query}"]`).getAttribute('alt') || ''
+            const element = document.querySelector(`[data-image-gallery-id="${query}"]`)
+            const alt = element ? element.getAttribute('alt') || '' : ''
             return image ? `<figure class="gallery-modal-image"><img src="${image}" alt="${alt}"><figcaption>${alt}</figcaption></figure>` : ''
         }).join('')
 

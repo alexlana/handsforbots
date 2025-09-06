@@ -201,8 +201,8 @@ Você tem acesso à seguinte(s) ferramenta(s):
 `
 
 		this.tools.forEach(tool => {
-			instructions += `🔧 ${tool.name.toUpperCase()}: ${tool.description}\n`
-			
+			instructions += `🔧 ${tool.name}: ${tool.description}\n`
+
 			if (tool.parameters && tool.parameters.properties) {
 				instructions += `   Parâmetros:\n`
 				Object.entries(tool.parameters.properties).forEach(([paramName, paramConfig]) => {
@@ -371,7 +371,6 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 
 		// Obter nomes das ferramentas disponíveis para validação
 		const availableToolNames = this.tools.map(t => t.name)
-		const availableToolNamesUpper = availableToolNames.map(name => name.toUpperCase().replace(/-/g, '_'))
 		
 		// Regex para capturar diferentes formatos de chamada de ferramenta
 		const toolRegexes = [
@@ -397,7 +396,7 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 						const toolParams = JSON.parse(match[2])
 						
 						// Verificar se é uma ferramenta válida
-						if (!availableToolNamesUpper.includes(toolNameUpper)) {
+						if (!availableToolNames.includes(toolNameUpper)) {
 							console.warn(`Ferramenta não reconhecida: ${toolNameUpper}`)
 							return null
 						}
@@ -503,7 +502,7 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 					
 					// Store tool result for feedback
 					toolResults.push({
-						tool: toolCall.name,
+						tool: toolCall.name.toLowerCase().replace(/-/g, '_'),
 						parameters: toolCall.parameters,
 						result: result
 					})
