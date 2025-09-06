@@ -22,7 +22,7 @@ export default class BotsCommandsOutput {
 		 * Event listeners
 		 */
 		this.bot.eventEmitter.on( 'core.all_ui_loaded', ()=>{
-			this.rebuildHistory()
+			this.rebuildHistory() // refaz os comandos anteriores
 		})
 		this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
 			this.output( payload )
