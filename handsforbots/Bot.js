@@ -19,6 +19,7 @@ import EventEmitter from './Libs/EventEmitter.js'
 import CryptoKeys from './Libs/CryptoKeys.js'
 import MCPHelper from './Libs/MCPHelper.js'
 import BotSessionAdapter from './Libs/BotSessionAdapter.js'
+import BotOrchestrator from './Core/BotOrchestrator.js'
 
 
 /**
@@ -163,6 +164,11 @@ export default class Bot {
 		})
 
 		/**
+		 * Bot orchestrator
+		 */
+		this.orchestrator = new BotOrchestrator(this)
+
+		/**
 		 * Sync tabs / windows.
 		 */
 		this.bc = new BroadcastChannel( 'bot' )
@@ -177,7 +183,7 @@ export default class Bot {
 		/**
 		 * Back end assistant.
 		 */
-		this.registerBackend({
+		this.orchestrator.registerBackend({
 			engine: this.options.engine,
 			endpoint: this.options.engine_endpoint,
 			engine_specific: this.options.engine_specific
@@ -271,42 +277,42 @@ export default class Bot {
 		/**
 		 * Load plugins.
 		 */
-		this.loadPlugins()
+		this.orchestrator.loadPlugins()
 
 		
 		/**
 		 * Send messages to backend.
 		 */
 		this.eventEmitter.on( 'core.send_to_backend', ( payload )=>{
-			this.sendToBackend( payload )
+			this.orchestrator.sendToBackend( payload )
 		})
 
 		/**
 		 * Send to backend the next message on queue.
 		 */
 		this.eventEmitter.on( 'core.backend_responded', ()=>{
-			this.nextQueuedMessage()
+			this.orchestrator.nextQueuedMessage()
 		})
 
 		/**
 		 * Spread output to all plugins.
 		 */
 		this.eventEmitter.on( 'core.spread_output', ( output, force )=>{
-			this.spreadOutput( output, force )
+			this.orchestrator.spreadOutput( output, force )
 		})
 
 		/**
 		 * Receive an input to store.
 		 */
 		this.eventEmitter.on( 'core.input', ( input )=>{
-			this.input( input )
+			this.orchestrator.input( input )
 		})
 
 		/**
 		 * Count new UI loaded.
 		 */
 		this.eventEmitter.on( 'core.ui_loaded', ( plugin )=>{
-			this.UILoaded( plugin )
+			this.orchestrator.UILoaded( plugin )
 		})
 
 		/**
@@ -327,7 +333,7 @@ export default class Bot {
 		 * Handle MCP tool feedback
 		 */
 		this.eventEmitter.on( 'mcp.tool_feedback_received', ( feedback )=>{
-			this.handleToolFeedback( feedback )
+			this.orchestrator.handleToolFeedback( feedback )
 		})
 
 		/**
@@ -337,346 +343,6 @@ export default class Bot {
 			this.redirectInput = plugin
 		})
 
-	}
-
-	/**
-	 * Load plugins (inputs and outputs, core and custom).
-	 * @return Void
-	 */
-	async loadPlugins () {
-
-		let loadSequence = []
-		for ( const core_plugin of this.options.core ) {
-			loadSequence.push( core_plugin )
-			await this.pluginLoader( core_plugin, 'Core' );
-		}
-		for ( const custom_plugin of this.options.plugins ) {
-			loadSequence.push( custom_plugin )
-			await this.pluginLoader( custom_plugin, 'Plugins' );
-		}
-
-		for ( const plugin of loadSequence ) {
-			this[ plugin.type +'s' ][ plugin.plugin ].ui( plugin ) // load UI of plugin
-		}
-
-		await this.rebuildHistory() // history of bot events and dialogs.
-		if ( this.history.length == 0 ) {
-			if ( this.presentation != undefined ) {
-				this.spreadOutput( this.presentation )
-			}
-		}
-
-	}
-
-	/**
-	 * Register number of plugins loaded and trigger an event on complete.
-	 * @param Void
-	 */
-	UILoaded ( plugin ) {
-
-		this.loaded_ui_count++
-
-		if ( this.loaded_ui_count == this.ui_count ) {
-			this.eventEmitter.trigger( 'core.all_ui_loaded' )
-		}
-
-	}
-
-	/**
-	 * Register user inputs in history.
-	 * @param  string|stream	payload	Input payload.
-	 * @param  string			plugin	Input plugin name.
-	 * @return void
-	 */
-	input ( input ) {
-
-		if ( !input.plugin )
-			throw new Error( 'The parameter "plugin" is required.' )
-		if ( !input.payload )
-			throw new Error( 'The parameter "payload" is required.' )
-
-		this.addToHistory( 'input', input.plugin, input.payload, input.title ) // add event to bot history
-		this.eventEmitter.trigger( 'core.input_received' )
-console.log('inputReceived', this.history)
-		let bc_input = ['core.input_received', input.payload]
-		this.bc.postMessage( bc_input )
-
-	}
-
-	/**
-	 * Register assistant and plugins output into history, or do nothing when input redirections is activated.
-	 * @param  string|stream	payload	Output payload.
-	 * @return void
-	 */
-	spreadOutput ( payload, force ) {
-
-		if ( !payload || ( this.redirectInput && force == undefined ) )
-			return
-
-		payload = this.extractActions( payload )
-
-		let plugins = []
-		for ( var plugin in this.ui_outputs ) {
-			plugins.push( plugin )
-		}
-		this.addToHistory( 'output', plugins, JSON.stringify( payload ) ) // add event to bot history
-		this.eventEmitter.trigger( 'core.output_ready', [payload] )
-
-		let bc_output = ['core.output_ready', payload]
-		this.bc.postMessage( bc_output )
-
-	}
-
-	/**
-	 * Register bot backend engine.
-	 * @param  Object	obj		Backend object.
-	 * @return Void
-	 */
-	async registerBackend ( options ) {
-
-		let engine_specific = null
-		if ( options.engine_specific != undefined )
-			engine_specific = options.engine_specific
-
-		if ( !options.engine || options.engine.toLowerCase() == 'rasa' ) {
-			let BackendEngine = await import( './Core/Backend/Rasa.js' )
-			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
-		} else if ( !options.engine || options.engine.toLowerCase() == 'openai' ) {
-			let BackendEngine = await import( './Core/Backend/OpenAI.js' )
-			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
-		} else if ( !options.engine || options.engine.toLowerCase() == 'insecure-local-ollama' ) {
-			let BackendEngine = await import( './Core/Backend/InsecureLocalOllama.js' )
-			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
-		} else if ( options.engine.toLowerCase() == 'universal-llm' ) {
-			let BackendEngine = await import( './Core/Backend/UniversalLLM.js' )
-			this.backend = new BackendEngine.default( this, {endpoint: options.endpoint, engine_specific: engine_specific} )
-		}
-
-		console.log('★  [•_•] The bot is assembled and ready. [•_•]  ★')
-		this.eventEmitter.trigger( 'core.loaded' )
-
-	}
-
-	/**
-	 * Set plugin's UI at DOM. It will activate plugins in `Core` or `Plugins` folder.
-	 * You want to inform the plugin's name throught the `options` like: `{plugin: "MyPlugin"}`.
-	 * The name is the name of the main folder of your package, AND the name of the main .js
-	 * file (ex.: `/Plugins/MyPlugin/MyPlugin.js`), AND the name of the class (ex.: `export default class MyPlugin { constructor() { } }`).
-	 * The plugin name can only have letters and numbers, no special characters is allowed.
-	 * @param  Object	options	Information about plugin `type` and plugin `name` as well as plugin parameters.
-	 * @param  String	source	Tell if the plugin is from `Core` or is a custom plugin from `Plugins` folder.
-	 * @return Void
-	 */
-	async pluginLoader ( options, source ) {
-
-		try {
-
-			if ( !options.plugin )
-				throw new Error( 'The parameter "plugin" (the plugin name) is required.' )
-			if ( options.type != 'input' && options.type != 'output' )
-				throw new Error( 'The valid values for "type" are "input" or "output".' )
-
-			const plugin = this.sanitizePluginName( options.plugin )
-			if ( !plugin || plugin === '' )
-				throw new Error( 'The parameter "plugin" (the plugin name) can use only letters and numbers, and no accent or special characters.' )
-			let type = options.type
-			let import_path = './' + source + '/' + this.camelcase( options.type ) + '/' + plugin + '/' + plugin + '.js'
-
-			await import( /* @vite-ignore */ import_path )
-				  .then(({ default: LoadedPlugin }) => {
-				  	const LoadedPluginInit = new LoadedPlugin( this, options )
-					this[ type +'s' ][ options.plugin ] = LoadedPluginInit
-					
-					// Register MCP tools, models, and functions if plugin defines them
-					this.registerPluginMCPItems(LoadedPluginInit)
-				  })
-
-			if ( type == 'output' )
-				this.ui_outputs[ plugin ] = true
-
-		} catch ( err ) {
-
-			throw new Error( `Error on load plugin: ${err}` )
-
-		}
-
-	}
-
-	/**
-	 * Register MCP tools, models, and functions from a plugin if they are defined
-	 * @param  Object plugin The loaded plugin instance
-	 * @return Void
-	 */
-	registerPluginMCPItems(plugin) {
-		// Skip if plugin is not an MCP plugin
-		if (!plugin.isMCPTool) {
-			return
-		}
-
-		// Register MCP Tool
-		this.registerPluginMCPTool(plugin)
-		
-		// Register MCP Model
-		this.registerPluginMCPModel(plugin)
-		
-		// Register MCP Function
-		this.registerPluginMCPFunction(plugin)
-	}
-
-	/**
-	 * Register MCP tool from a plugin if defined
-	 * @param  Object plugin The loaded plugin instance
-	 * @return Void
-	 */
-	registerPluginMCPTool(plugin) {
-		if (plugin.getMCPToolDefinition) {
-			try {
-				const toolDefinition = plugin.getMCPToolDefinition()
-				
-				// Only proceed if tool definition is valid and not null
-				if (toolDefinition && this.validateMCPToolDefinition(toolDefinition)) {
-					this.mcpHelper.registerTool(toolDefinition)
-					console.log(`[✔︎] MCP Tool "${toolDefinition.name}" registered from plugin "${plugin.name}"`)
-				} else if (toolDefinition === null) {
-					// Plugin decided not to register a tool (e.g., no elements available)
-					console.log(`[ℹ] Plugin "${plugin.name}" skipped MCP tool registration (conditions not met)`)
-				} else {
-					console.warn(`[⚠] Invalid MCP tool definition from plugin "${plugin.name}"`)
-				}
-			} catch (error) {
-				console.error(`[✗] Error registering MCP tool from plugin "${plugin.name}":`, error)
-			}
-		}
-	}
-
-	/**
-	 * Register MCP model from a plugin if defined
-	 * @param  Object plugin The loaded plugin instance
-	 * @return Void
-	 */
-	registerPluginMCPModel(plugin) {
-		if (plugin.getMCPModelDefinition) {
-			try {
-				const modelDefinition = plugin.getMCPModelDefinition()
-				
-				// Only proceed if model definition is valid and not null
-				if (modelDefinition && this.validateMCPModelDefinition(modelDefinition)) {
-					this.mcpHelper.registerModel(modelDefinition)
-					console.log(`[✔︎] MCP Model "${modelDefinition.name}" registered from plugin "${plugin.name}"`)
-				} else if (modelDefinition === null) {
-					// Plugin decided not to register a model
-					console.log(`[ℹ] Plugin "${plugin.name}" skipped MCP model registration (conditions not met)`)
-				} else {
-					console.warn(`[⚠] Invalid MCP model definition from plugin "${plugin.name}"`)
-				}
-			} catch (error) {
-				console.error(`[✗] Error registering MCP model from plugin "${plugin.name}":`, error)
-			}
-		}
-	}
-
-	/**
-	 * Register MCP function from a plugin if defined
-	 * @param  Object plugin The loaded plugin instance
-	 * @return Void
-	 */
-	registerPluginMCPFunction(plugin) {
-		if (plugin.getMCPFunctionDefinition) {
-			try {
-				const functionDefinition = plugin.getMCPFunctionDefinition()
-				
-				// Only proceed if function definition is valid and not null
-				if (functionDefinition && this.validateMCPFunctionDefinition(functionDefinition)) {
-					this.mcpHelper.registerFunction(functionDefinition)
-					console.log(`[✔︎] MCP Function "${functionDefinition.name}" registered from plugin "${plugin.name}"`)
-				} else if (functionDefinition === null) {
-					// Plugin decided not to register a function
-					console.log(`[ℹ] Plugin "${plugin.name}" skipped MCP function registration (conditions not met)`)
-				} else {
-					console.warn(`[⚠] Invalid MCP function definition from plugin "${plugin.name}"`)
-				}
-			} catch (error) {
-				console.error(`[✗] Error registering MCP function from plugin "${plugin.name}":`, error)
-			}
-		}
-	}
-
-	/**
-	 * Validate MCP tool definition structure
-	 * @param  Object toolDefinition The tool definition to validate
-	 * @return Boolean True if valid, false otherwise
-	 */
-	validateMCPToolDefinition(toolDefinition) {
-		if (!toolDefinition || typeof toolDefinition !== 'object') {
-			return false
-		}
-
-		// Required fields
-		const requiredFields = ['name', 'description', 'parameters', 'execute']
-		for (const field of requiredFields) {
-			if (!toolDefinition.hasOwnProperty(field)) {
-				console.warn(`[⚠] MCP tool definition missing required field: ${field}`)
-				return false
-			}
-		}
-
-		// Validate parameters structure
-		if (!toolDefinition.parameters || typeof toolDefinition.parameters !== 'object') {
-			console.warn(`[⚠] MCP tool definition has invalid parameters structure`)
-			return false
-		}
-
-		// Validate execute function
-		if (typeof toolDefinition.execute !== 'function') {
-			console.warn(`[⚠] MCP tool definition execute must be a function`)
-			return false
-		}
-
-		return true
-	}
-
-	/**
-	 * Validate MCP model definition structure
-	 * @param  Object modelDefinition The model definition to validate
-	 * @return Boolean True if valid, false otherwise
-	 */
-	validateMCPModelDefinition(modelDefinition) {
-		if (!modelDefinition || typeof modelDefinition !== 'object') {
-			return false
-		}
-		
-		// Required fields for models
-		const requiredFields = ['name', 'description']
-		for (const field of requiredFields) {
-			if (!modelDefinition.hasOwnProperty(field)) {
-				console.warn(`[⚠] MCP model definition missing required field: ${field}`)
-				return false
-			}
-		}
-		
-		return true
-	}
-
-	/**
-	 * Validate MCP function definition structure
-	 * @param  Object functionDefinition The function definition to validate
-	 * @return Boolean True if valid, false otherwise
-	 */
-	validateMCPFunctionDefinition(functionDefinition) {
-		if (!functionDefinition || typeof functionDefinition !== 'object') {
-			return false
-		}
-		
-		// Required fields for functions
-		const requiredFields = ['name', 'description']
-		for (const field of requiredFields) {
-			if (!functionDefinition.hasOwnProperty(field)) {
-				console.warn(`[⚠] MCP function definition missing required field: ${field}`)
-				return false
-			}
-		}
-		
-		return true
 	}
 
 	/**
@@ -710,9 +376,7 @@ console.log('inputReceived', this.history)
 	async addToHistory ( type, plugin, payload, title = null ) {
 
 		await this.sessionAdapter.addToHistory( type, plugin, payload, title )
-console.log('addToHistory', this.history)
 		this.eventEmitter.trigger( 'core.history_added' )
-console.log('addToHistory2', this.history)
 
 	}
 
@@ -725,89 +389,6 @@ console.log('addToHistory2', this.history)
 		await this.sessionAdapter.rebuildHistory()
 		this.history_loaded = true
 		this.eventEmitter.trigger( 'core.history_loaded' )
-
-	}
-
-	/**
-	 * Extract actions from output messages.
-	 * @param  array	payload		Payload data.
-	 * @return array 	payload 	Payload processed.
-	 */
-	extractActions ( payload ) {
-
-		payload.map(( obj )=>{
-
-			obj.do = null
-			
-			// Check if obj.text exists and is a string
-			if ( obj.text && typeof obj.text === 'string' && obj.text.indexOf( this.action_tag_open ) > -1 ) {
-				let part1 = obj.text.substr( 0, obj.text.indexOf( this.action_tag_open ) )
-				let part2 = obj.text.substr( obj.text.indexOf( this.action_tag_close ) + this.action_tag_close.length )
-				let to_say = part1 + part2
-
-				let to_do = obj.text.substr( obj.text.indexOf( this.action_tag_open ) + this.action_tag_open.length )
-				to_do = to_do.substr( 0, to_do.indexOf( this.action_tag_close ) )
-				obj.text = to_say
-				obj.do = to_do
-			}
-
-		})
-
-		return payload
-
-	}
-
-	/**
-	 * Send data to backend and wait for response.
-	 * @param  String	plugin	What plugin want to send this payload.
-	 * @param  String	payload Data to send to back end.
-	 * @return String	json	Backend response.
-	 */
-	async sendToBackend ( payload ) {
-
-		if ( this.calling_backend ) {
-			this.addToQueue( payload )
-			return
-		}
-
-		let response = '';
-
-		if ( this.redirectInput ) {
-			response = this.outputs[ this.redirectInput ].redirectedInput( payload.payload )
-			this.eventEmitter.trigger( payload.trigger, [response] )
-			return
-		}
-
-		this.eventEmitter.trigger( 'core.calling_backend' )
-		response = await this.backend.send( payload.plugin, payload.payload )
-		response = await this.mcpHelper.processIfHasTools(response)
-		this.eventEmitter.trigger( 'core.backend_responded' )
-		this.eventEmitter.trigger( payload.trigger, [response] )
-
-	}
-
-	/**
-	 * Create a queue when new events / messages arrive before back end response for the previous one.
-	 * @param Object payload Payload to the back end.
-	 */
-	addToQueue ( payload ) {
-
-		this.queue.append( payload )
-
-	}
-
-	/**
-	 * Send the next message / event in the queue to the back end, if any.
-	 * @return Void | Null
-	 */
-	nextQueuedMessage () {
-
-		if ( this.queue.length == 0 ) {
-			return
-		}
-
-		let payload = this.queue.shift()
-		this.sendToBackend( payload )
 
 	}
 
@@ -930,24 +511,6 @@ console.log('addToHistory2', this.history)
 
 		return await this.sessionAdapter.cryptography(data, action)
 
-	}
-
-	/**
-	 * Handle tool feedback from MCP
-	 * @param {Object} feedback - Tool feedback data
-	 */
-	handleToolFeedback(feedback) {
-		if (feedback && feedback.success && feedback.feedback) {
-			// Add feedback to conversation history
-			this.addToHistory('feedback', 'mcp', feedback.feedback, 'Tool Feedback')
-
-			// Optionally display feedback to user
-			this.spreadOutput([{
-				recipient_id: "user",
-				text: feedback.feedback,
-				type: "feedback"
-			}])
-		}
 	}
 
 }

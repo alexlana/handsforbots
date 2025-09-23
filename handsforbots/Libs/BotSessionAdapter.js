@@ -45,9 +45,7 @@ export default class BotSessionAdapter {
      * @param {string} title - Título opcional
      */
     async addToHistory(type, plugin, payload, title = null) {
-console.log('addToHistorySessionAdapter', this.sessionManager.history)
         await this.sessionManager.addToHistory(type, plugin, payload, title)
-console.log('addToHistorySessionAdapter', this.sessionManager.history)
     }
 
 
