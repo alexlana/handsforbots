@@ -17,8 +17,14 @@ Os plugins do mecanismo de backend fornecem o link crucial entre sua interface d
 ## Mecanismos de Backend Disponíveis
 
 
-- [RASA](./backend/rasa.md)
+- [RASA](./backend/rasa.md) - Framework de conversação com IA
 
 
-- [OpenAI](./backend/openai.md)
+- [OpenAI](./backend/openai.md) - API OpenAI GPT
+
+
+- [InsecureLocalOllama](./backend/insecure-local-ollama.md) - Ollama local (desenvolvimento)
+
+
+- [UniversalLLM](./backend/universal-llm.md) - Backend universal para múltiplos provedores LLM
 

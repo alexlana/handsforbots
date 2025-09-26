@@ -17,6 +17,10 @@
   ## Available Backend Engines
 
 
-  - [RASA](./backend/rasa.md)
+  - [RASA](./backend/rasa.md) - Conversational AI framework
 
-  - [OpenAI](./backend/openai.md)
+  - [OpenAI](./backend/openai.md) - OpenAI GPT API
+
+  - [InsecureLocalOllama](./backend/insecure-local-ollama.md) - Local Ollama (development)
+
+  - [UniversalLLM](./backend/universal-llm.md) - Universal backend for multiple LLM providers
