@@ -1,4 +1,6 @@
 import { Marked } from 'https://cdn.jsdelivr.net/npm/marked@10.0.0/+esm'
+import TextLayoutManager from './TextLayoutManager.js'
+import { generateLayoutCSS } from './TextLayoutCSS.js'
 
 
 /**
@@ -15,6 +17,14 @@ export default class TextInput {
 		this.container = null
 		this.bot = bot
 		this.marked = new Marked()
+		this.layoutManager = null // Will be initialized in ui() method
+		
+		// Always open option - prevents chat window from being closed
+		this.always_open = options.always_open || false
+		
+		// Header layout options
+		this.header_layout = options.header_layout || 'bar' // 'bar' | 'hidden' | 'floating'
+		this.bot_face_layout = options.bot_face_layout || 'bar' // 'bar' | 'hidden' | 'floating'
 
 		this.language = {
 			'en-us': {
@@ -149,15 +159,22 @@ export default class TextInput {
 		this.autofocus = options.autofocus || false
 
 		/**
-		 * UI CSS.
+		 * UI CSS - Initialize layout manager and generate layout-specific CSS
 		 */
 		if ( !this.no_css ) {
+			// Initialize layout manager first
+			this.layoutManager = new TextLayoutManager(this.bot, options)
+			
+			// Create CSS element
 			let ui_css = document.createElement('STYLE')
 			ui_css.setAttribute( 'id', 'text_ui_css' )
-			import( /* @vite-ignore */ './TextChatCSS.js' )
-					.then(({ default: ChatCSS }) => {
-						ui_css.innerHTML = ChatCSS( this.bot )
-					})
+			
+			// Generate CSS based on layout configuration
+			ui_css.innerHTML = generateLayoutCSS(this.bot, this.layoutManager.layout)
+			
+			// Log layout info for debugging
+			this.layoutManager.logLayoutInfo()
+			
 			document.querySelector( this.container ).append( ui_css )
 		}
 
@@ -166,8 +183,25 @@ export default class TextInput {
 		 */
 		let ui_window = document.createElement( 'DIV' )
 		ui_window.setAttribute( 'id', 'chat_window' )
-		ui_window.classList.add( 'chat_rounded_box' );
+		ui_window.classList.add( 'chat_box' );
 		ui_window.classList.add( 'keyboard_active' )
+		
+		// Add layout classes based on options
+		if (this.always_open) {
+			ui_window.classList.add('always_open')
+		}
+		if (this.header_layout) {
+			ui_window.classList.add('header-' + this.header_layout)
+		}
+		if (this.bot_face_layout) {
+			ui_window.classList.add('bot-face-' + this.bot_face_layout)
+		}
+		
+		// Add position class for CSS targeting
+		if (this.layoutManager && this.layoutManager.layout) {
+			ui_window.classList.add(this.layoutManager.layout.position)
+		}
+		
 		ui_window.setAttribute( 'style', 'display:none;' )
 
 		let bot_face = ''
@@ -176,24 +210,34 @@ export default class TextInput {
 		let bot_id = ''
 		let bot_disclaimer = ''
 
-		if ( this.bot_avatar.length > 0 )
-			bot_face = '<div id="bot_face"><img src="' + this.bot_avatar + '"></div>'
-		if ( this.bot_job.length > 0 )
-			bot_job = '<br><small>'+this.bot_job+'</small>'
-		if ( this.bot_name.length > 0 )
-			bot_name = '<div id="bot_name"><span>'+this.bot_name+bot_job+'</span></div>'
-		if ( bot_face.length > 0 || bot_name.length > 0 )
-			bot_id = '<div id="chat_bot_face">\
-				'+bot_face+'\
-				'+bot_name+'\
-			</div>'
+		// Generate bot face and name based on bot_face_layout option
+		if (this.bot_face_layout !== 'hidden') {
+			if ( this.bot_avatar.length > 0 )
+				bot_face = '<div id="bot_face"><img src="' + this.bot_avatar + '"></div>'
+			if ( this.bot_job.length > 0 )
+				bot_job = '<br><small>'+this.bot_job+'</small>'
+			if ( this.bot_name.length > 0 )
+				bot_name = '<div id="bot_name"><span>'+this.bot_name+bot_job+'</span></div>'
+			if ( bot_face.length > 0 || bot_name.length > 0 )
+				bot_id = '<div id="chat_bot_face">\
+					'+bot_face+'\
+					'+bot_name+'\
+				</div>'
+		}
 		if ( this.bot.disclaimer != undefined ) {
 			bot_disclaimer = '<div class="bot_disclaimer" onclick="this.children[0].classList.toggle(\'open\')">' + this.language[this.bot.current_language].disclaimer + '\
 			<div class="chat_message bot_disclaimer_message">' + this.bot.disclaimer + '<div class="bot_disclaimer_x"></div></div>\
 			</div>'
 		}
 
-		ui_window.innerHTML = '<h5>'+this.title+'<button>▲</button></h5>\
+		// Generate header based on header_layout option
+		let headerHTML = ''
+		if (this.header_layout !== 'hidden') {
+			const headerButton = this.always_open ? '' : '<button>▲</button>'
+			headerHTML = '<h5>'+this.title+headerButton+'</h5>'
+		}
+		
+		ui_window.innerHTML = headerHTML + '\
 			'+bot_id+'\
 			<div id="chat_body"><div id="inner_chat_body" class="inner_chat"><div class="chat_div_extra"></div></div></div>\
 			<form id="chat_input_wrapper" autocomplete="off">\
@@ -206,20 +250,40 @@ export default class TextInput {
 					<button>'+this.language[this.bot.current_language].reconnect+'</button>\
 				</span>\
 			</div>'
-		ui_window.querySelector( 'h5' ).addEventListener( 'click', (e)=>{
-			e.stopPropagation()
-			e.target.parentElement.classList.toggle( 'open_chat' )
-			if ( e.target.parentElement.classList.contains( 'open_chat' ) ) {
-				if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
-					setTimeout( (e)=>{
-						e.target.parentElement.querySelector( '#chat_window input[type="text"]' ).focus()
-					}, 450, e )
+		// Add header click listener only if header exists
+		const headerElement = ui_window.querySelector( 'h5' )
+		if (headerElement) {
+			headerElement.addEventListener( 'click', (e)=>{
+				e.stopPropagation()
+				
+				// If always_open is true, only allow opening, not closing
+				if (this.always_open) {
+					// Only open if not already open
+					if (!e.target.parentElement.classList.contains('open_chat')) {
+						e.target.parentElement.classList.add('open_chat')
+						if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
+							setTimeout( (e)=>{
+								e.target.parentElement.querySelector( '#chat_window input[type="text"]' ).focus()
+							}, 450, e )
+						}
+						this.bot.eventEmitter.trigger( 'core.renew_session' )
+					}
+				} else {
+					// Normal behavior - allow toggle
+					e.target.parentElement.classList.toggle( 'open_chat' )
+					if ( e.target.parentElement.classList.contains( 'open_chat' ) ) {
+						if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
+							setTimeout( (e)=>{
+								e.target.parentElement.querySelector( '#chat_window input[type="text"]' ).focus()
+							}, 450, e )
+						}
+					} else {
+						e.target.parentElement.querySelector( 'input[type="text"]' ).blur()
+					}
+					this.bot.eventEmitter.trigger( 'core.renew_session' )
 				}
-			} else {
-				e.target.parentElement.querySelector( 'input[type="text"]' ).blur()
-			}
-			this.bot.eventEmitter.trigger( 'core.renew_session' )
-		})
+			})
+		}
 		if ( this.autofocus ) {
 			ui_window.addEventListener( 'click', ()=>{
 				if ( document.querySelector('#chat_window.open_chat').classList.contains( 'keyboard_active' ) ) {
@@ -254,7 +318,7 @@ export default class TextInput {
 			this.rebuildHistory( ui_window )
 		})
 
-		if ( this.start_open ) {
+		if ( this.start_open || this.always_open ) {
 			this.initialOpenChatWindow( ui_window )
 		}
 
@@ -288,16 +352,26 @@ export default class TextInput {
 	/**
 	 * Message balloon.
 	 * @param  String	payload		Text from input to show on front end.
+	 * @param  String	side		Side of the message (user/bot).
+	 * @param  String	recipient	Recipient type.
+	 * @param  String	html		Optional HTML content for inline MCP content.
 	 * @return HTML		wrapper		HTML of the message balloon.
 	 */
-	messageWrapper ( payload, side = 'user', recipient = null ) {
+	messageWrapper ( payload, side = 'user', recipient = null, html = null ) {
 		const wrapper = document.createElement( 'DIV' )
 		let error_tag = ''
 		if ( recipient == 'error' )
 			error_tag = 'error'
-		payload = payload.replace(/【.*】/, '')
-		payload = this.marked.parse( payload )
-		wrapper.innerHTML = '<div class="chat_message '+side+'_message '+error_tag+'">'+payload+'</div><div class="chat_div_extra"></div>'
+		
+		// Handle inline MCP content
+		if ( html && html.length > 0 ) {
+			wrapper.innerHTML = '<div class="chat_message '+side+'_message '+error_tag+' mcp_inline_content">'+html+'</div><div class="chat_div_extra"></div>'
+		} else {
+			payload = payload.replace(/【.*】/, '')
+			payload = this.marked.parse( payload )
+			wrapper.innerHTML = '<div class="chat_message '+side+'_message '+error_tag+'">'+payload+'</div><div class="chat_div_extra"></div>'
+		}
+		
 		return wrapper
 	}
 
@@ -388,7 +462,9 @@ export default class TextInput {
 							var title = output[j].title
 						}
 						if ( title.length > 0 ) {
-							ui_window.querySelector('#inner_chat_body').append( this.messageWrapper( title, 'bot', output[j].recipient_id ) )
+							// Check for inline MCP content in history
+							const html = output[j].html || null
+							ui_window.querySelector('#inner_chat_body').append( this.messageWrapper( title, 'bot', output[j].recipient_id, html ) )
 						}
 					}
 

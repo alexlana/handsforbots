@@ -366,9 +366,9 @@ export default class SessionManager {
 	 */
 	logHistoryStatus() {
 		if (this.history.length > 0) {
-			console.log('[✔︎] SessionManager: Histórico de conversa recuperado.')
+			console.log('[✔︎] SessionManager: Conversation history recovered.')
 		} else {
-			console.log('[ℹ] SessionManager: Nenhum histórico anterior encontrado.')
+			console.log('[ℹ] SessionManager: No previous conversation history found.')
 		}
 	}
 

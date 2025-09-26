@@ -23,6 +23,10 @@ export default class ImageGallery {
 		this.emitter = new EventEmitter()
 
 		this.options = options
+		
+		// Configure output mode: 'modal', 'inline', or 'both'
+		this.outputMode = options.outputMode || 'modal'
+		this.allowModeToggle = options.allowModeToggle || false
 
 		console.log('[✔︎] Bot\'s Image Gallery module connected.')
 
@@ -63,13 +67,20 @@ export default class ImageGallery {
 						type: 'string',
 						description: `The title to use to show the gallery. Must be a concise title related to the gallery or the topic.`,
 						examples: this.elements.slice(0, 3) // Show first 3 examples
+					},
+					outputMode: {
+						type: 'string',
+						enum: ['modal', 'inline'],
+						description: 'How to display the result: modal (popup) or inline (in chat)',
+						default: this.outputMode
 					}
 				},
 				required: ['query', 'title']
 			},
 			execute: async (params) => {
 				console.log('ImageGallery called with params:', params)
-				return await this.executeTool(params.query, params.title)
+				const mode = params.outputMode || this.outputMode
+				return await this.executeTool(params.query, params.title, mode)
 			}
 		}
 	}
@@ -126,9 +137,10 @@ export default class ImageGallery {
      * Executa a ferramenta image_gallery
      * @param {string} query - A query para encontrar o elemento
      * @param {string} title - O título da galeria
+     * @param {string} mode - Modo de exibição: 'modal' ou 'inline'
      * @return {Promise<Object>} Resultado da execução
      */
-    async executeTool(query, title) {
+    async executeTool(query, title, mode = 'modal') {
         try {
             
             let queries = []
@@ -139,14 +151,19 @@ export default class ImageGallery {
             }
             queries = queries.map(query => query.trim())
 
-            // Executar a galeria
-            this.galleryModal(queries, title);
-
-            return {
-                success: true,
-                message: `Successfully executed image_gallery: ${query}`,
-                images: queries,
-                title: title || query
+            if (mode === 'inline') {
+                // Generate inline content for chat
+                return this.generateInlineContent(queries, title)
+            } else {
+                // Traditional modal behavior
+                this.galleryModal(queries, title);
+                
+                return {
+                    success: true,
+                    message: `Successfully executed image_gallery: ${query}`,
+                    images: queries,
+                    title: title || query
+                }
             }
         } catch (error) {
             console.error(`Error executing image_gallery: ${error.message}`)
@@ -175,8 +192,62 @@ export default class ImageGallery {
                 }
             }
         });
-        
+
         return images;
+    }
+
+    /**
+     * Generate inline content for chat display
+     * @param {Array} queries - Array of queries
+     * @param {string} title - Gallery title
+     * @return {Object} Inline content object
+     */
+    generateInlineContent(queries, title) {
+        // Collect text snippets
+        let textSnippets = []
+        let selectedSnippets = []
+        for ( const query of queries ) {
+            textSnippets = document.querySelectorAll(`[data-image-gallery-text-for*="${query}"]`)
+            for ( const textSnippet of textSnippets ) {
+                if ( selectedSnippets.includes(textSnippet) ) {
+                    continue
+                }
+                selectedSnippets.push(textSnippet)
+            }
+        }
+
+        const text = selectedSnippets.map((textSnippet) => {return textSnippet ? textSnippet.innerHTML : ''}).join('')
+
+        // Collect images
+        const imageElements = queries.map((query) => {
+            const image = this.getImagesForQuery(query)
+            const element = document.querySelector(`[data-image-gallery-id="${query}"]`)
+            const alt = element ? element.getAttribute('alt') || '' : ''
+            return image ? `<figure class="inline-gallery-image"><img src="${image}" alt="${alt}"><figcaption>${alt}</figcaption></figure>` : ''
+        }).filter(img => img.length > 0)
+
+        // Generate HTML for inline display
+        const inlineHTML = `
+            <div class="inline-gallery-content">
+                <h3 class="inline-gallery-title">${title}</h3>
+                <div class="inline-gallery-images">
+                    ${imageElements.join('')}
+                </div>
+                <div class="inline-gallery-text">
+                    ${text}
+                </div>
+            </div>
+        `
+
+        return {
+            type: 'inline_content',
+            data: {
+                text: `Galeria: ${title}`,
+                html: inlineHTML,
+                images: queries.map(q => this.getImagesForQuery(q)).filter(img => img),
+                title: title
+            }
+        }
     }
 
     galleryModal ( queries, title ) {
@@ -214,6 +285,58 @@ export default class ImageGallery {
             return
         }
         const css = `
+            /* Inline Gallery Styles */
+            .mcp_inline_content .inline-gallery-content {
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 10px 0;
+                background: #f9f9f9;
+            }
+            .mcp_inline_content .inline-gallery-title {
+                margin: 0 0 15px 0;
+                padding: 0;
+                font-size: 1.2em;
+                color: #333;
+                border-bottom: 2px solid #007cba;
+                padding-bottom: 8px;
+            }
+            .mcp_inline_content .inline-gallery-images {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 15px 0;
+            }
+            .mcp_inline_content .inline-gallery-image {
+                margin: 0;
+                text-align: center;
+            }
+            .mcp_inline_content .inline-gallery-image img {
+                width: 100%;
+                height: auto;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                transition: transform 0.2s ease;
+            }
+            .mcp_inline_content .inline-gallery-image img:hover {
+                transform: scale(1.05);
+            }
+            .mcp_inline_content .inline-gallery-image figcaption {
+                margin-top: 8px;
+                font-size: 0.9em;
+                color: #666;
+                font-style: italic;
+            }
+            .mcp_inline_content .inline-gallery-text {
+                margin-top: 15px;
+                line-height: 1.6;
+                color: #444;
+            }
+            .mcp_inline_content .inline-gallery-text p {
+                margin: 10px 0;
+            }
+            
+            /* Modal Gallery Styles */
             .gallery-modal-overlay {
                 position: fixed;
                 top: 0;

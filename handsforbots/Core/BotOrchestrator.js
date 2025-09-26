@@ -337,10 +337,39 @@ export default class BotOrchestrator {
 		this.eventEmitter.trigger('core.calling_backend')
 		this.calling_backend = true
 		response = await this.backend.send(payload.plugin, payload.payload)
-		response = await this.mcpHelper.processIfHasTools(response)
+		const processedResponse = await this.mcpHelper.processIfHasTools(response)
+		
+		// Process inline content if exists
+		if (processedResponse.inlineContent && processedResponse.inlineContent.length > 0) {
+			this.processInlineContent(processedResponse.inlineContent)
+		}
+		
 		this.calling_backend = false
 		this.eventEmitter.trigger('core.backend_responded')
-		this.eventEmitter.trigger(payload.trigger, [response])
+		this.eventEmitter.trigger(payload.trigger, [processedResponse.messages || processedResponse])
+	}
+
+	/**
+	 * Process inline content from MCP tools and inject into chat
+	 * @param {Array} inlineContent - Array of inline content objects
+	 */
+	processInlineContent(inlineContent) {
+		for (const content of inlineContent) {
+			const inlineMessage = {
+				recipient_id: "bot",
+				text: content.data.text || '',
+				html: content.data.html || '',
+				images: content.data.images || [],
+				plugin_source: content.source,
+				type: 'inline_mcp_content',
+				parameters: content.parameters
+			}
+			
+			console.log(`[✔︎] Processing inline content from MCP tool: ${content.source}`)
+			
+			// Send directly to spreadOutput to inject into chat
+			this.spreadOutput([inlineMessage])
+		}
 	}
 
 	/**

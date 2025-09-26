@@ -422,11 +422,21 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 				const toolCall = handler(match)
 				
 				if (toolCall && toolCall.name && toolCall.parameters) {
-					// Validar se a ferramenta existe
-					if (availableToolNames.includes(toolCall.name)) {
+					// Normalizar nome da ferramenta para comparação
+					const normalizedName = toolCall.name.toLowerCase().replace(/_/g, '_')
+					const availableNormalized = availableToolNames.map(name => name.toLowerCase().replace(/-/g, '_'))
+					
+					// Validar se a ferramenta existe (comparação normalizada)
+					if (availableNormalized.includes(normalizedName)) {
+						// Encontrar o nome original da ferramenta
+						const originalName = availableToolNames.find(name => 
+							name.toLowerCase().replace(/-/g, '_') === normalizedName
+						)
+						toolCall.name = originalName
 						toolCalls.push(toolCall)
 					} else {
-						console.warn(`Ferramenta não encontrada: ${toolCall.name}`)
+						console.warn(`Ferramenta não encontrada: ${toolCall.name} (normalizada: ${normalizedName})`)
+						console.warn(`Ferramentas disponíveis: ${availableToolNames.join(', ')}`)
 					}
 				}
 			}
@@ -459,14 +469,23 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 				const toolName = responseItem.tool_result.tool_name
 				const parameters = responseItem.tool_result.parameters
 
-				// Validar se a ferramenta existe
-				if (availableToolNames.includes(toolName)) {
+				// Normalizar nome da ferramenta para comparação
+				const normalizedName = toolName.toLowerCase().replace(/_/g, '_')
+				const availableNormalized = availableToolNames.map(name => name.toLowerCase().replace(/-/g, '_'))
+				
+				// Validar se a ferramenta existe (comparação normalizada)
+				if (availableNormalized.includes(normalizedName)) {
+					// Encontrar o nome original da ferramenta
+					const originalName = availableToolNames.find(name => 
+						name.toLowerCase().replace(/-/g, '_') === normalizedName
+					)
 					toolCalls.push({
-						name: toolName,
+						name: originalName,
 						parameters: parameters
 					})
 				} else {
-					console.warn(`Ferramenta não encontrada: ${toolName}`)
+					console.warn(`Ferramenta não encontrada: ${toolName} (normalizada: ${normalizedName})`)
+					console.warn(`Ferramentas disponíveis: ${availableToolNames.join(', ')}`)
 				}
 			} else if ( responseItem.text.indexOf('<tool>') > -1 ) {
 				toolCalls.push(...this.extractToolCallsFromString(responseItem.text))
@@ -485,10 +504,11 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 	 * Execute tool calls and return results
 	 * @param {Array} toolCalls - Array of tool calls
 	 * @param {string} originalResponse - Original model response
-	 * @return {Array} Array of formatted messages
+	 * @return {Object} Object containing messages and inline content
 	 */
 	async executeToolCalls(toolCalls, originalResponse) {
 		const messages = []
+		const inlineContent = []
 		const toolResults = []
 
 		for (const toolCall of toolCalls) {
@@ -499,6 +519,15 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 				if (tool && tool.execute) {
 					// Execute the tool
 					const result = await tool.execute(toolCall.parameters)
+					
+					// Check if result contains inline content
+					if (result && result.type === 'inline_content') {
+						inlineContent.push({
+							source: toolCall.name,
+							data: result.data,
+							parameters: toolCall.parameters
+						})
+					}
 					
 					// Store tool result for feedback
 					toolResults.push({
@@ -514,6 +543,15 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 					if (mcpPlugin && mcpPlugin.executeTool) {
 						// Execute the MCP plugin
 						const result = await mcpPlugin.executeTool(toolCall.parameters.query || toolCall.parameters)
+						
+						// Check if result contains inline content
+						if (result && result.type === 'inline_content') {
+							inlineContent.push({
+								source: toolCall.name,
+								data: result.data,
+								parameters: toolCall.parameters
+							})
+						}
 						
 						// Store tool result for feedback
 						toolResults.push({
@@ -583,7 +621,10 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 			}
 		}
 		
-		return messages
+		return {
+			messages,
+			inlineContent
+		}
 	}
 
 	/**

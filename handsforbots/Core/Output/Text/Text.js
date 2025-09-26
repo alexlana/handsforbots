@@ -56,7 +56,9 @@ export default class TextOutput {
 			setTimeout( ( payload, i )=>{
 
 				if ( payload[i].text ) {
-					var chat_message = this.messageWrapper( payload[i].text, side, payload[i].recipient_id )
+					// Check if it's inline MCP content
+					const html = payload[i].html || null
+					var chat_message = this.messageWrapper( payload[i].text, side, payload[i].recipient_id, html )
 					chat_message = chat_message
 					document.querySelector('#inner_chat_body').append( chat_message )
 				}
@@ -89,11 +91,14 @@ export default class TextOutput {
 	/**
 	 * Message balloon.
 	 * @param  String	payload		Text from input to show on front end.
+	 * @param  String	side		Side of the message.
+	 * @param  String	recipient	Recipient type.
+	 * @param  String	html		Optional HTML content for inline MCP content.
 	 * @return HTML		wrapper		HTML of the message balloon.
 	 */
-	messageWrapper ( payload, side = 'bot', recipient = null ) {
+	messageWrapper ( payload, side = 'bot', recipient = null, html = null ) {
 
-		let wrapper = this.bot.inputs.Text.messageWrapper( payload, side, recipient )
+		let wrapper = this.bot.inputs.Text.messageWrapper( payload, side, recipient, html )
 
 		return wrapper
 
