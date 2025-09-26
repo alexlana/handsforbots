@@ -66,7 +66,6 @@ const bot = new Bot({
     engine_specific: {
         provider: 'openai', // ou 'anthropic', 'google', 'ollama', etc.
         model: 'gpt-4',
-        apiKey: 'sua-chave-api',
         sessionId: null // Será obtido automaticamente
     }
 })
@@ -80,8 +79,9 @@ const bot = new Bot({
 |-----------|------|--------|-----------|
 | `provider` | string | `'auto'` | Provedor LLM: 'openai', 'anthropic', 'google', 'ollama' |
 | `model` | string | `'auto'` | Modelo específico do provedor |
-| `apiKey` | string | `null` | Chave de API do provedor |
 | `sessionId` | string | `null` | ID da sessão (gerado automaticamente) |
+
+⚠️ **IMPORTANTE**: As chaves de API são gerenciadas **exclusivamente pelo backend PHP** por questões de segurança. Nunca passe `apiKey` do frontend.
 
 ### Provedores Suportados
 
@@ -89,8 +89,8 @@ const bot = new Bot({
 ```javascript
 engine_specific: {
     provider: 'openai',
-    model: 'gpt-4',
-    apiKey: 'sk-...'
+    model: 'gpt-4'
+    // API key é gerenciada pelo backend PHP
 }
 ```
 
@@ -98,8 +98,8 @@ engine_specific: {
 ```javascript
 engine_specific: {
     provider: 'anthropic',
-    model: 'claude-3-sonnet',
-    apiKey: 'sk-ant-...'
+    model: 'claude-3-sonnet'
+    // API key é gerenciada pelo backend PHP
 }
 ```
 
@@ -107,8 +107,8 @@ engine_specific: {
 ```javascript
 engine_specific: {
     provider: 'google',
-    model: 'gemini-pro',
-    apiKey: 'AIza...'
+    model: 'gemini-pro'
+    // API key é gerenciada pelo backend PHP
 }
 ```
 
@@ -116,8 +116,8 @@ engine_specific: {
 ```javascript
 engine_specific: {
     provider: 'ollama',
-    model: 'llama2',
-    apiKey: null // Ollama local não requer API key
+    model: 'llama2'
+    // Ollama local não requer API key
 }
 ```
 
@@ -126,11 +126,10 @@ engine_specific: {
 ```javascript
 const bot = new Bot({
     engine: 'universal-llm',
-    engine_endpoint: 'https://api.exemplo.com/llm',
+    engine_endpoint: 'http://localhost:8081/universal_llm_backend.php',
     engine_specific: {
         provider: 'openai',
         model: 'gpt-4',
-        apiKey: 'sk-proj-...',
         sessionId: null
     },
     plugins: [
@@ -295,6 +294,34 @@ O backend PHP implementa:
 - **Autenticação**: Validação de API keys
 - **Validação**: Sanitização de entrada
 - **Logs**: Monitoramento de segurança
+
+### ⚠️ Segurança de API Keys
+
+**NUNCA** configure `apiKey` no frontend. As chaves de API devem ser:
+
+1. **Configuradas no backend PHP** através do arquivo `.env`
+2. **Gerenciadas pelo servidor** de forma segura
+3. **Nunca expostas** no código JavaScript
+4. **Rotacionadas regularmente** para máxima segurança
+
+#### ❌ Configuração INCORRETA (NÃO FAÇA):
+```javascript
+// PERIGOSO - NUNCA FAÇA ISSO!
+engine_specific: {
+    provider: 'openai',
+    apiKey: 'sk-...' // ❌ RISCO DE SEGURANÇA!
+}
+```
+
+#### ✅ Configuração CORRETA:
+```javascript
+// SEGURO - API keys no backend PHP
+engine_specific: {
+    provider: 'openai',
+    model: 'gpt-4'
+    // API key configurada no backend PHP
+}
+```
 
 ## Alternativas
 

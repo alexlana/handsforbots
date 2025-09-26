@@ -29,7 +29,9 @@ export default class UniversalLLM {
 		const engineSpecific = options.engine_specific || {}
 		this.provider = engineSpecific.provider || options.provider || 'auto' // auto, openai, anthropic, google, ollama, etc.
 		this.model = engineSpecific.model || options.model || 'auto'
-		this.apiKey = engineSpecific.apiKey || options.apiKey || null
+		// SECURITY: API keys should NEVER be passed from frontend
+		// The backend PHP handles all API key management securely
+		this.apiKey = null // Always null - backend handles API keys
 		this.sessionId = engineSpecific.sessionId || options.sessionId || null // Will be fetched from backend
 
 		console.log('[✔︎] Bot\'s engine is Universal LLM.')
@@ -136,7 +138,8 @@ export default class UniversalLLM {
 			// LLM configuration
 			provider: this.provider,
 			model: this.model,
-			api_key: this.apiKey,
+			// SECURITY: Never send API keys from frontend
+			// Backend PHP manages all API keys securely
 			
 			// Message content
 			messages: [{
