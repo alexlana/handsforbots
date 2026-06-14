@@ -29,7 +29,23 @@ flowchart TB
   ULLM["UniversalLLM backend"] --> BSM["BackendSessionManager.js"]
 
   Plugins --> EE
+  Plugins --> SEO["SemanticEventObservability"]
+  Bot --> SEO
 ```
+
+## Semantic Event Observability
+
+Biblioteca em [`handsforbots/Libs/SemanticEventObservability/`](../handsforbots/Libs/SemanticEventObservability/) — observabilidade semântica para barramentos de eventos assíncronos.
+
+| Componente | Função |
+|------------|--------|
+| `createObservability()` | Core: policy, correlation, buffer, exporters |
+| `adapters/handsforbots.js` | Integração via plugin `Observability` |
+| `adapters/genericEventBus.js` | Wrapper genérico `on` / `trigger` |
+| `exporters/*` | Faro, OTel, Langfuse, LangSmith (todos opcionais) |
+| `grafana/*.json` | Dashboard template para LGTM stack |
+
+Dependências externas são **peer optional** — ausência não quebra o bot. Ver [README da lib](../handsforbots/Libs/SemanticEventObservability/README.md).
 
 ## EventEmitter — barramento in-process
 

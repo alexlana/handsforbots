@@ -1,0 +1,180 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_LOKI",
+      "label": "Loki",
+      "description": "Loki data source (Faro / structured logs)",
+      "type": "datasource",
+      "pluginId": "loki",
+      "pluginName": "Loki"
+    },
+    {
+      "name": "DS_TEMPO",
+      "label": "Tempo",
+      "description": "Tempo data source (OpenTelemetry traces)",
+      "type": "datasource",
+      "pluginId": "tempo",
+      "pluginName": "Tempo"
+    },
+    {
+      "name": "DS_PROM",
+      "label": "Prometheus",
+      "description": "Prometheus/Mimir metrics data source",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+          "editorMode": "code",
+          "expr": "{service_name=\"semantic-event-observability\"} |= \"semantic_event\" | json | line_format \"{{.type}} {{.name}} turn={{.turnId}} queue={{.queueDepth}}\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Semantic events (Faro / Loki)",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+          "editorMode": "code",
+          "expr": "sum by (name) (count_over_time({service_name=\"semantic-event-observability\"} |= \"semantic_event\" | json [5m]))",
+          "legendFormat": "{{name}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Event rate by name",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+          "query": "{ resource.service.name=\"semantic-event-observability\" && name=~\"turn:.*\" }",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "title": "Conversation turns (Tempo)",
+      "type": "traces"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+          "expr": "histogram_quantile(0.95, sum(rate(seo_turn_duration_ms_bucket[5m])) by (le))",
+          "legendFormat": "p95 turn duration",
+          "refId": "A"
+        }
+      ],
+      "title": "Turn duration p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 5,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+          "expr": "avg(seo_queue_depth)",
+          "legendFormat": "queue depth",
+          "refId": "A"
+        }
+      ],
+      "title": "Backend queue depth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 6,
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
+          "expr": "sum(increase(seo_events_dropped_total[5m])) by (reason)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Dropped telemetry (sampling / rate limit)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["semantic-event-observability", "async-events", "handsforbots"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Semantic Event Observability",
+  "uid": "semantic-event-observability",
+  "version": 1,
+  "weekStart": ""
+}

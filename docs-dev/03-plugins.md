@@ -80,6 +80,7 @@ Outputs com UI registram-se em `bot.ui_outputs` no `pluginLoader` (type `output`
 ```mermaid
 flowchart TB
   EE["core.output_ready"] --> A["Analytics.trackEvent"]
+  EE --> OBS["Observability (event bus)"]
   EE --> B["ImageGallery / ShowRelevantContent"]
   EE --> C["HexPresentation DOM"]
   EE --> D["GUIDed (parcial)"]
@@ -89,6 +90,18 @@ flowchart TB
 ## Analytics — observador passivo
 
 [`Plugins/Output/Analytics/Analytics.js`](../handsforbots/Plugins/Output/Analytics/Analytics.js) não participa do caminho crítico da resposta; envia eventos HTTP em paralelo.
+
+## Observability — instrumentação do barramento
+
+[`Plugins/Output/Observability/Observability.js`](../handsforbots/Plugins/Output/Observability/Observability.js) é um output passivo que configura [Semantic Event Observability](../handsforbots/Libs/SemanticEventObservability/README.md). Instrumenta `eventEmitter.trigger` / fila / `BroadcastChannel`; exporters opcionais (Faro, OTel, Langfuse, LangSmith).
+
+```javascript
+options.plugins.push({
+  type: 'output',
+  plugin: 'Observability',
+  exporters: ['memory', 'devPanel'],
+})
+```
 
 ```mermaid
 sequenceDiagram
@@ -140,6 +153,7 @@ Exemplos: `ImageGallery`, `ShowRelevantContent` (ver também [`Plugins/README_MC
 |--------|--------|---------|
 | Photo | `photo.receiver` | `core.send_to_backend`, `core.spread_output` |
 | Analytics | `core.input`, `core.output_ready` | — (HTTP externo) |
+| Observability | (wrap `trigger` no bus) | — (exporters opcionais) |
 | GUIDed | (interno / voz) | `core.spread_output`, possivelmente `core.redirect_input` |
 | ImageGallery / ShowRelevantContent | MCP + UI | via MCPHelper após backend |
 | HexPresentation | `core.output_ready` (implícito via UI) | manipulação DOM |

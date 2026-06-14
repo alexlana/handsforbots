@@ -1,0 +1,48 @@
+{
+  "name": "@handsforbots/semantic-event-observability",
+  "version": "0.1.0",
+  "description": "Semantic observability for async event systems — logs, metrics, and tracing with optional Grafana, Langfuse, and LangSmith exporters.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./packageIdentity": "./packageIdentity.js",
+    "./adapters/handsforbots": "./adapters/handsforbots.js",
+    "./adapters/genericEventBus": "./adapters/genericEventBus.js"
+  },
+  "files": [
+    "index.js",
+    "packageIdentity.js",
+    "core/",
+    "adapters/",
+    "exporters/",
+    "utils/",
+    "grafana/",
+    "docs/",
+    "README.md"
+  ],
+  "keywords": [
+    "observability",
+    "events",
+    "async",
+    "opentelemetry",
+    "grafana",
+    "faro",
+    "langfuse",
+    "langsmith",
+    "event-bus"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@grafana/faro-web-sdk": ">=1.0.0",
+    "@langfuse/tracing": ">=4.0.0",
+    "@opentelemetry/api": ">=1.0.0",
+    "langsmith": ">=0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@grafana/faro-web-sdk": { "optional": true },
+    "@langfuse/tracing": { "optional": true },
+    "@opentelemetry/api": { "optional": true },
+    "langsmith": { "optional": true }
+  }
+}
