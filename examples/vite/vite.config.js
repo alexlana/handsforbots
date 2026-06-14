@@ -6,7 +6,10 @@ export default {
     base: './',
     server: {
         host: true,
-        open: !isCodeSandbox // Open if it's not a CodeSandbox
+        open: !isCodeSandbox, // Open if it's not a CodeSandbox
+        hmr: process.env.VITE_HMR_CLIENT_PORT
+            ? { clientPort: Number(process.env.VITE_HMR_CLIENT_PORT) }
+            : true
     },
     build: {
         outDir: '../dist',

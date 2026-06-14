@@ -1,4 +1,4 @@
-FROM python:3.9.18-slim
+FROM python:3.10-slim
 
 RUN apt-get update && \
 	apt-get install -y python3-venv python3-pip \
@@ -9,8 +9,8 @@ RUN apt-get update && \
 RUN python3 -m pip install --upgrade pip
 
 # Instala a versão mais recente do Rasa SDK
-RUN pip --default-timeout=100 install rasa==3.6.19
-RUN pip install rasa-sdk==3.6.2
+RUN pip --default-timeout=100 install rasa==3.6.21
+RUN pip install rasa-sdk==3.16.1
 
 WORKDIR /app
 

@@ -1,4 +1,4 @@
-FROM node:18.17.1
+FROM node:lts
 
 WORKDIR /usr/src/app
 

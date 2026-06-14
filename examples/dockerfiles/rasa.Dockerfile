@@ -1,4 +1,4 @@
-FROM python:3.9.18-slim
+FROM python:3.10-slim
 
 RUN apt-get update && \
 	apt-get install -y python3-venv python3-pip \
@@ -13,7 +13,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN python3 -m pip install --upgrade pip
 
 # Instala a versão mais recente do Rasa no ambiente virtual
-RUN pip install --default-timeout=100 rasa==3.6.19 && \
+RUN pip install --default-timeout=100 rasa==3.6.21 && \
 	pip3 install --no-cache-dir spacy && \
 	python -m spacy download en_core_web_md && \
 	python -m spacy download pt_core_news_sm
