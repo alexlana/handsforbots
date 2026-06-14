@@ -1,0 +1,24 @@
+// Faro receiver for browser telemetry → Loki (inside otel-lgtm).
+// Browser sends to http://localhost:12347/collect
+
+faro.receiver "handsforbots" {
+	server {
+		listen_address       = "0.0.0.0"
+		listen_port          = 12347
+		cors_allowed_origins = ["*"]
+	}
+
+	extra_log_labels = {
+		service_name = "semantic-event-observability",
+	}
+
+	output {
+		logs = [loki.write.lgtm.receiver]
+	}
+}
+
+loki.write "lgtm" {
+	endpoint {
+		url = "http://lgtm:3100/loki/api/v1/push"
+	}
+}

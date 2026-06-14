@@ -1,3 +1,32 @@
+# Hands for Bots — basic example (Docker Compose)
+#
+# Chatbot stack: Vite dev server, nginx, Rasa, action server, Duckling.
+#
+# ── Quick start (from examples/) ─────────────────────────────────────────────
+#
+#   docker compose up
+#
+#   Chat UI:  http://localhost
+#   Rasa:     http://localhost:5005
+#
+# ── Optional observability (Grafana + Tempo) ─────────────────────────────────
+#
+#   See docker-compose.observability.yml and OBSERVABILITY.md
+#
+#   cp .env.observability.example .env.observability
+#   docker compose -f docker-compose.observability.yml up -d
+#   docker compose up
+#
+# ── Vite env ─────────────────────────────────────────────────────────────────
+#
+#   .env.observability (optional, in this directory) enables OTLP export in
+#   the Vite container when using the observability stack. Without it, the
+#   Observability plugin still logs to the browser console only.
+#
+# ── Stop ─────────────────────────────────────────────────────────────────────
+#
+#   docker compose down
+
 version: "3.0"
 
 services:
@@ -12,6 +41,9 @@ services:
     container_name: t4b-vite
     environment:
       - VITE_HMR_CLIENT_PORT=80
+    env_file:
+      - path: .env.observability
+        required: false
     volumes:
       - ./vite/src:/usr/src/app/src
       - ./vite/static/img:/usr/src/app/static/img

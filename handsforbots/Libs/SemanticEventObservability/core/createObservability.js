@@ -39,6 +39,7 @@ export function createObservability(options = {}) {
 		policy,
 		correlation,
 		buffer,
+		exporters: [],
 
 		async init() {
 			if (initialized) return exporterStatus
@@ -47,6 +48,7 @@ export function createObservability(options = {}) {
 			initPromise = (async () => {
 				const requested = options.exporters || DEFAULT_EXPORTERS
 				exporters = await createExporters(requested, options.exporterConfig || {})
+				api.exporters = exporters
 				exporterStatus = await initExporters(exporters, createContext())
 				initialized = true
 				publishGlobal(api, identity)
@@ -70,7 +72,7 @@ export function createObservability(options = {}) {
 				return originalTrigger(name, args)
 			}
 
-			if (instrumentOptions.wrapListeners !== false) {
+			if (instrumentOptions.wrapListeners === true) {
 				const originalOn = bus.on.bind(bus)
 				bus.on = function instrumentedOn(names, callback) {
 					const wrapped = function wrappedCallback(...listenerArgs) {
@@ -104,7 +106,7 @@ export function createObservability(options = {}) {
 			}
 
 			buffer.pushMetric(metric)
-			for (const exporter of exporters) {
+			for (const exporter of api.exporters) {
 				try { exporter.onMetric?.(metric) } catch { /* noop */ }
 			}
 		},
@@ -126,10 +128,11 @@ export function createObservability(options = {}) {
 		},
 
 		destroy() {
-			for (const exporter of exporters) {
+			for (const exporter of api.exporters) {
 				try { exporter.destroy?.() } catch { /* noop */ }
 			}
 			exporters = []
+			api.exporters = []
 			buffer.clear()
 			removeGlobal(identity)
 		},
@@ -193,7 +196,7 @@ function emitEvent(api, partial) {
 	}
 
 	buffer.push(event)
-	for (const exporter of exporters) {
+	for (const exporter of api.exporters) {
 		try { exporter.onEvent?.(event) } catch { /* noop */ }
 	}
 }

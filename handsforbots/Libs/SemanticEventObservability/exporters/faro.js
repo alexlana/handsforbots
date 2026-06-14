@@ -14,6 +14,12 @@ export function createFaroExporter(config = {}) {
 		description: 'Grafana Faro custom events for Loki/Grafana dashboards',
 
 		async init() {
+			if (config.client?.api) {
+				faro = config.client
+				this.available = true
+				return
+			}
+
 			const resolved = await resolveOptionalDependency(config.client, {
 				globalName: 'faro',
 				moduleSpecifier: '@grafana/faro-web-sdk',

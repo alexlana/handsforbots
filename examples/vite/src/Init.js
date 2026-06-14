@@ -1,4 +1,8 @@
 import Bot from "./handsforbots/Bot.js";
+import { maybeInitObservabilityStack } from "./observability-stack.js";
+
+const stack = await maybeInitObservabilityStack();
+const stackEnabled = Boolean(stack);
 
 /**
  * Chatbot
@@ -8,24 +12,16 @@ let bot_settings = {
   language: "pt-br",
   engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
 
-  inputs: [],
-  outputs: [],
+  core: [],
   plugins: [],
 };
 
-let text_ui_config = {
-  plugin: "text",
+let text_input_config = {
+  plugin: "Text",
+  type: "input",
 
   start_open: true,
   color: "blue",
-  // color: "custom",
-  // color_scheme: {
-  //   primary: "#96B522",
-  //   primary_hover: "#BBD034",
-  //   light: "#eaf0c1",
-  //   dark: "#96B522",
-  //   user: "#f1f5d6",
-  // },
   no_css: false,
   container: "#chatbot",
   bot_name: "GUI Assistant",
@@ -34,32 +30,56 @@ let text_ui_config = {
   title: "Talk to me!",
   autofocus: false,
 };
-bot_settings.inputs.push(text_ui_config);
+bot_settings.core.push(text_input_config);
+
+let text_output_config = {
+  plugin: "Text",
+  type: "output",
+};
+bot_settings.core.push(text_output_config);
 
 let VTT_ui_config = {
-  plugin: "voice",
+  plugin: "Voice",
+  type: "input",
   prioritize_speech: false,
 };
-bot_settings.inputs.push(VTT_ui_config);
+bot_settings.core.push(VTT_ui_config);
 
 let voice_ui_config = {
-  plugin: "voice",
+  plugin: "Voice",
+  type: "output",
   name: "Luciana", // pt-BR
 };
-bot_settings.outputs.push(voice_ui_config);
+bot_settings.core.push(voice_ui_config);
 
 let bots_commands_config = {
-  plugin: "bots_commands",
+  plugin: "BotsCommands",
+  type: "output",
 };
-bot_settings.outputs.push(bots_commands_config);
+bot_settings.core.push(bots_commands_config);
 
 let poke_config = {
-  plugin: "poke",
+  plugin: "Poke",
+  type: "input",
 };
-bot_settings.inputs.push(poke_config);
+bot_settings.core.push(poke_config);
 
-
-
+let observability_config = {
+  plugin: "Observability",
+  type: "output",
+  environment: stackEnabled ? "development-lgtm" : "development",
+  sampleRate: 1,
+  exporters: stackEnabled
+    ? ["memory", "console", "devPanel", "faro", "otel"]
+    : ["memory", "console", "devPanel"],
+  exporterConfig: {
+    console: { level: "debug" },
+    devPanel: { enabled: false },
+    faro: stack?.faro ? { client: stack.faro } : {},
+    otel: stack ? { api: stack, getTracer: stack.getTracer } : {},
+  },
+};
+bot_settings.plugins.push(observability_config);
 
   // let hex_presentation_settings = {
   //   plugin: 'HexPresentation',

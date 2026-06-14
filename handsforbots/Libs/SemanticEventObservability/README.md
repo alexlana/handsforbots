@@ -96,9 +96,12 @@ Defense in depth: also rate-limit at the collector before Loki/Tempo.
 
 ## Grafana
 
-Import [`grafana/semantic-event-observability.json`](./grafana/semantic-event-observability.json) and map Loki, Tempo, and Prometheus/Mimir data sources.
-
-Dashboard UID follows `PACKAGE_SLUG` from `packageIdentity.js`.
+| File | Use |
+|------|-----|
+| `grafana/semantic-event-observability.json` | Import template (select Loki/Tempo/Prometheus datasources) |
+| `grafana/semantic-event-observability.lgtm.json` | Pre-provisioned in [`examples/`](../../examples/) via `docker-compose.observability.yml` |
+  
+The example stack mounts the `.lgtm.json` variant into `grafana/otel-lgtm` and sets it as the home dashboard.
 
 ## Documentation
 

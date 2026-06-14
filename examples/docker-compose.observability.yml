@@ -1,0 +1,66 @@
+# Hands for Bots — observability stack (optional, standalone)
+#
+# LGTM backend only: Grafana + Tempo + Loki + Prometheus (grafana/otel-lgtm).
+# Does NOT start the chatbot — run together with docker-compose.yml.
+#
+# ── Recommended order (from examples/) ─────────────────────────────────────
+#
+#   1. cd vite && npm install && cd ..
+#   2. cp .env.observability.example .env.observability
+#      (.env.observability must live in examples/, not vite/)
+#   3. docker compose -f docker-compose.observability.yml up -d
+#   4. docker compose up
+#
+# ── URLs ─────────────────────────────────────────────────────────────────────
+#
+#   Grafana:   http://localhost:3000  (admin / admin)
+#   OTLP HTTP: http://localhost:4318
+#   Faro:      http://localhost:12347/collect
+#
+#   Dashboard (auto-provisioned):
+#     Hands for Bots → Semantic Event Observability
+#
+# ── Basic example without Grafana ────────────────────────────────────────────
+#
+#   docker compose up
+#   (do not create .env.observability)
+#
+# ── Stop LGTM only ───────────────────────────────────────────────────────────
+#
+#   docker compose -f docker-compose.observability.yml down
+#
+# More: OBSERVABILITY.md
+
+services:
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: t4b-lgtm
+    ports:
+      - "3000:3000"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/otel-lgtm/grafana/conf/provisioning/dashboards/custom/semantic-event-observability.json
+    volumes:
+      - ./observability/grafana/provisioning/dashboards/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/handsforbots.yaml:ro
+      - ../handsforbots/Libs/SemanticEventObservability/grafana/semantic-event-observability.lgtm.json:/otel-lgtm/grafana/conf/provisioning/dashboards/custom/semantic-event-observability.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:13133/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: t4b-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+    ports:
+      - "12347:12347"
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    depends_on:
+      lgtm:
+        condition: service_healthy

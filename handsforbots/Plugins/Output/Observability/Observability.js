@@ -9,14 +9,22 @@ export default class Observability {
 	constructor(bot, options = {}) {
 		this.bot = bot
 		this.options = options
+		this.observability = bot.observability || null
 
 		if (bot.observability) {
-			this.observability = bot.observability
 			return
 		}
 
-		this.observability = attachHandsForBotsObservability(bot, options)
-		console.log('[✔︎] Observability output connected.')
+		// Instrument after all UI plugins finish — avoids interfering with plugin ui() setup.
+		this.bot.eventEmitter.on('core.all_ui_loaded', () => {
+			if (this.bot.observability) {
+				this.observability = this.bot.observability
+				return
+			}
+
+			this.observability = attachHandsForBotsObservability(this.bot, this.options)
+			console.log('[✔︎] Observability output connected.')
+		})
 	}
 
 	/**

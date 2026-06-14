@@ -67,3 +67,7 @@ bot.observability.record('meu.evento', { foo: 'bar' })
 Importe o dashboard em `handsforbots/Libs/SemanticEventObservability/grafana/semantic-event-observability.json`.
 
 Documentação completa da lib: [`SemanticEventObservability/README.md`](../../handsforbots/Libs/SemanticEventObservability/README.md).
+
+## Stack LGTM opcional no example
+
+Veja [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md) — Grafana + Tempo via `docker-compose.observability.yml`.

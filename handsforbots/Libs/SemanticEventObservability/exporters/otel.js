@@ -22,11 +22,17 @@ export function createOtelExporter(config = {}) {
 
 			if (!resolved) return
 
-			const api = resolved.module.trace || resolved.module
-			const getTracer = api.getTracer || resolved.module.getTracer
-			if (typeof getTracer !== 'function') return
+			if (typeof config.getTracer === 'function') {
+				tracer = config.getTracer(context.identity.otelServiceName, context.identity.version)
+				this.available = Boolean(tracer)
+				return
+			}
 
-			tracer = getTracer(context.identity.otelServiceName, context.identity.version)
+			const traceApi = resolved.module.trace || resolved.module
+			if (typeof traceApi?.getTracer !== 'function') return
+
+			// TraceAPI.getTracer must keep `this` — do not destructure the method.
+			tracer = traceApi.getTracer(context.identity.otelServiceName, context.identity.version)
 			this.available = true
 		},
 
