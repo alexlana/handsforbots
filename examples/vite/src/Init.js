@@ -76,7 +76,7 @@ let observability_config = {
     console: { level: "debug" },
     devPanel: { enabled: false },
     faro: stack?.faro ? { client: stack.faro } : {},
-    otel: stack ? { api: stack, getTracer: stack.getTracer } : {},
+    otel: stack ? { getTracer: stack.getTracer, traceApi: stack.traceApi } : {},
   },
 };
 bot_settings.plugins.push(observability_config);

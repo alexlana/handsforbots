@@ -51,6 +51,8 @@ turnEndEvents: ['core.output_ready'],
 
 Turn boundaries drive spans in OTel, runs in LangSmith, and turn panels in Grafana.
 
+Each turn produces a **single Tempo trace** (root `turn:*`, children `phase:backend` + `event:core.*`). Use the **Conversation turn flow** section in the LGTM dashboard to pick a trace and view the waterfall.
+
 ## Fail-safe design
 
 - Exporter `init()` errors are caught per exporter.

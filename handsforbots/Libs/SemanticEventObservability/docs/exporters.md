@@ -50,13 +50,21 @@ exporterConfig: {
 
 ### `otel`
 
-Requires `@opentelemetry/api` **or** injected API.
+Requires `@opentelemetry/api` **or** injected tracer + trace API.
 
-Creates spans for turns and bus events. Export via your OTel SDK + collector → Tempo/Mimir.
+Creates **one trace tree per conversation turn**:
+
+- `turn.start` → root span `turn:core.input` (open until `turn.end`)
+- `core.calling_backend` → `phase:backend` span (wall-clock until `core.backend_responded`)
+- Each `bus.trigger` → child span `event:<name>` under the turn root
+- Root attributes: `turn.duration_ms`, `phase.backend_ms`, `phase.render_ms`
 
 ```javascript
 exporterConfig: {
-  otel: { api: otelTraceApi },
+  otel: {
+    getTracer: stack.getTracer,
+    traceApi: { context, trace, SpanStatusCode },
+  },
 }
 ```
 

@@ -161,25 +161,38 @@ function recordBusEvent(api, name, args, type) {
 }
 
 function emit(api, partial) {
-	const { policy, correlation, buffer, identity } = api
-	const correlationChange = partial.type === 'bus.trigger'
-		? correlation.observeBusEvent(partial.name)
-		: null
+	const { correlation } = api
 
-	if (correlationChange) {
-		emitEvent(api, {
-			type: correlationChange.type,
-			name: partial.name,
-			turnId: correlationChange.turnId,
-			traceId: correlationChange.traceId,
-			durationMs: correlationChange.durationMs,
-		})
+	if (partial.type !== 'bus.trigger') {
+		emitEvent(api, { ...partial, ...correlation.getContext() })
+		return
 	}
 
-	emitEvent(api, {
-		...partial,
-		...correlation.getContext(),
-	})
+	const snapshotBefore = correlation.getContext()
+	const correlationChange = correlation.observeBusEvent(partial.name)
+
+	if (correlationChange?.type === 'turn.start') {
+		emitEvent(api, {
+			type: 'turn.start',
+			name: partial.name,
+			...correlation.getContext(),
+		})
+		emitEvent(api, { ...partial, ...correlation.getContext() })
+		return
+	}
+
+	if (correlationChange?.type === 'turn.end') {
+		emitEvent(api, { ...partial, ...snapshotBefore })
+		emitEvent(api, {
+			type: 'turn.end',
+			name: partial.name,
+			...snapshotBefore,
+			durationMs: correlationChange.durationMs,
+		})
+		return
+	}
+
+	emitEvent(api, { ...partial, ...correlation.getContext() })
 }
 
 function emitEvent(api, partial) {

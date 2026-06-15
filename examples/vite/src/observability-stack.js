@@ -15,7 +15,7 @@ export async function maybeInitObservabilityStack() {
 	try {
 		const [
 			{ WebTracerProvider },
-			{ BatchSpanProcessor },
+			{ SimpleSpanProcessor },
 			{ Resource },
 			{ OTLPTraceExporter },
 			{ registerInstrumentations },
@@ -37,14 +37,22 @@ export async function maybeInitObservabilityStack() {
 			import('@opentelemetry/api'),
 		])
 
+		const otlpExporter = new OTLPTraceExporter({ url: otelEndpoint })
 		const provider = new WebTracerProvider({
 			resource: new Resource({
 				[SEMRESATTRS_SERVICE_NAME]: serviceName,
 			}),
 		})
-		provider.addSpanProcessor(new BatchSpanProcessor(new OTLPTraceExporter({ url: otelEndpoint })))
+		// SimpleSpanProcessor envia cada span imediatamente ao terminar,
+		// sem reter em buffer — garante que turnos curtos cheguem ao Tempo.
+		provider.addSpanProcessor(new SimpleSpanProcessor(otlpExporter))
 		provider.register({
 			contextManager: new ZoneContextManager(),
+		})
+
+		// Flush forçado ao fechar/recarregar a aba — evita perda de spans pendentes
+		window.addEventListener('beforeunload', () => {
+			provider.shutdown().catch(() => {})
 		})
 
 		registerInstrumentations({
@@ -68,7 +76,11 @@ export async function maybeInitObservabilityStack() {
 
 		return {
 			faro,
-			trace: api.trace,
+			traceApi: {
+				context: api.context,
+				trace: api.trace,
+				SpanStatusCode: api.SpanStatusCode,
+			},
 			getTracer: (name, version) => provider.getTracer(name || serviceName, version),
 		}
 	} catch (error) {
