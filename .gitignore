@@ -1,11 +1,16 @@
 rasa/.rasa/*
-rasa/actions/__pycache__/*
 
 # Rasa training cache (any location)
 **/.rasa/cache/
 
+# Python bytecode (Rasa actions, etc.)
+**/__pycache__/
+
 # Local observability env (example file is tracked)
 examples/.env.observability
+
+# npm
+node_modules/
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos
