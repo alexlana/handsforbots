@@ -111,6 +111,13 @@ TraceQL:
 { resource.service.name="semantic-event-observability" && name=~"turn:.*" }
 ```
 
+**Conversation turn flow** (top of dashboard):
+
+1. **Click any cell in Recent turns** to load the trace below — expand the row in **Turn waterfall** to see spans. For the classic Gantt view, click **Waterfall in Explore** on the trace ID. You can also paste a trace ID in **Turn trace** (top bar) and press **Enter**.
+2. **Turn waterfall** — span tree for the selected turn (`phase:backend`, `event:core.*`). Empty until a trace is selected.
+3. **Event sequence** — same flow as Faro/Loki logs
+4. Lower section — volume charts and raw logs
+
 Importable template (manual install): `semantic-event-observability.json` in the same lib folder.
 
 ## Dev panel (browser)

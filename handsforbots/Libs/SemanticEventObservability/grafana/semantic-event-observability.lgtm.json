@@ -25,10 +25,10 @@
       "id": 9,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
-        "content": "Data comes from **http://localhost** (chat UI). Tempo panels list traces (click Trace ID to open the waterfall). Loki panels show Faro events. Drilldown may also include other local telemetry (e.g. `cursor-agent`).",
+        "content": "Use the chat at **http://localhost**, then **click any cell in Recent turns** to load the trace below. Expand the row in **Turn waterfall** to see spans. For the classic Gantt waterfall, use **Waterfall in Explore** on the trace ID. You can also paste a trace ID in **Turn trace** (top bar) and press **Enter**.",
         "mode": "markdown"
       },
-      "title": "How to populate this dashboard",
+      "title": "Semantic Event Observability",
       "type": "text"
     },
     {
@@ -36,6 +36,18 @@
       "fieldConfig": {
         "defaults": {
           "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "Waterfall in Explore",
+              "url": "/explore?schemaVersion=1&panes=%7B%22trace%22%3A%7B%22datasource%22%3A%22tempo%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceId%22%2C%22query%22%3A%22${__data.fields.traceID}%22%7D%5D%2C%22range%22%3A%7B%22from%22%3A%22now-1h%22%2C%22to%22%3A%22now%22%7D%7D%7D&orgId=1"
+            },
+            {
+              "targetBlank": false,
+              "title": "Show below",
+              "url": "/d/semantic-event-observability/semantic-event-observability?${__url_time_range}&var-traceId=${__data.fields.traceID}"
+            }
+          ],
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
         },
@@ -43,13 +55,22 @@
           {
             "matcher": { "id": "byName", "options": "traceDuration" },
             "properties": [{ "id": "unit", "value": "ms" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "traceID" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-text", "mode": "link" }
+              }
+            ]
           }
         ]
       },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 3 },
-      "id": 1,
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 3 },
+      "id": 11,
       "options": {
-        "cellHeight": "sm",
+        "cellHeight": "md",
         "footer": { "show": false },
         "showHeader": true,
         "sortBy": [{ "desc": true, "displayName": "startTime" }]
@@ -58,23 +79,39 @@
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
-          "limit": 20,
-          "query": "{ resource.service.name=\"semantic-event-observability\" }",
+          "filters": [
+            {
+              "id": "service-name",
+              "operator": "=",
+              "scope": "resource",
+              "tag": "service.name",
+              "value": "semantic-event-observability",
+              "valueType": "string"
+            },
+            {
+              "id": "turn-name",
+              "operator": "=~",
+              "scope": "span",
+              "tag": "name",
+              "value": "turn:.*",
+              "valueType": "string"
+            }
+          ],
+          "limit": 30,
           "queryType": "traceqlSearch",
           "refId": "A",
           "tableType": "traces"
         }
       ],
-      "title": "Semantic traces (Tempo)",
+      "title": "Recent turns",
       "transformations": [
         {
           "id": "organize",
           "options": {
             "excludeByName": { "nested": true },
             "renameByName": {
-              "traceDuration": "Duration",
-              "traceID": "Trace ID",
-              "traceName": "Name",
+              "traceDuration": "Total ms",
+              "traceName": "Turn",
               "traceService": "Service"
             }
           }
@@ -86,108 +123,118 @@
       "datasource": { "type": "tempo", "uid": "tempo" },
       "fieldConfig": {
         "defaults": {
-          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }
         },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "traceDuration" },
-            "properties": [{ "id": "unit", "value": "ms" }]
-          }
-        ]
+        "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
-      "id": 2,
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 11 },
+      "id": 12,
       "options": {
         "cellHeight": "sm",
         "footer": { "show": false },
-        "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "startTime" }]
+        "showHeader": true
       },
       "pluginVersion": "13.0.1",
       "targets": [
         {
           "datasource": { "type": "tempo", "uid": "tempo" },
-          "limit": 20,
-          "query": "{ resource.service.name=\"semantic-event-observability\" && name=~\"turn:.*\" }",
-          "queryType": "traceqlSearch",
+          "query": "{ trace:id = \"${traceId}\" }",
+          "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"
         }
       ],
-      "title": "Conversation turns (Tempo)",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "nested": true },
-            "renameByName": {
-              "traceDuration": "Duration",
-              "traceID": "Trace ID",
-              "traceName": "Name",
-              "traceService": "Service"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "traceDuration" },
-            "properties": [{ "id": "unit", "value": "ms" }]
-          }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
-      "id": 3,
-      "options": {
-        "cellHeight": "sm",
-        "footer": { "show": false },
-        "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "startTime" }]
-      },
-      "pluginVersion": "13.0.1",
-      "targets": [
-        {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "limit": 20,
-          "query": "{ resource.service.name=\"semantic-event-observability\" && name=~\"event:core\\\\..*\" }",
-          "queryType": "traceqlSearch",
-          "refId": "A",
-          "tableType": "traces"
-        }
-      ],
-      "title": "Core bus events (Tempo)",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "nested": true },
-            "renameByName": {
-              "traceDuration": "Duration",
-              "traceID": "Trace ID",
-              "traceName": "Name",
-              "traceService": "Service"
-            }
-          }
-        }
-      ],
+      "description": "Empty until you click a row in Recent turns or paste a trace ID above. Expand a row to see spans. For the classic waterfall view, click the trace ID link to open Explore.",
+      "title": "Turn waterfall",
       "type": "table"
     },
     {
       "datasource": { "type": "loki", "uid": "loki" },
       "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 23 },
+      "id": 13,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "editorMode": "code",
+          "expr": "{service_name=\"semantic-event-observability\"} |= \"semantic_event\" | logfmt | line_format \"{{.event_data_name}} queue={{.event_data_queueDepth}} backend={{.event_data_callingBackend}}\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Event sequence (Faro / Loki)",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 33 },
+      "id": 20,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "### Volume & raw logs",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_name=\"semantic-event-observability\"} |= \"semantic_event\" [5m]))",
+          "legendFormat": "events / 5m",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Event volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "id": 7,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_name=\"semantic-event-observability\"} |= \"core.backend_responded\" [5m]))",
+          "legendFormat": "backend responses / 5m",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Backend response rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 43 },
       "id": 4,
       "options": {
         "dedupStrategy": "none",
@@ -208,115 +255,33 @@
           "refId": "A"
         }
       ],
-      "title": "Semantic events (Faro / Loki)",
+      "title": "Raw semantic events (Loki)",
       "type": "logs"
-    },
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
-      "id": 5,
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"semantic-event-observability\"} |= \"semantic_event\" [5m]))",
-          "legendFormat": "events / 5m",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Semantic event volume (Loki)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "tempo", "uid": "tempo" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "traceDuration" },
-            "properties": [{ "id": "unit", "value": "ms" }]
-          }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
-      "id": 6,
-      "options": {
-        "cellHeight": "sm",
-        "footer": { "show": false },
-        "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "startTime" }]
-      },
-      "pluginVersion": "13.0.1",
-      "targets": [
-        {
-          "datasource": { "type": "tempo", "uid": "tempo" },
-          "limit": 20,
-          "query": "{ resource.service.name=\"semantic-event-observability\" && name=~\"event:core\\\\.backend_responded\" }",
-          "queryType": "traceqlSearch",
-          "refId": "A",
-          "tableType": "traces"
-        }
-      ],
-      "title": "Backend responses (Tempo)",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "nested": true },
-            "renameByName": {
-              "traceDuration": "Duration",
-              "traceID": "Trace ID",
-              "traceName": "Name",
-              "traceService": "Service"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": { "type": "loki", "uid": "loki" },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
-      "id": 7,
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "editorMode": "code",
-          "expr": "sum(count_over_time({service_name=\"semantic-event-observability\"} |= \"core.backend_responded\" [5m]))",
-          "legendFormat": "backend responses / 5m",
-          "queryType": "range",
-          "refId": "A"
-        }
-      ],
-      "title": "Backend responses (Loki / Faro)",
-      "type": "timeseries"
     }
   ],
-  "refresh": "10s",
+  "refresh": "30s",
   "schemaVersion": 39,
   "style": "dark",
   "tags": ["semantic-event-observability", "async-events", "handsforbots"],
-  "templating": { "list": [] },
-  "time": { "from": "now-15m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "", "value": "" },
+        "hide": 0,
+        "label": "Turn trace",
+        "name": "traceId",
+        "options": [],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "Semantic Event Observability",
   "uid": "semantic-event-observability",
-  "version": 4,
+  "version": 12,
   "weekStart": ""
 }
