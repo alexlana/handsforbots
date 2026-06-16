@@ -97,6 +97,7 @@ export async function maybeInitObservabilityStack() {
 				trace: api.trace,
 				propagation: api.propagation,
 				SpanStatusCode: api.SpanStatusCode,
+				SpanKind: api.SpanKind,
 			},
 			getTracer: (name, version) => provider.getTracer(name || serviceName, version),
 			getMeter: (name, version) => meterProvider.getMeter(name || serviceName, version),

@@ -69,6 +69,7 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 histogram_quantile(0.95, sum(rate(sevo_turn_duration_ms_bucket[5m])) by (le))
 sum(rate(sevo_turns_total{status="abandoned"}[5m])) / sum(rate(sevo_turns_total[5m]))
 sum(increase(sevo_events_dropped_total[5m])) by (reason)
+sum(increase(sevo_session_turns_total[5m])) by (status, reason)
 ```
 
 ---
@@ -90,7 +91,7 @@ sum(increase(sevo_events_dropped_total[5m])) by (reason)
 
 | # | Metric | Type | Trigger | Status |
 |---|--------|------|---------|--------|
-| M2.1 | `sevo_session_turns_total` | counter | session boundary (configurable) | [ ] |
+| M2.1 | `sevo_session_turns_total` | counter | session boundary (configurable) | [x] |
 | M2.2 | `sevo_custom_metrics_total` | counter | `recordMetric()` with name allowlist | [ ] |
 | M2.3 | `sevo_bus_events_total` | counter | `bus.trigger` by bucketed name | [ ] |
 | M2.4 | `sevo_listener_duration_ms` | histogram | `wrapListeners: true` | [ ] |

@@ -60,6 +60,7 @@ Creates **one trace tree per conversation turn**:
 - Each `bus.trigger` → child span `event:<name>` under the turn root
 - Root attributes: `turn.duration_ms`, `phase.<id>_ms`, `phase.render_ms`
 - **Metrics:** `sevo_*` histograms/counters via OTel Metrics API when `getMeter` is provided
+- **Turn root spans:** default `turn:<startEvent>`; opt in to OTel GenAI `invoke_agent` via `turnRootSpan: 'invoke_agent'` or `{ mode: 'invoke_agent', providerName, agentName }`
 
 ```javascript
 exporterConfig: {

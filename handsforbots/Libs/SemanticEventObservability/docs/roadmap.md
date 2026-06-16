@@ -233,7 +233,7 @@ turn:<startEvent>                    [root]
 
 - [x] `core/TraceMapper.js` — span lifecycle independent of OTel import
 - [x] `exporters/otel.js` — thin adapter over TraceMapper + `otelTraceBackend.js`
-- [ ] Align span names with OTel incubating `invoke_agent` guidance where applicable
+- [x] Align span names with OTel incubating `invoke_agent` guidance where applicable
 
 ---
 
@@ -420,11 +420,11 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 
 | # | Item | Status |
 |---|------|--------|
-| E.1 | OTel `invoke_agent` span naming option on turn root | [ ] |
+| E.1 | OTel `invoke_agent` span naming option on turn root | [x] |
 | E.2 | Tail sampling guidance doc | [ ] |
 | E.3 | Langfuse/LangSmith phase-aware mapping | [ ] |
 | E.4 | Web Vitals bridge (optional exporter) | [ ] |
-| E.5 | Session-level rollup metrics (`sevo_session_turns_total`) | [ ] |
+| E.5 | Session-level rollup metrics (`sevo_session_turns_total`) | [x] |
 
 ---
 

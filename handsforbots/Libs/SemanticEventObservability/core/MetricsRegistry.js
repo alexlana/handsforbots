@@ -7,6 +7,7 @@ export const SEVO_METRICS = {
 	EVENTS_EMITTED: 'sevo_events_emitted_total',
 	EXPORTER_ERRORS: 'sevo_exporter_errors_total',
 	ACTIVE_TURNS: 'sevo_active_turns',
+	SESSION_TURNS_TOTAL: 'sevo_session_turns_total',
 }
 
 /** @deprecated Use SEVO_METRICS */
@@ -120,6 +121,27 @@ export function createMetricsRegistry(options = {}) {
 				value: Math.max(0, count),
 				labels: {},
 			})
+		},
+
+		recordSessionTurnsRollup(counts = {}, labels = {}) {
+			const records = []
+			if (counts.completed > 0) {
+				records.push(emit({
+					name: SEVO_METRICS.SESSION_TURNS_TOTAL,
+					type: 'counter',
+					value: counts.completed,
+					labels: { status: 'completed', ...labels },
+				}))
+			}
+			if (counts.abandoned > 0) {
+				records.push(emit({
+					name: SEVO_METRICS.SESSION_TURNS_TOTAL,
+					type: 'counter',
+					value: counts.abandoned,
+					labels: { status: 'abandoned', ...labels },
+				}))
+			}
+			return records
 		},
 	}
 }

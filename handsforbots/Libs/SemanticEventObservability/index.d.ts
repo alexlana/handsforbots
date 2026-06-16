@@ -105,6 +105,10 @@ export type MetricsRegistry = {
 	recordEventEmitted: (eventType: string, labels?: Record<string, string>) => MetricRecord | void
 	recordExporterError: (exporterId: string) => MetricRecord | void
 	recordActiveTurns: (count: number) => MetricRecord | void
+	recordSessionTurnsRollup: (
+		counts: { completed?: number; abandoned?: number },
+		labels?: Record<string, string>,
+	) => MetricRecord[] | void
 }
 
 export const SEVO_METRICS: {
@@ -116,10 +120,22 @@ export const SEVO_METRICS: {
 	readonly EVENTS_EMITTED: 'sevo_events_emitted_total'
 	readonly EXPORTER_ERRORS: 'sevo_exporter_errors_total'
 	readonly ACTIVE_TURNS: 'sevo_active_turns'
+	readonly SESSION_TURNS_TOTAL: 'sevo_session_turns_total'
 }
 
 /** @deprecated Use SEVO_METRICS */
 export const SEO_METRICS: typeof SEVO_METRICS
+
+export type TurnRootSpanConfig =
+	| 'semantic'
+	| 'invoke_agent'
+	| boolean
+	| {
+		mode?: 'semantic' | 'invoke_agent'
+		agentName?: string | ((event: SemanticEvent) => string | undefined)
+		providerName?: string
+		kind?: 'internal' | 'client' | 'server' | number
+	}
 
 export type CreateObservabilityOptions = {
 	enabled?: boolean
@@ -139,6 +155,8 @@ export type CreateObservabilityOptions = {
 	exporters?: string[]
 	customExporters?: Exporter[]
 	exporterConfig?: Record<string, unknown>
+	turnRootSpan?: TurnRootSpanConfig
+	sessionEndEvents?: string[]
 	bufferSize?: number
 	identity?: Partial<PackageIdentity>
 }
@@ -166,6 +184,7 @@ export type Observability = {
 	withTraceContext: TraceContextBridge['withTraceContext']
 	withFetch: TraceContextBridge['withFetch']
 	registerExporter: (exporter: Exporter) => Promise<ExporterStatus>
+	endSession: (reason?: string) => { completed: number; abandoned: number }
 	getTimeline: (limit?: number) => SemanticEvent[]
 	getMetrics: (limit?: number) => MetricRecord[]
 	getPolicyStats: () => PolicyStats
@@ -201,6 +220,21 @@ export function createTraceMapper(options?: Record<string, unknown>): unknown
 export function createTraceContextBridge(options?: {
 	getContext?: () => { traceId?: string | null }
 }): TraceContextBridge
+export function buildTurnRootSpan(
+	event: SemanticEvent,
+	config?: TurnRootSpanConfig,
+): { name: string; attributes: Record<string, unknown>; kind?: string | number }
+export function normalizeTurnRootSpanConfig(config?: TurnRootSpanConfig): {
+	mode: 'semantic' | 'invoke_agent'
+	agentName?: string | ((event: SemanticEvent) => string | undefined)
+	providerName?: string
+	kind?: string | number
+}
+export function createSessionTracker(): {
+	recordTurn: (status: string) => void
+	getCounts: () => { completed: number; abandoned: number }
+	reset: () => void
+}
 export function createEventInstrumentation(options?: {
 	eventFilter?: (eventName: string) => boolean
 	eventAllowlist?: string[]

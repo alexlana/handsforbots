@@ -16,6 +16,7 @@ export function createOtelExporter(config = {}) {
 	let otelTrace = null
 	let otelPropagation = null
 	let SpanStatusCode = null
+	let SpanKind = null
 	let traceMapper = null
 	let isError = config.isError
 	/** @type {Map<string, import('@opentelemetry/api').Counter>} */
@@ -36,6 +37,7 @@ export function createOtelExporter(config = {}) {
 		otelTrace = config.traceApi.trace
 		otelPropagation = config.traceApi.propagation
 		SpanStatusCode = config.traceApi.SpanStatusCode
+		SpanKind = config.traceApi.SpanKind
 	}
 
 	return {
@@ -76,18 +78,23 @@ export function createOtelExporter(config = {}) {
 				otelTrace = config.traceApi.trace
 				otelPropagation = config.traceApi.propagation
 				SpanStatusCode = config.traceApi.SpanStatusCode
+				SpanKind = config.traceApi.SpanKind
 			} else if (resolved?.module) {
 				otelContext = resolved.module.context
 				otelTrace = resolved.module.trace
 				otelPropagation = resolved.module.propagation
 				SpanStatusCode = resolved.module.SpanStatusCode
+				SpanKind = resolved.module.SpanKind
 			}
+
+			const turnRootSpan = config.turnRootSpan ?? context.turnRootSpan
 
 			const backend = createOtelSpanBackend({
 				tracer,
 				context: otelContext,
 				trace: otelTrace,
 				SpanStatusCode,
+				SpanKind,
 				propagation: otelPropagation,
 			})
 
@@ -95,6 +102,7 @@ export function createOtelExporter(config = {}) {
 				traceMapper = createTraceMapper({
 					backend,
 					isError,
+					turnRootSpan,
 					onTurnContext(_turnId, carrier) {
 						const bridge = context.traceContextBridge
 						if (!bridge) return
@@ -155,6 +163,9 @@ export function createOtelExporter(config = {}) {
 		}))
 		counters.set(SEVO_METRICS.EXPORTER_ERRORS, activeMeter.createCounter(SEVO_METRICS.EXPORTER_ERRORS, {
 			description: 'Exporter handler errors',
+		}))
+		counters.set(SEVO_METRICS.SESSION_TURNS_TOTAL, activeMeter.createCounter(SEVO_METRICS.SESSION_TURNS_TOTAL, {
+			description: 'Turn outcomes rolled up at session boundary',
 		}))
 
 		if (typeof activeMeter.createGauge === 'function') {

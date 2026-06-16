@@ -8,6 +8,7 @@ import { definePhaseModel } from './definePhaseModel.js'
 import { defineTurnModel } from './TurnModel.js'
 import { createTraceContextBridge } from './TraceContextBridge.js'
 import { createEventInstrumentation } from './eventInstrumentation.js'
+import { createSessionTracker } from './SessionTracker.js'
 import { isErrorEvent } from './isErrorEvent.js'
 import { createExporters, initExporters } from '../exporters/index.js'
 import { createId } from '../utils/id.js'
@@ -52,6 +53,10 @@ export function createObservability(options = {}) {
 		getContext: () => correlation.getContext(),
 	})
 
+	const sessionEndEvents = new Set((options.sessionEndEvents || []).map(String))
+	const sessionTracker = createSessionTracker()
+	const turnRootSpan = options.turnRootSpan
+
 	const buffer = new EventBuffer(options.bufferSize || 200)
 	let exporters = []
 	let exporterStatus = []
@@ -69,6 +74,8 @@ export function createObservability(options = {}) {
 		isError,
 		eventInstrumentation,
 		traceContextBridge,
+		sessionTracker,
+		sessionEndEvents,
 		exporters: [],
 	}
 
@@ -105,6 +112,7 @@ export function createObservability(options = {}) {
 
 	api.phaseTracker = phaseTracker
 	api.traceContext = traceContextBridge
+	api.sessionTracker = sessionTracker
 
 	metricsRegistry.subscribe((metric) => {
 		buffer.pushMetric(metric)
@@ -246,6 +254,10 @@ export function createObservability(options = {}) {
 			}
 		},
 
+		endSession(reason = 'manual') {
+			return finalizeSession(api, sessionTracker, reason)
+		},
+
 		getTimeline(limit) {
 			return buffer.getTimeline(limit)
 		},
@@ -282,6 +294,7 @@ export function createObservability(options = {}) {
 			metricsRegistry,
 			isError,
 			traceContextBridge,
+			turnRootSpan,
 			getTimeline: api.getTimeline,
 			getMetrics: api.getMetrics,
 			getPolicyStats: api.getPolicyStats,
@@ -325,6 +338,10 @@ function emit(api, partial) {
 	const snapshotBefore = correlation.getContext()
 	const correlationChange = correlation.observeBusEvent(partial.name)
 
+	if (api.sessionEndEvents?.has(partial.name)) {
+		finalizeSession(api, api.sessionTracker, partial.name)
+	}
+
 	if (correlationChange?.abandoned) {
 		handleTurnAbandoned(api, correlationChange.abandoned)
 		handleTurnStart(api, partial, correlationChange.started)
@@ -357,9 +374,30 @@ function emit(api, partial) {
 	emitEvent(api, { ...partial, ...correlation.getContext() })
 }
 
+function finalizeSession(api, sessionTracker, reason) {
+	const counts = sessionTracker.getCounts()
+	const endedSessionId = api.correlation.sessionId
+
+	api.metricsRegistry.recordSessionTurnsRollup(counts, {
+		reason: reason || 'manual',
+	})
+	sessionTracker.reset()
+	api.correlation.startSession()
+
+	emitEvent(api, {
+		type: 'session.end',
+		name: String(reason || 'session.end'),
+		sessionId: endedSessionId,
+		payloadSummary: { completed: counts.completed, abandoned: counts.abandoned },
+	})
+
+	return counts
+}
+
 function handleTurnAbandoned(api, abandoned) {
 	const labels = metricLabels(api, abandoned)
 	api.metricsRegistry.recordTurnStatus('abandoned', labels)
+	api.sessionTracker?.recordTurn('abandoned')
 	api.phaseTracker.onTurnAbandoned(abandoned)
 	emitEvent(api, {
 		type: 'turn.abandoned',
@@ -391,6 +429,7 @@ function handleTurnEnd(api, partial, snapshot, durationMs) {
 	})
 	api.metricsRegistry.recordTurnDuration(durationMs, labels)
 	api.metricsRegistry.recordActiveTurns(0)
+	api.sessionTracker?.recordTurn('completed')
 	api.phaseTracker.onTurnEnd({ ...snapshot, name: partial.name, durationMs }, labels)
 	emitEvent(api, {
 		type: 'turn.end',

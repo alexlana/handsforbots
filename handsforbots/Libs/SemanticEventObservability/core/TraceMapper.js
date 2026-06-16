@@ -1,5 +1,6 @@
 import { isErrorEvent } from './isErrorEvent.js'
 import { sevoAttributes } from './telemetryAttributes.js'
+import { buildTurnRootSpan } from './turnSpanNaming.js'
 
 /**
  * Maps semantic events to a hierarchical span tree via an injected span backend.
@@ -9,6 +10,7 @@ export function createTraceMapper(options = {}) {
 	const isError = options.isError || isErrorEvent
 	const backend = options.backend
 	const onTurnContext = options.onTurnContext || null
+	const turnRootSpan = options.turnRootSpan
 	if (!backend) {
 		throw new Error('createTraceMapper requires a span backend')
 	}
@@ -54,7 +56,8 @@ export function createTraceMapper(options = {}) {
 	}
 
 	function startTurn(event) {
-		const rootSpan = backend.startSpan(`turn:${event.name || 'conversation'}`, sevoAttributes(event))
+		const root = buildTurnRootSpan(event, turnRootSpan)
+		const rootSpan = backend.startSpan(root.name, root.attributes, undefined, { kind: root.kind })
 		turns.set(event.turnId, {
 			rootSpan,
 			phaseSpans: new Map(),
