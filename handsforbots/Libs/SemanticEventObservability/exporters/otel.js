@@ -144,17 +144,15 @@ export function createOtelExporter(config = {}) {
 	}
 
 	function initMetricInstruments(activeMeter) {
+		// Names already end with _ms — omit unit so Prometheus gets *_bucket, not *_milliseconds_bucket.
 		histograms.set(SEVO_METRICS.TURN_DURATION, activeMeter.createHistogram(SEVO_METRICS.TURN_DURATION, {
-			description: 'Conversation turn duration',
-			unit: 'ms',
+			description: 'Conversation turn duration (milliseconds)',
 		}))
 		histograms.set(SEVO_METRICS.PHASE_DURATION, activeMeter.createHistogram(SEVO_METRICS.PHASE_DURATION, {
-			description: 'Phase duration within a turn',
-			unit: 'ms',
+			description: 'Phase duration within a turn (milliseconds)',
 		}))
 		histograms.set(SEVO_METRICS.PHASE_WAIT, activeMeter.createHistogram(SEVO_METRICS.PHASE_WAIT, {
-			description: 'Wait from turn start to phase start',
-			unit: 'ms',
+			description: 'Wait from turn start to phase start (milliseconds)',
 		}))
 		counters.set(SEVO_METRICS.TURNS_TOTAL, activeMeter.createCounter(SEVO_METRICS.TURNS_TOTAL, {
 			description: 'Turn outcomes',
@@ -182,8 +180,7 @@ export function createOtelExporter(config = {}) {
 			unit: 'ms',
 		}))
 		histograms.set(SEVO_METRICS.LISTENER_DURATION, activeMeter.createHistogram(SEVO_METRICS.LISTENER_DURATION, {
-			description: 'Instrumented bus listener duration',
-			unit: 'ms',
+			description: 'Instrumented bus listener duration (milliseconds)',
 		}))
 
 		if (typeof activeMeter.createGauge === 'function') {

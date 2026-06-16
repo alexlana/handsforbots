@@ -58,8 +58,11 @@ The test asserts each dashboard JSON includes PromQL for core P0/P1 metrics:
 |---------|----------------|
 | All Prometheus panels empty | OTel metrics export not wired; check `getMeter` in exporter config |
 | Traces only, no metrics | MeterProvider not registered globally |
+| Histogram panels empty but `sevo_*_count` exists in Explore | PromQL metric name mismatch — OTel must not set `unit: 'ms'` on instruments already named `*_ms` (otherwise Prometheus gets `*_milliseconds_bucket` while dashboards query `*_bucket`) |
+| Phase / status / queue panels empty | Label mismatch — metric labels are `phase`, `status`, `key` (not `sevo_phase`, etc.) |
 | Bus events empty | Bus not instrumented or no traffic |
 | Phase wait empty | No `phases` configured or phases start immediately on turn start |
+| p95 shows NaN briefly | Need ongoing chat traffic in the selected time range; histogram `rate()` needs counter movement across scrapes |
 
 ## Related
 
