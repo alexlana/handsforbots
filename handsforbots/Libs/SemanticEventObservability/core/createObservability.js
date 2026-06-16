@@ -121,6 +121,9 @@ export function createObservability(options = {}) {
 			initPromise = (async () => {
 				const requested = options.exporters || DEFAULT_EXPORTERS
 				exporters = await createExporters(requested, options.exporterConfig || {})
+				if (Array.isArray(options.customExporters)) {
+					exporters.push(...options.customExporters)
+				}
 				api.exporters = exporters
 				exporterStatus = await initExporters(exporters, createContext())
 				initialized = true
@@ -213,6 +216,34 @@ export function createObservability(options = {}) {
 
 		withFetch(input, init = {}) {
 			return traceContextBridge.withFetch(input, init)
+		},
+
+		async registerExporter(exporter) {
+			if (!exporter?.id) {
+				throw new Error('registerExporter expects an exporter with id')
+			}
+
+			exporters.push(exporter)
+			api.exporters = exporters
+
+			try {
+				await exporter.init?.(createContext())
+				const status = {
+					id: exporter.id,
+					available: exporter.available !== false,
+					description: exporter.description,
+				}
+				exporterStatus.push(status)
+				return status
+			} catch (error) {
+				const status = {
+					id: exporter.id,
+					available: false,
+					error: error?.message || String(error),
+				}
+				exporterStatus.push(status)
+				return status
+			}
 		},
 
 		getTimeline(limit) {

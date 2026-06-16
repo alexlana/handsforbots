@@ -110,10 +110,12 @@ The example stack mounts the `.lgtm.json` variant into `grafana/otel-lgtm` and s
 - [Library roadmap & abstractions](./docs/roadmap.md)
 - [Metrics checklist (`sevo_*`)](./docs/metrics-roadmap.md)
 - [Exporters](./docs/exporters.md)
+- [Custom exporter cookbook](./docs/custom-exporter.md)
+- [Publishing to npm](./docs/publishing.md)
 - [Hands for Bots adapter](./docs/handsforbots-adapter.md)
 - [Hands for Bots roadmap (`hfb_*`)](./docs/handsforbots-roadmap.md)
 - [Renaming the package](./docs/renaming.md)
 
 ## Future npm publish
 
-This folder is structured for extraction to its own repository. Only `packageIdentity.js` and `package.json` `name` need updating when the public name is chosen.
+See [publishing.md](./docs/publishing.md). TypeScript types ship in `index.d.ts`.

@@ -4,14 +4,19 @@
   "description": "Semantic observability for async event systems — logs, metrics, and tracing with optional Grafana, Langfuse, and LangSmith exporters.",
   "type": "module",
   "main": "./index.js",
+  "types": "./index.d.ts",
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    },
     "./packageIdentity": "./packageIdentity.js",
     "./adapters/handsforbots": "./adapters/handsforbots.js",
     "./adapters/genericEventBus": "./adapters/genericEventBus.js"
   },
   "files": [
     "index.js",
+    "index.d.ts",
     "packageIdentity.js",
     "core/",
     "adapters/",

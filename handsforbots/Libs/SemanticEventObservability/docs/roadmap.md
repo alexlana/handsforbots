@@ -409,11 +409,11 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 
 | # | Item | Status |
 |---|------|--------|
-| D.1 | TypeScript types or `.d.ts` for public API | [ ] |
-| D.2 | `defineTurnModel` / `definePhaseModel` helpers | [~] |
-| D.3 | Custom exporter cookbook | [ ] |
-| D.4 | Framework-agnostic getting started (non-HfB) | [ ] |
-| D.5 | npm publish from `packageIdentity.js` | [ ] |
+| D.1 | TypeScript types or `.d.ts` for public API | [x] |
+| D.2 | `defineTurnModel` / `definePhaseModel` helpers | [x] |
+| D.3 | Custom exporter cookbook | [x] |
+| D.4 | Framework-agnostic getting started (non-HfB) | [x] |
+| D.5 | npm publish from `packageIdentity.js` | [~] |
 | D.6 | Integration test harness (memory exporter) | [x] |
 
 ### Phase E — Industry depth (P2–P3)

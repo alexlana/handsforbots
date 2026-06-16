@@ -120,19 +120,17 @@ Set `LANGSMITH_API_KEY` in the host environment when using the LangSmith SDK dir
 
 ## Custom exporter
 
-```javascript
-import { createObservability } from '../index.js'
-import { createExporters } from '../exporters/index.js'
+See [custom-exporter.md](./custom-exporter.md) for a full cookbook with `registerExporter()`, phase hooks, and production checklist.
 
-const custom = {
+Quick sketch:
+
+```javascript
+await observability.registerExporter({
   id: 'myBackend',
   available: true,
-  async init() {},
   onEvent(event) { /* send to API */ },
-}
-
-const observability = createObservability({ exporters: [] })
-// append custom exporter after createExporters pattern
+  onMetric(metric) { /* sevo_* metrics */ },
+})
 ```
 
 ## Recommended production set

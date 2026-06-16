@@ -8,7 +8,111 @@ Semantic Event Observability is **host-agnostic**. Hands for Bots is one integra
 |------|-----|
 | Any `on` / `trigger` event bus | § Generic bus below |
 | Hands for Bots plugin | § 1. Enable in Hands for Bots |
+| Custom backend exporter | [custom-exporter.md](./custom-exporter.md) |
 | Roadmap & abstractions | [roadmap.md](./roadmap.md) |
+
+## Generic bus (framework-agnostic)
+
+Use this path for React, Vue, Node event emitters, or any object with `on()` + `trigger()`.
+
+### 1. Install
+
+```bash
+npm i @handsforbots/semantic-event-observability
+# optional peers for Grafana stack:
+npm i @opentelemetry/api @grafana/faro-web-sdk
+```
+
+### 2. Configure turn boundaries and phases
+
+```javascript
+import {
+  createObservability,
+  defineTurnModel,
+  definePhaseModel,
+  instrumentEventBus,
+  SEVO_METRICS,
+} from '@handsforbots/semantic-event-observability'
+
+const observability = createObservability({
+  environment: 'production',
+  turn: defineTurnModel({
+    start: ['user.message'],
+    end: ['bot.response'],
+  }),
+  phases: definePhaseModel([
+    { id: 'backend', startEvent: 'api.call', endEvent: 'api.done' },
+  ]),
+  exporters: ['memory', 'console'],
+  // optional: reduce noise on high-volume buses
+  eventAllowlist: ['user.message', 'api.call', 'api.done', 'bot.response'],
+})
+
+instrumentEventBus(observability, myBus, {
+  stateProvider: () => ({ queueDepth: myQueue.length }),
+})
+
+await observability.init()
+```
+
+Turn detection **always runs** even when `eventAllowlist` filters recording. Metrics use the `sevo_*` prefix (`SEVO_METRICS.TURN_DURATION`, etc.).
+
+### 3. Manual phases and trace propagation
+
+```javascript
+myBus.trigger('user.message', [{ text: 'hello' }])
+
+observability.startPhase('fetch')
+await observability.withFetch('/api/chat', { method: 'POST', body: JSON.stringify({ text: 'hello' }) })
+observability.endPhase('fetch')
+
+myBus.trigger('bot.response', [{ text: 'hi there' }])
+```
+
+`withFetch` / `getTraceHeaders()` inject active turn trace context for backend correlation.
+
+### 4. Inspect locally
+
+```javascript
+observability.getTimeline()      // recent semantic events
+observability.getMetrics()       // sevo_* metric records
+observability.getExporterStatus()
+observability.getPolicyStats()
+```
+
+### 5. Add Grafana (optional)
+
+Wire OTel + Faro in your app shell, then:
+
+```javascript
+createObservability({
+  exporters: ['memory', 'faro', 'otel'],
+  exporterConfig: {
+    otel: {
+      getTracer: stack.getTracer,
+      getMeter: stack.getMeter,
+      traceApi: stack.traceApi,
+    },
+    faro: { client: faro },
+  },
+})
+```
+
+See [exporters.md](./exporters.md) and the Vite example in `examples/OBSERVABILITY.md`.
+
+### 6. Custom exporter
+
+```javascript
+await observability.registerExporter({
+  id: 'webhook',
+  available: true,
+  onEvent(event) { /* send to your API */ },
+})
+```
+
+Full walkthrough: [custom-exporter.md](./custom-exporter.md).
+
+---
 
 ## 1. Enable in Hands for Bots
 
@@ -86,26 +190,3 @@ window.__SEMANTIC_EVENT_OBSERVABILITY__
 ```
 
 See [renaming.md](./renaming.md) for how the global key changes with the package slug.
-
-## Generic bus (non–Hands for Bots)
-
-```javascript
-import { createObservability, instrumentEventBus } from './index.js'
-
-const observability = createObservability({
-  turnStartEvents: ['user.message'],
-  turnEndEvents: ['bot.response'],
-  exporters: ['memory', 'console', 'otel'],
-})
-
-instrumentEventBus(observability, myBus, {
-  stateProvider: () => ({ queueDepth: myQueue.length }),
-})
-```
-
-Configure phases and metrics via [roadmap.md](./roadmap.md). Manual phases:
-
-```javascript
-observability.startPhase('custom-work')
-observability.endPhase('custom-work')
-```
