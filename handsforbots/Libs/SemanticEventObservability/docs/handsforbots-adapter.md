@@ -37,6 +37,16 @@ Set `enabled: false` on the plugin entry to skip instrumentation.
 | `core.input` | Turn start |
 | `core.output_ready` | Turn end |
 
+## Phase model
+
+| Phase | Start | End |
+|-------|-------|-----|
+| `backend` | `core.calling_backend` | `core.backend_responded` |
+
+Render time is computed automatically after the last phase ends until `core.output_ready`.
+
+Preset: `HFB_PHASE_MODEL` in [`adapters/handsforbots.js`](../adapters/handsforbots.js).
+
 ## Runtime state
 
 Each semantic event may include:
@@ -64,6 +74,14 @@ location.reload()
 ```
 
 Or pass `exporterConfig: { devPanel: { enabled: true } }` in the plugin options.
+
+## Roadmaps
+
+| Document | Scope |
+|----------|-------|
+| [roadmap.md](./roadmap.md) | Library vision, abstractions, development phases |
+| [metrics-roadmap.md](./metrics-roadmap.md) | `seo_*` metrics checklist |
+| [handsforbots-roadmap.md](./handsforbots-roadmap.md) | HfB adapter, `hfb_*` metrics, backend integration |
 
 ## Direct adapter (advanced)
 

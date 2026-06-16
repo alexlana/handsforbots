@@ -2,6 +2,9 @@ import { getPackageIdentity } from '../packageIdentity.js'
 import CorrelationContext from './CorrelationContext.js'
 import Policy from './Policy.js'
 import EventBuffer from './EventBuffer.js'
+import { createMetricsRegistry } from './MetricsRegistry.js'
+import { createTurnMetricsCollector } from './TurnMetricsCollector.js'
+import { definePhaseModel } from './definePhaseModel.js'
 import { createExporters, initExporters } from '../exporters/index.js'
 import { createId } from '../utils/id.js'
 
@@ -12,13 +15,18 @@ const DEFAULT_EXPORTERS = ['memory']
  */
 export function createObservability(options = {}) {
 	const identity = getPackageIdentity(options.identity)
+	const environment = options.environment || 'development'
+	const phases = definePhaseModel(options.phases || [])
+	const metricsRegistry = createMetricsRegistry({ environment })
+
 	const policy = new Policy({
 		enabled: options.enabled !== false,
 		sampleRate: options.sampleRate,
 		maxEventsPerMinute: options.maxEventsPerMinute,
 		maxPayloadBytes: options.maxPayloadBytes,
 		denylist: options.denylist,
-		environment: options.environment,
+		environment,
+		onDrop: (reason) => metricsRegistry.recordEventDropped(reason),
 	})
 
 	const correlation = new CorrelationContext({
@@ -34,11 +42,34 @@ export function createObservability(options = {}) {
 	let initialized = false
 	let initPromise = null
 
+	const turnMetrics = createTurnMetricsCollector({
+		phases,
+		onPhaseDuration: (phase, durationMs, labels) => {
+			metricsRegistry.recordPhaseDuration(phase, durationMs, labels)
+		},
+		onRenderDuration: (durationMs, labels) => {
+			metricsRegistry.recordPhaseDuration('render', durationMs, labels)
+		},
+		onTurnStatus: (status, labels) => {
+			metricsRegistry.recordTurnStatus(status, labels)
+		},
+	})
+
+	metricsRegistry.subscribe((metric) => {
+		buffer.pushMetric(metric)
+		for (const exporter of exporters) {
+			dispatchMetric(exporter, metric, metricsRegistry)
+		}
+	})
+
 	const api = {
 		identity,
 		policy,
 		correlation,
 		buffer,
+		metricsRegistry,
+		turnMetrics,
+		phases,
 		exporters: [],
 
 		async init() {
@@ -100,14 +131,15 @@ export function createObservability(options = {}) {
 			const metric = {
 				name,
 				value,
-				labels,
+				labels: { environment, ...labels },
+				type: 'gauge',
 				timestamp: new Date().toISOString(),
 				sessionId: correlation.sessionId,
 			}
 
 			buffer.pushMetric(metric)
 			for (const exporter of api.exporters) {
-				try { exporter.onMetric?.(metric) } catch { /* noop */ }
+				dispatchMetric(exporter, metric, metricsRegistry)
 			}
 		},
 
@@ -133,6 +165,7 @@ export function createObservability(options = {}) {
 			}
 			exporters = []
 			api.exporters = []
+			turnMetrics.clear()
 			buffer.clear()
 			removeGlobal(identity)
 		},
@@ -142,13 +175,14 @@ export function createObservability(options = {}) {
 		return {
 			identity,
 			buffer,
+			phases,
+			metricsRegistry,
 			getTimeline: api.getTimeline,
 			getMetrics: api.getMetrics,
 			getPolicyStats: api.getPolicyStats,
 		}
 	}
 
-	// Fire-and-forget init; absence of exporters never breaks the host app.
 	api.init().catch(() => {})
 
 	return api
@@ -171,28 +205,68 @@ function emit(api, partial) {
 	const snapshotBefore = correlation.getContext()
 	const correlationChange = correlation.observeBusEvent(partial.name)
 
+	if (correlationChange?.abandoned) {
+		handleTurnAbandoned(api, correlationChange.abandoned)
+		handleTurnStart(api, partial, correlationChange.started)
+		emitEvent(api, { ...partial, ...correlation.getContext() })
+		return
+	}
+
 	if (correlationChange?.type === 'turn.start') {
-		emitEvent(api, {
-			type: 'turn.start',
-			name: partial.name,
-			...correlation.getContext(),
-		})
+		handleTurnStart(api, partial, correlationChange)
 		emitEvent(api, { ...partial, ...correlation.getContext() })
 		return
 	}
 
 	if (correlationChange?.type === 'turn.end') {
 		emitEvent(api, { ...partial, ...snapshotBefore })
-		emitEvent(api, {
-			type: 'turn.end',
-			name: partial.name,
-			...snapshotBefore,
-			durationMs: correlationChange.durationMs,
-		})
+		handleTurnEnd(api, partial, snapshotBefore, correlationChange.durationMs)
 		return
 	}
 
 	emitEvent(api, { ...partial, ...correlation.getContext() })
+}
+
+function handleTurnAbandoned(api, abandoned) {
+	const labels = metricLabels(api, abandoned)
+	api.metricsRegistry.recordTurnStatus('abandoned', labels)
+	api.turnMetrics?.onTurnAbandoned(abandoned)
+	emitEvent(api, {
+		type: 'turn.abandoned',
+		name: 'turn.abandoned',
+		...abandoned,
+		sessionId: api.correlation.sessionId,
+	})
+}
+
+function handleTurnStart(api, partial, started) {
+	const plugin = extractPluginFromPayload(partial.payload)
+	if (plugin) api.correlation.setTurnMetadata({ input_plugin: plugin })
+
+	const labels = metricLabels(api, { ...started, name: partial.name, payload: partial.payload })
+	api.turnMetrics.onTurnStart({ ...started, name: partial.name })
+	emitEvent(api, {
+		type: 'turn.start',
+		name: partial.name,
+		...started,
+		sessionId: api.correlation.sessionId,
+	})
+}
+
+function handleTurnEnd(api, partial, snapshot, durationMs) {
+	const labels = metricLabels(api, {
+		...snapshot,
+		name: partial.name,
+		turnMetadata: snapshot.turnMetadata,
+	})
+	api.metricsRegistry.recordTurnDuration(durationMs, labels)
+	api.turnMetrics.onTurnEnd({ ...snapshot, name: partial.name, durationMs }, labels)
+	emitEvent(api, {
+		type: 'turn.end',
+		name: partial.name,
+		...snapshot,
+		durationMs,
+	})
 }
 
 function emitEvent(api, partial) {
@@ -209,8 +283,60 @@ function emitEvent(api, partial) {
 	}
 
 	buffer.push(event)
+	recordStateMetrics(api, event.state)
+	api.metricsRegistry.recordEventEmitted(event.type)
+
+	if (event.type === 'bus.trigger' && event.turnId) {
+		api.turnMetrics.onBusEvent(event, metricLabels(api, event))
+	}
+
 	for (const exporter of api.exporters) {
-		try { exporter.onEvent?.(event) } catch { /* noop */ }
+		dispatchEvent(exporter, event, api.metricsRegistry)
+	}
+}
+
+function recordStateMetrics(api, state) {
+	if (!state || typeof state !== 'object') return
+	for (const [key, value] of Object.entries(state)) {
+		if (typeof value === 'number' && !Number.isNaN(value)) {
+			api.metricsRegistry.recordStateGauge(key, value)
+		}
+	}
+}
+
+function metricLabels(api, event) {
+	const labels = { environment: api.policy.environment }
+	if (event?.name) labels.start_event = event.name
+
+	const metadata = event?.turnMetadata || api.correlation.getContext().turnMetadata
+	if (metadata?.input_plugin) labels.input_plugin = metadata.input_plugin
+
+	const plugin = extractPluginFromPayload(event?.payload)
+	if (plugin) labels.input_plugin = plugin
+
+	return labels
+}
+
+function extractPluginFromPayload(payload) {
+	if (!payload) return undefined
+	const item = Array.isArray(payload) ? payload[0] : payload
+	if (item?.plugin) return String(item.plugin)
+	return undefined
+}
+
+function dispatchEvent(exporter, event, metricsRegistry) {
+	try {
+		exporter.onEvent?.(event)
+	} catch {
+		metricsRegistry.recordExporterError(exporter.id)
+	}
+}
+
+function dispatchMetric(exporter, metric, metricsRegistry) {
+	try {
+		exporter.onMetric?.(metric)
+	} catch {
+		metricsRegistry.recordExporterError(exporter.id)
 	}
 }
 

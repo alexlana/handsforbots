@@ -107,8 +107,11 @@ The example stack mounts the `.lgtm.json` variant into `grafana/otel-lgtm` and s
 
 - [Getting started](./docs/getting-started.md)
 - [Architecture](./docs/architecture.md)
+- [Library roadmap & abstractions](./docs/roadmap.md)
+- [Metrics checklist (`seo_*`)](./docs/metrics-roadmap.md)
 - [Exporters](./docs/exporters.md)
 - [Hands for Bots adapter](./docs/handsforbots-adapter.md)
+- [Hands for Bots roadmap (`hfb_*`)](./docs/handsforbots-roadmap.md)
 - [Renaming the package](./docs/renaming.md)
 
 ## Future npm publish

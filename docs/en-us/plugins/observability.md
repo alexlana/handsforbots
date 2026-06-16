@@ -66,4 +66,12 @@ bot.observability.record('my.event', { foo: 'bar' })
 
 Import the dashboard from `handsforbots/Libs/SemanticEventObservability/grafana/semantic-event-observability.json`.
 
+## Roadmaps
+
+| Document | Scope |
+|----------|-------|
+| [Library roadmap & abstractions](../../handsforbots/Libs/SemanticEventObservability/docs/roadmap.md) | Host-agnostic lib plan |
+| [Metrics checklist (`seo_*`)](../../handsforbots/Libs/SemanticEventObservability/docs/metrics-roadmap.md) | Library metrics |
+| [Hands for Bots roadmap (`hfb_*`)](../../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md) | HfB-specific work |
+
 Full library docs: [`SemanticEventObservability/README.md`](../../handsforbots/Libs/SemanticEventObservability/README.md).

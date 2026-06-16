@@ -1,7 +1,6 @@
 import { resolveOptionalDependency } from '../utils/probeOptional.js'
-
-const BACKEND_START = 'core.calling_backend'
-const BACKEND_END = 'core.backend_responded'
+import { isErrorEvent } from '../core/isErrorEvent.js'
+import { SEO_METRICS } from '../core/MetricsRegistry.js'
 
 /**
  * OpenTelemetry exporter (optional dependency).
@@ -10,16 +9,25 @@ const BACKEND_END = 'core.backend_responded'
 export function createOtelExporter(config = {}) {
 	const id = 'otel'
 	let tracer = null
+	let meter = null
 	let otelContext = null
 	let otelTrace = null
 	let SpanStatusCode = null
+	let phases = []
 	/** @type {Map<string, TurnTraceState>} */
 	const turns = new Map()
+	/** @type {Map<string, import('@opentelemetry/api').Counter>} */
+	const counters = new Map()
+	/** @type {Map<string, import('@opentelemetry/api').Histogram>} */
+	const histograms = new Map()
+	/** @type {Map<string, import('@opentelemetry/api').Gauge>} */
+	const gauges = new Map()
 
-	// Sync fast-path: when observability-stack.js provides the full OTel bootstrap,
-	// initialize immediately so turn.start events fired during async init are not lost.
 	if (typeof config.getTracer === 'function') {
 		tracer = config.getTracer('semantic-event-observability', '0.0.0')
+	}
+	if (typeof config.getMeter === 'function') {
+		meter = config.getMeter('semantic-event-observability', '0.0.0')
 	}
 	if (config.traceApi) {
 		otelContext = config.traceApi.context
@@ -33,12 +41,13 @@ export function createOtelExporter(config = {}) {
 		description: 'OpenTelemetry spans and metrics for Grafana Tempo/Mimir',
 
 		async init(context) {
+			phases = context.phases || []
+
 			const resolved = await resolveOptionalDependency(config.api, {
 				globalName: 'otel',
 				moduleSpecifier: '@opentelemetry/api',
 			})
 
-			// Re-get tracer with the proper service identity if possible
 			if (typeof config.getTracer === 'function') {
 				tracer = config.getTracer(context.identity.otelServiceName, context.identity.version)
 			} else if (resolved) {
@@ -48,7 +57,14 @@ export function createOtelExporter(config = {}) {
 				}
 			}
 
-			if (!tracer) return
+			if (typeof config.getMeter === 'function') {
+				meter = config.getMeter(context.identity.otelServiceName, context.identity.version)
+			} else if (resolved?.module?.metrics) {
+				const metricsApi = resolved.module.metrics
+				if (typeof metricsApi?.getMeter === 'function') {
+					meter = metricsApi.getMeter(context.identity.otelServiceName, context.identity.version)
+				}
+			}
 
 			if (config.traceApi) {
 				otelContext = config.traceApi.context
@@ -58,6 +74,10 @@ export function createOtelExporter(config = {}) {
 				otelContext = resolved.module.context
 				otelTrace = resolved.module.trace
 				SpanStatusCode = resolved.module.SpanStatusCode
+			}
+
+			if (meter) {
+				initMetricInstruments(meter)
 			}
 
 			this.available = Boolean(otelContext && otelTrace)
@@ -82,23 +102,70 @@ export function createOtelExporter(config = {}) {
 		},
 
 		onMetric(metric) {
-			if (!tracer || !metric) return
-			const span = tracer.startSpan(`metric:${metric.name}`, {
-				attributes: {
-					'metric.value': metric.value,
-					...flattenLabels(metric.labels),
-				},
-			})
-			span.end()
+			recordOtelMetric(metric)
 		},
 
 		destroy() {
 			for (const state of turns.values()) {
-				try { state.backendSpan?.end() } catch { /* noop */ }
+				for (const phaseSpan of state.phaseSpans.values()) {
+					try { phaseSpan?.end() } catch { /* noop */ }
+				}
 				try { state.rootSpan?.end() } catch { /* noop */ }
 			}
 			turns.clear()
+			counters.clear()
+			histograms.clear()
+			gauges.clear()
 		},
+	}
+
+	function initMetricInstruments(activeMeter) {
+		histograms.set(SEO_METRICS.TURN_DURATION, activeMeter.createHistogram(SEO_METRICS.TURN_DURATION, {
+			description: 'Conversation turn duration',
+			unit: 'ms',
+		}))
+		histograms.set(SEO_METRICS.PHASE_DURATION, activeMeter.createHistogram(SEO_METRICS.PHASE_DURATION, {
+			description: 'Phase duration within a turn',
+			unit: 'ms',
+		}))
+		counters.set(SEO_METRICS.TURNS_TOTAL, activeMeter.createCounter(SEO_METRICS.TURNS_TOTAL, {
+			description: 'Turn outcomes',
+		}))
+		counters.set(SEO_METRICS.EVENTS_DROPPED, activeMeter.createCounter(SEO_METRICS.EVENTS_DROPPED, {
+			description: 'Telemetry events dropped by policy',
+		}))
+		counters.set(SEO_METRICS.EVENTS_EMITTED, activeMeter.createCounter(SEO_METRICS.EVENTS_EMITTED, {
+			description: 'Semantic events emitted',
+		}))
+		counters.set(SEO_METRICS.EXPORTER_ERRORS, activeMeter.createCounter(SEO_METRICS.EXPORTER_ERRORS, {
+			description: 'Exporter handler errors',
+		}))
+
+		if (typeof activeMeter.createGauge === 'function') {
+			gauges.set(SEO_METRICS.STATE_GAUGE, activeMeter.createGauge(SEO_METRICS.STATE_GAUGE, {
+				description: 'Host state gauge from stateProvider',
+			}))
+		}
+	}
+
+	function recordOtelMetric(metric) {
+		if (!metric) return
+
+		const attributes = toOtelAttributes(metric.labels)
+
+		if (metric.type === 'histogram') {
+			histograms.get(metric.name)?.record(metric.value, attributes)
+			return
+		}
+
+		if (metric.type === 'gauge' && metric.name === SEO_METRICS.STATE_GAUGE) {
+			gauges.get(SEO_METRICS.STATE_GAUGE)?.record(metric.value, attributes)
+			return
+		}
+
+		if (metric.type === 'counter') {
+			counters.get(metric.name)?.add(metric.value ?? 1, attributes)
+		}
 	}
 
 	function startTurnTrace(event) {
@@ -107,9 +174,9 @@ export function createOtelExporter(config = {}) {
 		})
 		turns.set(event.turnId, {
 			rootSpan,
-			backendSpan: null,
-			backendStartedAt: null,
-			backendEndedAt: null,
+			phaseSpans: new Map(),
+			phaseStartedAt: new Map(),
+			lastPhaseEndedAt: null,
 		})
 	}
 
@@ -117,17 +184,17 @@ export function createOtelExporter(config = {}) {
 		const state = turns.get(event.turnId)
 		if (!state) return
 
-		if (state.backendSpan) {
-			state.backendSpan.end()
-			state.backendSpan = null
+		for (const phaseSpan of state.phaseSpans.values()) {
+			try { phaseSpan.end() } catch { /* noop */ }
 		}
+		state.phaseSpans.clear()
 
 		if (event.durationMs != null) {
 			state.rootSpan.setAttribute('turn.duration_ms', event.durationMs)
 		}
 
-		if (state.backendEndedAt != null) {
-			const renderMs = Math.max(0, Date.now() - state.backendEndedAt)
+		if (state.lastPhaseEndedAt != null) {
+			const renderMs = Math.max(0, Date.now() - state.lastPhaseEndedAt)
 			state.rootSpan.setAttribute('phase.render_ms', renderMs)
 		}
 
@@ -144,29 +211,34 @@ export function createOtelExporter(config = {}) {
 
 		const parentCtx = parentContext(state.rootSpan)
 
-		if (event.name === BACKEND_START) {
-			state.backendStartedAt = Date.now()
-			state.backendSpan = tracer.startSpan('phase:backend', {
-				attributes: {
-					...baseAttributes(event),
-					'phase.name': 'backend',
-				},
-			}, parentCtx)
-			recordEventSpan(event, parentCtx)
-			return
-		}
-
-		if (event.name === BACKEND_END) {
-			if (state.backendSpan && state.backendStartedAt != null) {
-				const backendMs = Math.max(0, Date.now() - state.backendStartedAt)
-				state.rootSpan.setAttribute('phase.backend_ms', backendMs)
-				state.backendSpan.end()
-				state.backendSpan = null
-				state.backendStartedAt = null
-				state.backendEndedAt = Date.now()
+		for (const phase of phases) {
+			if (event.name === phase.startEvent) {
+				state.phaseStartedAt.set(phase.id, Date.now())
+				const phaseSpan = tracer.startSpan(`phase:${phase.id}`, {
+					attributes: {
+						...baseAttributes(event),
+						'phase.name': phase.id,
+					},
+				}, parentCtx)
+				state.phaseSpans.set(phase.id, phaseSpan)
+				recordEventSpan(event, parentCtx)
+				return
 			}
-			recordEventSpan(event, parentCtx)
-			return
+
+			if (event.name === phase.endEvent) {
+				const phaseSpan = state.phaseSpans.get(phase.id)
+				const startedAt = state.phaseStartedAt.get(phase.id)
+				if (phaseSpan && startedAt != null) {
+					const phaseMs = Math.max(0, Date.now() - startedAt)
+					state.rootSpan.setAttribute(`phase.${phase.id}_ms`, phaseMs)
+					phaseSpan.end()
+					state.phaseSpans.delete(phase.id)
+					state.phaseStartedAt.delete(phase.id)
+					state.lastPhaseEndedAt = Date.now()
+				}
+				recordEventSpan(event, parentCtx)
+				return
+			}
 		}
 
 		recordEventSpan(event, parentCtx)
@@ -193,17 +265,11 @@ export function createOtelExporter(config = {}) {
 	}
 
 	function maybeMarkError(event, rootSpan) {
-		if (!SpanStatusCode || !rootSpan || !looksLikeError(event)) return
+		if (!SpanStatusCode || !rootSpan || !isErrorEvent(event)) return
 		rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: event.name })
 		rootSpan.setAttribute('turn.error_event', event.name)
+		rootSpan.setAttribute('error.type', event.name)
 	}
-}
-
-function looksLikeError(event) {
-	const preview = event.payloadSummary?.preview || ''
-	if (/error|fail|exception/i.test(preview)) return true
-	if (/error|fail|exception/i.test(event.name || '')) return true
-	return false
 }
 
 function baseAttributes(event) {
@@ -216,10 +282,11 @@ function baseAttributes(event) {
 	}
 }
 
-function flattenLabels(labels = {}) {
+function toOtelAttributes(labels = {}) {
 	const output = {}
 	for (const [key, value] of Object.entries(labels)) {
-		output[`metric.label.${key}`] = String(value)
+		if (value == null) continue
+		output[`seo.${key}`] = String(value)
 	}
 	return output
 }
@@ -227,7 +294,7 @@ function flattenLabels(labels = {}) {
 /**
  * @typedef {object} TurnTraceState
  * @property {import('@opentelemetry/api').Span} rootSpan
- * @property {import('@opentelemetry/api').Span | null} backendSpan
- * @property {number | null} backendStartedAt
- * @property {number | null} backendEndedAt
+ * @property {Map<string, import('@opentelemetry/api').Span>} phaseSpans
+ * @property {Map<string, number>} phaseStartedAt
+ * @property {number | null} lastPhaseEndedAt
  */

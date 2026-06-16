@@ -10,6 +10,7 @@ export async function maybeInitObservabilityStack() {
 
 	const serviceName = 'semantic-event-observability'
 	const otelEndpoint = import.meta.env.VITE_OTEL_ENDPOINT || 'http://localhost:4318/v1/traces'
+	const otelMetricsEndpoint = import.meta.env.VITE_OTEL_METRICS_ENDPOINT || 'http://localhost:4318/v1/metrics'
 	const faroEndpoint = import.meta.env.VITE_FARO_ENDPOINT || 'http://localhost:12347/collect'
 
 	try {
@@ -23,6 +24,8 @@ export async function maybeInitObservabilityStack() {
 			{ ZoneContextManager },
 			{ SEMRESATTRS_SERVICE_NAME },
 			{ initializeFaro },
+			{ MeterProvider, PeriodicExportingMetricReader },
+			{ OTLPMetricExporter },
 			api,
 		] = await Promise.all([
 			import('@opentelemetry/sdk-trace-web'),
@@ -34,25 +37,37 @@ export async function maybeInitObservabilityStack() {
 			import('@opentelemetry/context-zone'),
 			import('@opentelemetry/semantic-conventions'),
 			import('@grafana/faro-web-sdk'),
+			import('@opentelemetry/sdk-metrics'),
+			import('@opentelemetry/exporter-metrics-otlp-http'),
 			import('@opentelemetry/api'),
 		])
 
-		const otlpExporter = new OTLPTraceExporter({ url: otelEndpoint })
-		const provider = new WebTracerProvider({
-			resource: new Resource({
-				[SEMRESATTRS_SERVICE_NAME]: serviceName,
-			}),
+		const resource = new Resource({
+			[SEMRESATTRS_SERVICE_NAME]: serviceName,
 		})
-		// SimpleSpanProcessor envia cada span imediatamente ao terminar,
-		// sem reter em buffer — garante que turnos curtos cheguem ao Tempo.
+
+		const otlpExporter = new OTLPTraceExporter({ url: otelEndpoint })
+		const provider = new WebTracerProvider({ resource })
 		provider.addSpanProcessor(new SimpleSpanProcessor(otlpExporter))
 		provider.register({
 			contextManager: new ZoneContextManager(),
 		})
 
-		// Flush forçado ao fechar/recarregar a aba — evita perda de spans pendentes
+		const metricExporter = new OTLPMetricExporter({ url: otelMetricsEndpoint })
+		const meterProvider = new MeterProvider({
+			resource,
+			readers: [
+				new PeriodicExportingMetricReader({
+					exporter: metricExporter,
+					exportIntervalMillis: 5000,
+				}),
+			],
+		})
+		api.metrics.setGlobalMeterProvider(meterProvider)
+
 		window.addEventListener('beforeunload', () => {
 			provider.shutdown().catch(() => {})
+			meterProvider.shutdown().catch(() => {})
 		})
 
 		registerInstrumentations({
@@ -71,7 +86,8 @@ export async function maybeInitObservabilityStack() {
 			},
 		})
 
-		console.log('[✔︎] Observability stack: OpenTelemetry →', otelEndpoint)
+		console.log('[✔︎] Observability stack: OpenTelemetry traces →', otelEndpoint)
+		console.log('[✔︎] Observability stack: OpenTelemetry metrics →', otelMetricsEndpoint)
 		console.log('[✔︎] Observability stack: Faro →', faroEndpoint)
 
 		return {
@@ -82,6 +98,7 @@ export async function maybeInitObservabilityStack() {
 				SpanStatusCode: api.SpanStatusCode,
 			},
 			getTracer: (name, version) => provider.getTracer(name || serviceName, version),
+			getMeter: (name, version) => meterProvider.getMeter(name || serviceName, version),
 		}
 	} catch (error) {
 		console.warn('[ℹ] Observability stack packages missing. Run npm install in examples/vite.', error)

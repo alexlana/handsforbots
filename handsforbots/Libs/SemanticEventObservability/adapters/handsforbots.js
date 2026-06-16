@@ -1,7 +1,16 @@
 import { createObservability } from '../core/createObservability.js'
+import { definePhaseModel } from '../core/definePhaseModel.js'
 
 export const HFB_TURN_START_EVENTS = ['core.input']
 export const HFB_TURN_END_EVENTS = ['core.output_ready']
+
+export const HFB_PHASE_MODEL = definePhaseModel([
+	{
+		id: 'backend',
+		startEvent: 'core.calling_backend',
+		endEvent: 'core.backend_responded',
+	},
+])
 
 export const HFB_SEMANTIC_EVENTS = [
 	'core.input',
@@ -42,6 +51,7 @@ export function attachHandsForBotsObservability(bot, options = {}) {
 		denylist: options.denylist,
 		turnStartEvents: options.turnStartEvents || HFB_TURN_START_EVENTS,
 		turnEndEvents: options.turnEndEvents || HFB_TURN_END_EVENTS,
+		phases: options.phases || HFB_PHASE_MODEL,
 		exporters: options.exporters || ['memory', 'devPanel'],
 		exporterConfig: options.exporterConfig || {},
 		identity: options.identity,

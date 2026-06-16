@@ -1,5 +1,15 @@
 # Getting started
 
+## Library vs Hands for Bots
+
+Semantic Event Observability is **host-agnostic**. Hands for Bots is one integration path.
+
+| Path | Doc |
+|------|-----|
+| Any `on` / `trigger` event bus | § Generic bus below |
+| Hands for Bots plugin | § 1. Enable in Hands for Bots |
+| Roadmap & abstractions | [roadmap.md](./roadmap.md) |
+
 ## 1. Enable in Hands for Bots
 
 Register the Observability output plugin:
@@ -76,3 +86,21 @@ window.__SEMANTIC_EVENT_OBSERVABILITY__
 ```
 
 See [renaming.md](./renaming.md) for how the global key changes with the package slug.
+
+## Generic bus (non–Hands for Bots)
+
+```javascript
+import { createObservability, instrumentEventBus } from './index.js'
+
+const observability = createObservability({
+  turnStartEvents: ['user.message'],
+  turnEndEvents: ['bot.response'],
+  exporters: ['memory', 'console', 'otel'],
+})
+
+instrumentEventBus(observability, myBus, {
+  stateProvider: () => ({ queueDepth: myQueue.length }),
+})
+```
+
+Configure phases and metrics via [roadmap.md](./roadmap.md) as those APIs land.

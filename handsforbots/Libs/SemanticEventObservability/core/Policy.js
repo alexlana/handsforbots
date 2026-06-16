@@ -11,6 +11,7 @@ export default class Policy {
 		this.maxPayloadBytes = options.maxPayloadBytes ?? 2048
 		this.denylist = options.denylist || DEFAULT_DENYLIST
 		this.environment = options.environment || 'development'
+		this.onDrop = typeof options.onDrop === 'function' ? options.onDrop : null
 
 		this.windowStartedAt = Date.now()
 		this.eventsInWindow = 0
@@ -66,6 +67,7 @@ export default class Policy {
 	recordDrop(reason) {
 		this.droppedTotal += 1
 		this.droppedByReason[reason] = (this.droppedByReason[reason] || 0) + 1
+		try { this.onDrop?.(reason) } catch { /* noop */ }
 	}
 
 	getStats() {

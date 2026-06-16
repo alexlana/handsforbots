@@ -1,22 +1,18 @@
 export function createMemoryExporter(config = {}) {
 	const id = 'memory'
-	let buffer = config.buffer || null
 
 	return {
 		id,
 		available: true,
-		description: 'Ring buffer used by dev panel and debug export',
+		description: 'Ring buffer used by dev panel and debug export (buffer owned by core)',
 
 		async init(context) {
-			buffer = context.buffer
+			// Buffer is populated by createObservability; memory exporter is a marker for dev tooling.
+			void context.buffer
 		},
 
-		onEvent(event) {
-			buffer?.push(event)
-		},
+		onEvent() {},
 
-		onMetric(metric) {
-			buffer?.pushMetric(metric)
-		},
+		onMetric() {},
 	}
 }

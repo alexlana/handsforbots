@@ -11,6 +11,10 @@ export { createObservability } from './core/createObservability.js'
 export { default as CorrelationContext } from './core/CorrelationContext.js'
 export { default as Policy } from './core/Policy.js'
 export { default as EventBuffer } from './core/EventBuffer.js'
+export { createMetricsRegistry, SEO_METRICS } from './core/MetricsRegistry.js'
+export { createTurnMetricsCollector } from './core/TurnMetricsCollector.js'
+export { definePhaseModel } from './core/definePhaseModel.js'
+export { isErrorEvent } from './core/isErrorEvent.js'
 
 export { instrumentEventBus, createInstrumentedBus } from './adapters/genericEventBus.js'
 export {
@@ -18,6 +22,7 @@ export {
 	getHandsForBotsState,
 	HFB_TURN_START_EVENTS,
 	HFB_TURN_END_EVENTS,
+	HFB_PHASE_MODEL,
 	HFB_SEMANTIC_EVENTS,
 } from './adapters/handsforbots.js'
 

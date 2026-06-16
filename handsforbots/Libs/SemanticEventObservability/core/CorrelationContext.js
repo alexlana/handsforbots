@@ -12,6 +12,7 @@ export default class CorrelationContext {
 		this.currentTraceId = null
 		this.turnStartedAt = null
 		this.completedTurns = 0
+		this.turnMetadata = {}
 	}
 
 	startSession(sessionId = createId('session')) {
@@ -23,14 +24,27 @@ export default class CorrelationContext {
 
 	observeBusEvent(eventName) {
 		if (this.turnStartEvents.has(eventName)) {
+			let abandoned = null
+			if (this.currentTurnId) {
+				abandoned = {
+					type: 'turn.abandoned',
+					turnId: this.currentTurnId,
+					traceId: this.currentTraceId,
+				}
+			}
+
 			this.currentTurnId = createId('turn')
 			this.currentTraceId = createId('trace')
 			this.turnStartedAt = Date.now()
-			return {
+			this.turnMetadata = {}
+
+			const started = {
 				type: 'turn.start',
 				turnId: this.currentTurnId,
 				traceId: this.currentTraceId,
 			}
+
+			return abandoned ? { abandoned, started } : started
 		}
 
 		if (this.turnEndEvents.has(eventName) && this.currentTurnId) {
@@ -41,6 +55,7 @@ export default class CorrelationContext {
 			this.currentTurnId = null
 			this.currentTraceId = null
 			this.turnStartedAt = null
+			this.turnMetadata = {}
 			return {
 				type: 'turn.end',
 				turnId,
@@ -57,6 +72,11 @@ export default class CorrelationContext {
 			sessionId: this.sessionId,
 			turnId: this.currentTurnId,
 			traceId: this.currentTraceId,
+			turnMetadata: { ...this.turnMetadata },
 		}
+	}
+
+	setTurnMetadata(metadata = {}) {
+		this.turnMetadata = { ...this.turnMetadata, ...metadata }
 	}
 }

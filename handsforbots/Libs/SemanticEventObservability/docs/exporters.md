@@ -50,23 +50,27 @@ exporterConfig: {
 
 ### `otel`
 
-Requires `@opentelemetry/api` **or** injected tracer + trace API.
+Requires `@opentelemetry/api` **or** injected tracer, meter, and trace API.
 
 Creates **one trace tree per conversation turn**:
 
-- `turn.start` → root span `turn:core.input` (open until `turn.end`)
-- `core.calling_backend` → `phase:backend` span (wall-clock until `core.backend_responded`)
+- `turn.start` → root span `turn:<startEvent>`
+- Configured `phases` → `phase:<id>` spans (Hands for Bots: `phase:backend`)
 - Each `bus.trigger` → child span `event:<name>` under the turn root
-- Root attributes: `turn.duration_ms`, `phase.backend_ms`, `phase.render_ms`
+- Root attributes: `turn.duration_ms`, `phase.<id>_ms`, `phase.render_ms`
+- **Metrics:** `seo_*` histograms/counters via OTel Metrics API when `getMeter` is provided
 
 ```javascript
 exporterConfig: {
   otel: {
     getTracer: stack.getTracer,
+    getMeter: stack.getMeter,
     traceApi: { context, trace, SpanStatusCode },
   },
 }
 ```
+
+`phases` are set on `createObservability({ phases })`. The Hands for Bots adapter passes `HFB_PHASE_MODEL`.
 
 ## LLM observability
 

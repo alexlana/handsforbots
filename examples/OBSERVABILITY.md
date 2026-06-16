@@ -67,7 +67,7 @@ Do **not** create `.env.observability` (or delete it). Observability stays local
 
 With `.env.observability` present:
 
-1. `observability-stack.js` bootstraps **OpenTelemetry → OTLP** on port 4318 (traces)
+1. `observability-stack.js` bootstraps **OpenTelemetry → OTLP** on port 4318 (traces **and** `/v1/metrics`)
 2. **Grafana Faro** sends semantic events to **Alloy** on port 12347 → Loki
 3. The **Observability** output plugin sends spans for turns and `core.*` events
 4. Fetch calls (e.g. Rasa) are also traced via `FetchInstrumentation`
@@ -77,7 +77,9 @@ With `.env.observability` present:
 Grafana **Drilldown** lists *all* telemetry in the local LGTM stack (including tools like Cursor IDE as `cursor-agent`).  
 This dashboard filters **`semantic-event-observability` only** — data appears after you use the chat at http://localhost (reload the page after stack changes).
 
-Prometheus panels for custom `seo_*` metrics were removed until the lib emits them.
+Prometheus panels for `seo_*` metrics populate when the lib exports via OTel Metrics API and the LGTM stack is running. Run `npm install` in `examples/vite` after pulling (adds `@opentelemetry/sdk-metrics`).
+
+Roadmaps: [lib metrics](../../handsforbots/Libs/SemanticEventObservability/docs/metrics-roadmap.md) · [Hands for Bots](../../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md).
 
 ## Local dev without Docker for the bot
 

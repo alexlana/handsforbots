@@ -1,23 +1,30 @@
 # Architecture
 
+Host-agnostic design. For **Hands for Bots** integration, see [handsforbots-adapter.md](./handsforbots-adapter.md). For planned abstractions, see [roadmap.md](./roadmap.md).
+
 ```mermaid
 flowchart TB
-  App["Host app / Hands for Bots"]
+  App["Host application"]
+  Adapter["Optional adapter preset"]
   Bus["Event bus (on/trigger)"]
   Core["createObservability"]
   Policy["Policy<br/>sample · redact · rate limit"]
-  Corr["CorrelationContext<br/>session · turn · trace"]
+  Corr["CorrelationContext / TurnModel<br/>session · turn · trace"]
+  Phase["PhaseTracker / definePhaseModel"]
   Buffer["EventBuffer"]
+  Metrics["MetricsRegistry"]
   Exporters["Exporters (optional)"]
   Grafana["Grafana LGTM"]
   LLM["Langfuse / LangSmith"]
 
-  App --> Bus
-  Plugin["Observability output plugin"] --> Core
+  App --> Adapter
+  Adapter --> Bus
   Bus --> Core
   Core --> Policy
   Core --> Corr
+  Core --> Phase
   Core --> Buffer
+  Core --> Metrics
   Core --> Exporters
   Exporters --> Grafana
   Exporters --> LLM
@@ -42,16 +49,21 @@ Each recorded event includes:
 
 ## Turn correlation
 
-Configure which bus events open/close a turn:
+Configure which bus events open/close a turn via `turnStartEvents` / `turnEndEvents` (formal **TurnModel** in [roadmap.md](./roadmap.md)):
 
 ```javascript
-turnStartEvents: ['core.input'],
-turnEndEvents: ['core.output_ready'],
+turnStartEvents: ['user.message'],
+turnEndEvents: ['bot.response'],
+phases: definePhaseModel([
+  { id: 'backend', startEvent: 'api.call', endEvent: 'api.done' },
+]),
 ```
+
+Hands for Bots preset: `core.input` / `core.output_ready` — see [handsforbots-adapter.md](./handsforbots-adapter.md).
 
 Turn boundaries drive spans in OTel, runs in LangSmith, and turn panels in Grafana.
 
-Each turn produces a **single Tempo trace** (root `turn:*`, children `phase:backend` + `event:core.*`). Use the **Conversation turn flow** section in the LGTM dashboard to pick a trace and view the waterfall.
+Each turn produces a **single Tempo trace** (root `turn:*`, children `phase:*` + `event:*`). Phase children are configured via **PhaseModel** (planned; today backend phase is hardcoded in the OTel exporter).
 
 ## Fail-safe design
 
@@ -75,4 +87,4 @@ SemanticEventObservability/
 └── docs/
 ```
 
-The Hands for Bots repo keeps a thin adapter import until the package is published.
+The Hands for Bots repo ships a thin adapter; see [handsforbots-roadmap.md](./handsforbots-roadmap.md) for consumer-specific work.
