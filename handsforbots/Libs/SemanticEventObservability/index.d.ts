@@ -99,6 +99,7 @@ export type MetricsRegistry = {
 	subscribe: (listener: (metric: MetricRecord) => void) => () => void
 	recordTurnDuration: (durationMs: number, labels?: Record<string, string>) => MetricRecord | void
 	recordPhaseDuration: (phase: string, durationMs: number, labels?: Record<string, string>) => MetricRecord | void
+	recordPhaseWait: (phase: string, waitMs: number, labels?: Record<string, string>) => MetricRecord | void
 	recordTurnStatus: (status: string, labels?: Record<string, string>) => MetricRecord | void
 	recordEventDropped: (reason: string) => MetricRecord | void
 	recordStateGauge: (key: string, value: number, labels?: Record<string, string>) => MetricRecord | void
@@ -110,11 +111,15 @@ export type MetricsRegistry = {
 		labels?: Record<string, string>,
 	) => MetricRecord[] | void
 	recordWebVital: (name: string, value: number, labels?: Record<string, string>) => MetricRecord | void
+	recordBusEvent: (eventName: string, labels?: Record<string, string>) => MetricRecord | void
+	recordCustomMetric: (metricName: string, labels?: Record<string, string>) => MetricRecord | void
+	recordListenerDuration: (durationMs: number, labels?: Record<string, string>) => MetricRecord | void
 }
 
 export const SEVO_METRICS: {
 	readonly TURN_DURATION: 'sevo_turn_duration_ms'
 	readonly PHASE_DURATION: 'sevo_phase_duration_ms'
+	readonly PHASE_WAIT: 'sevo_phase_wait_ms'
 	readonly TURNS_TOTAL: 'sevo_turns_total'
 	readonly EVENTS_DROPPED: 'sevo_events_dropped_total'
 	readonly STATE_GAUGE: 'sevo_state_gauge'
@@ -123,6 +128,9 @@ export const SEVO_METRICS: {
 	readonly ACTIVE_TURNS: 'sevo_active_turns'
 	readonly SESSION_TURNS_TOTAL: 'sevo_session_turns_total'
 	readonly WEB_VITAL: 'sevo_web_vital'
+	readonly BUS_EVENTS_TOTAL: 'sevo_bus_events_total'
+	readonly CUSTOM_METRICS_TOTAL: 'sevo_custom_metrics_total'
+	readonly LISTENER_DURATION: 'sevo_listener_duration_ms'
 }
 
 /** @deprecated Use SEVO_METRICS */
@@ -159,6 +167,7 @@ export type CreateObservabilityOptions = {
 	exporterConfig?: Record<string, unknown>
 	turnRootSpan?: TurnRootSpanConfig
 	sessionEndEvents?: string[]
+	customMetricAllowlist?: string[]
 	bufferSize?: number
 	identity?: Partial<PackageIdentity>
 }
@@ -232,15 +241,16 @@ export function normalizeTurnRootSpanConfig(config?: TurnRootSpanConfig): {
 	providerName?: string
 	kind?: string | number
 }
+export function bucketEventName(name: string): string
+export function createEventInstrumentation(options?: {
+	eventFilter?: (eventName: string) => boolean
+	eventAllowlist?: string[]
+}): { shouldRecord: (eventName: string) => boolean }
 export function createSessionTracker(): {
 	recordTurn: (status: string) => void
 	getCounts: () => { completed: number; abandoned: number }
 	reset: () => void
 }
-export function createEventInstrumentation(options?: {
-	eventFilter?: (eventName: string) => boolean
-	eventAllowlist?: string[]
-}): { shouldRecord: (eventName: string) => boolean }
 export function instrumentEventBus(
 	observability: Observability,
 	bus: EventBus,

@@ -1,6 +1,7 @@
 export const SEVO_METRICS = {
 	TURN_DURATION: 'sevo_turn_duration_ms',
 	PHASE_DURATION: 'sevo_phase_duration_ms',
+	PHASE_WAIT: 'sevo_phase_wait_ms',
 	TURNS_TOTAL: 'sevo_turns_total',
 	EVENTS_DROPPED: 'sevo_events_dropped_total',
 	STATE_GAUGE: 'sevo_state_gauge',
@@ -9,6 +10,9 @@ export const SEVO_METRICS = {
 	ACTIVE_TURNS: 'sevo_active_turns',
 	SESSION_TURNS_TOTAL: 'sevo_session_turns_total',
 	WEB_VITAL: 'sevo_web_vital',
+	BUS_EVENTS_TOTAL: 'sevo_bus_events_total',
+	CUSTOM_METRICS_TOTAL: 'sevo_custom_metrics_total',
+	LISTENER_DURATION: 'sevo_listener_duration_ms',
 }
 
 /** @deprecated Use SEVO_METRICS */
@@ -64,6 +68,16 @@ export function createMetricsRegistry(options = {}) {
 				name: SEVO_METRICS.PHASE_DURATION,
 				type: 'histogram',
 				value: Math.max(0, durationMs),
+				labels: { phase, ...labels },
+			})
+		},
+
+		recordPhaseWait(phase, waitMs, labels = {}) {
+			if (waitMs == null || Number.isNaN(waitMs)) return
+			return emit({
+				name: SEVO_METRICS.PHASE_WAIT,
+				type: 'histogram',
+				value: Math.max(0, waitMs),
 				labels: { phase, ...labels },
 			})
 		},
@@ -152,6 +166,34 @@ export function createMetricsRegistry(options = {}) {
 				type: 'histogram',
 				value: Math.max(0, value),
 				labels: { vital: name || 'unknown', ...labels },
+			})
+		},
+
+		recordBusEvent(eventName, labels = {}) {
+			return emit({
+				name: SEVO_METRICS.BUS_EVENTS_TOTAL,
+				type: 'counter',
+				value: 1,
+				labels: { event: eventName || 'unknown', ...labels },
+			})
+		},
+
+		recordCustomMetric(metricName, labels = {}) {
+			return emit({
+				name: SEVO_METRICS.CUSTOM_METRICS_TOTAL,
+				type: 'counter',
+				value: 1,
+				labels: { metric: metricName || 'unknown', ...labels },
+			})
+		},
+
+		recordListenerDuration(durationMs, labels = {}) {
+			if (durationMs == null || Number.isNaN(durationMs)) return
+			return emit({
+				name: SEVO_METRICS.LISTENER_DURATION,
+				type: 'histogram',
+				value: Math.max(0, durationMs),
+				labels,
 			})
 		},
 	}

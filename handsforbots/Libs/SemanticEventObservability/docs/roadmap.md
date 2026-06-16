@@ -380,7 +380,7 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 | A.3 | Turn completion / abandonment counters | [x] |
 | A.4 | OTel Metrics API export (replace span-per-metric) | [x] |
 | A.5 | State gauge from `stateProvider` keys | [x] |
-| A.6 | Grafana dashboard validation | [~] |
+| A.6 | Grafana dashboard validation | [x] |
 
 Details: [metrics-roadmap.md](./metrics-roadmap.md).
 

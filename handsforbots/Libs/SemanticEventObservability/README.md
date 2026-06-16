@@ -112,6 +112,7 @@ The example stack mounts the `.lgtm.json` variant into `grafana/otel-lgtm` and s
 - [Metrics checklist (`sevo_*`)](./docs/metrics-roadmap.md)
 - [Exporters](./docs/exporters.md)
 - [Tail sampling guidance](./docs/tail-sampling.md)
+- [Grafana dashboard validation](./docs/grafana-validation.md)
 - [Custom exporter cookbook](./docs/custom-exporter.md)
 - [Publishing to npm](./docs/publishing.md)
 - [Hands for Bots adapter](./docs/handsforbots-adapter.md)

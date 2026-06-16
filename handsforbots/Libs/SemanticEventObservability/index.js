@@ -21,6 +21,7 @@ export { createTraceContextBridge } from './core/TraceContextBridge.js'
 export { createEventInstrumentation } from './core/eventInstrumentation.js'
 export { createSessionTracker } from './core/SessionTracker.js'
 export { buildTurnRootSpan, normalizeTurnRootSpanConfig } from './core/turnSpanNaming.js'
+export { bucketEventName } from './core/bucketEventName.js'
 export { isErrorEvent } from './core/isErrorEvent.js'
 
 export { instrumentEventBus, createInstrumentedBus } from './adapters/genericEventBus.js'

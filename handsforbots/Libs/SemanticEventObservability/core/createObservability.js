@@ -10,6 +10,7 @@ import { createTraceContextBridge } from './TraceContextBridge.js'
 import { createEventInstrumentation } from './eventInstrumentation.js'
 import { createSessionTracker } from './SessionTracker.js'
 import { isErrorEvent } from './isErrorEvent.js'
+import { bucketEventName } from './bucketEventName.js'
 import { createExporters, initExporters } from '../exporters/index.js'
 import { createId } from '../utils/id.js'
 
@@ -54,6 +55,9 @@ export function createObservability(options = {}) {
 	})
 
 	const sessionEndEvents = new Set((options.sessionEndEvents || []).map(String))
+	const customMetricAllowlist = options.customMetricAllowlist
+		? new Set(options.customMetricAllowlist.map(String))
+		: null
 	const sessionTracker = createSessionTracker()
 	const turnRootSpan = options.turnRootSpan
 
@@ -84,6 +88,9 @@ export function createObservability(options = {}) {
 		isError,
 		onPhaseStart: (data) => {
 			emitEvent(api, buildPhaseEvent(api, 'phase.start', data))
+		},
+		onPhaseWait: (data) => {
+			metricsRegistry.recordPhaseWait(data.phase, data.waitMs, data.labels)
 		},
 		onPhaseEnd: (data) => {
 			metricsRegistry.recordPhaseDuration(data.phase, data.durationMs, data.labels)
@@ -160,8 +167,15 @@ export function createObservability(options = {}) {
 				const originalOn = bus.on.bind(bus)
 				bus.on = function instrumentedOn(names, callback) {
 					const wrapped = function wrappedCallback(...listenerArgs) {
-						recordBusEvent(api, names, listenerArgs, 'bus.listener')
-						return callback.apply(this, listenerArgs)
+						const started = Date.now()
+						try {
+							recordBusEvent(api, names, listenerArgs, 'bus.listener')
+							return callback.apply(this, listenerArgs)
+						} finally {
+							api.metricsRegistry.recordListenerDuration(Date.now() - started, {
+								event: bucketEventName(normalizeEventName(names)),
+							})
+						}
 					}
 					return originalOn(names, wrapped)
 				}
@@ -193,6 +207,10 @@ export function createObservability(options = {}) {
 			buffer.pushMetric(metric)
 			for (const exporter of api.exporters) {
 				dispatchMetric(exporter, metric, metricsRegistry)
+			}
+
+			if (customMetricAllowlist?.has(String(name))) {
+				metricsRegistry.recordCustomMetric(String(name), labels)
 			}
 		},
 
@@ -324,6 +342,11 @@ function buildPhaseEvent(api, type, data) {
 function recordBusEvent(api, name, args, type) {
 	const eventName = normalizeEventName(name)
 	const payload = Array.isArray(args) ? args[0] : args
+
+	if (type === 'bus.trigger') {
+		api.metricsRegistry.recordBusEvent(bucketEventName(eventName))
+	}
+
 	emit(api, { type, name: eventName, payload })
 }
 

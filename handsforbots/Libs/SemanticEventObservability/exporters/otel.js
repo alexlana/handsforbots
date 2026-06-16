@@ -152,6 +152,10 @@ export function createOtelExporter(config = {}) {
 			description: 'Phase duration within a turn',
 			unit: 'ms',
 		}))
+		histograms.set(SEVO_METRICS.PHASE_WAIT, activeMeter.createHistogram(SEVO_METRICS.PHASE_WAIT, {
+			description: 'Wait from turn start to phase start',
+			unit: 'ms',
+		}))
 		counters.set(SEVO_METRICS.TURNS_TOTAL, activeMeter.createCounter(SEVO_METRICS.TURNS_TOTAL, {
 			description: 'Turn outcomes',
 		}))
@@ -167,8 +171,18 @@ export function createOtelExporter(config = {}) {
 		counters.set(SEVO_METRICS.SESSION_TURNS_TOTAL, activeMeter.createCounter(SEVO_METRICS.SESSION_TURNS_TOTAL, {
 			description: 'Turn outcomes rolled up at session boundary',
 		}))
+		counters.set(SEVO_METRICS.BUS_EVENTS_TOTAL, activeMeter.createCounter(SEVO_METRICS.BUS_EVENTS_TOTAL, {
+			description: 'Instrumented bus.trigger events',
+		}))
+		counters.set(SEVO_METRICS.CUSTOM_METRICS_TOTAL, activeMeter.createCounter(SEVO_METRICS.CUSTOM_METRICS_TOTAL, {
+			description: 'Allowlisted custom metrics via recordMetric',
+		}))
 		histograms.set(SEVO_METRICS.WEB_VITAL, activeMeter.createHistogram(SEVO_METRICS.WEB_VITAL, {
 			description: 'Core Web Vitals measurements',
+			unit: 'ms',
+		}))
+		histograms.set(SEVO_METRICS.LISTENER_DURATION, activeMeter.createHistogram(SEVO_METRICS.LISTENER_DURATION, {
+			description: 'Instrumented bus listener duration',
 			unit: 'ms',
 		}))
 

@@ -8,6 +8,7 @@ export function createPhaseTracker(options = {}) {
 	const isError = options.isError || isErrorEvent
 	const onPhaseStart = options.onPhaseStart || (() => {})
 	const onPhaseEnd = options.onPhaseEnd || (() => {})
+	const onPhaseWait = options.onPhaseWait || (() => {})
 	const onRenderDuration = options.onRenderDuration || (() => {})
 	const onTurnStatus = options.onTurnStatus || (() => {})
 
@@ -24,6 +25,7 @@ export function createPhaseTracker(options = {}) {
 
 		onTurnStart(event) {
 			turns.set(event.turnId, {
+				turnStartedAt: Date.now(),
 				openPhases: new Map(),
 				lastPhaseEndedAt: null,
 				hasError: false,
@@ -86,6 +88,18 @@ export function createPhaseTracker(options = {}) {
 
 	function beginPhase(state, turnId, phaseId, labels, source) {
 		if (state.openPhases.has(phaseId)) return
+
+		if (state.turnStartedAt != null) {
+			const waitMs = Math.max(0, Date.now() - state.turnStartedAt)
+			onPhaseWait({
+				turnId,
+				phase: phaseId,
+				waitMs,
+				source,
+				labels,
+			})
+		}
+
 		state.openPhases.set(phaseId, { startedAt: Date.now(), source })
 		onPhaseStart({
 			turnId,
@@ -122,6 +136,7 @@ export function createPhaseTracker(options = {}) {
 
 /**
  * @typedef {object} TurnPhaseState
+ * @property {number} turnStartedAt
  * @property {Map<string, { startedAt: number, source: string }>} openPhases
  * @property {number | null} lastPhaseEndedAt
  * @property {boolean} hasError

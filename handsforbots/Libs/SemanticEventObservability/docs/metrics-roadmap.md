@@ -59,7 +59,7 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 | M0.5 | `sevo_events_dropped_total` | counter | `Policy.recordDrop(reason)` | [x] |
 | M0.6 | `sevo_state_gauge` | gauge | `stateProvider()` keys | [x] |
 | M0.7 | OTel Metrics API wiring | — | `MetricsRegistry` → exporter | [x] |
-| M0.8 | Grafana dashboard smoke test | — | `grafana/semantic-event-observability.json` | [~] |
+| M0.8 | Grafana dashboard smoke test | — | `grafana/semantic-event-observability.json` | [x] |
 
 **Implementation:** single `MetricsRegistry` module; OTel exporter reads from registry (see [roadmap.md](./roadmap.md#4-metricsregistry-new--single-source-of-truth)).
 
@@ -78,7 +78,7 @@ sum(increase(sevo_session_turns_total[5m])) by (status, reason)
 
 | # | Metric | Type | Trigger | Status |
 |---|--------|------|---------|--------|
-| M1.1 | `sevo_phase_wait_ms` | histogram | turn start → phase start | [ ] |
+| M1.1 | `sevo_phase_wait_ms` | histogram | turn start → phase start | [x] |
 | M1.2 | `sevo_turns_total` | counter | `status=error` when error heuristic fires | [x] |
 | M1.3 | `sevo_events_emitted_total` | counter | `type` + bucketed `name` | [x] |
 | M1.4 | `sevo_exporter_errors_total` | counter | exporter catch blocks | [x] |
@@ -92,9 +92,9 @@ sum(increase(sevo_session_turns_total[5m])) by (status, reason)
 | # | Metric | Type | Trigger | Status |
 |---|--------|------|---------|--------|
 | M2.1 | `sevo_session_turns_total` | counter | session boundary (configurable) | [x] |
-| M2.2 | `sevo_custom_metrics_total` | counter | `recordMetric()` with name allowlist | [ ] |
-| M2.3 | `sevo_bus_events_total` | counter | `bus.trigger` by bucketed name | [ ] |
-| M2.4 | `sevo_listener_duration_ms` | histogram | `wrapListeners: true` | [ ] |
+| M2.2 | `sevo_custom_metrics_total` | counter | `recordMetric()` with name allowlist | [x] |
+| M2.3 | `sevo_bus_events_total` | counter | `bus.trigger` by bucketed name | [x] |
+| M2.4 | `sevo_listener_duration_ms` | histogram | `wrapListeners: true` | [x] |
 | M2.5 | `sevo_web_vital` | histogram | `webVitals` exporter | [x] |
 
 ---
@@ -109,6 +109,7 @@ Host apps may call `observability.recordMetric(name, value, labels)` for domain 
 | Policy | Subject to `metric.gauge` policy gate |
 | Export | All exporters receive `onMetric` |
 | Recommendation | Document host prefix in adapter; avoid `sevo_` in `recordMetric` |
+| Allowlist counter | Set `customMetricAllowlist: ['hfb_*']` to increment `sevo_custom_metrics_total` |
 
 ---
 
@@ -117,6 +118,8 @@ Host apps may call `observability.recordMetric(name, value, labels)` for domain 
 Dashboard templates: `grafana/semantic-event-observability.json`, `grafana/semantic-event-observability.lgtm.json`.
 
 Panels expect P0 metrics. Host-specific panels belong in host repos, not lib dashboards.
+
+Validation: [grafana-validation.md](./grafana-validation.md) · `npm test -- test/grafana-dashboard.test.js`
 
 ---
 
