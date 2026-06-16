@@ -82,9 +82,10 @@ Requires `@langfuse/tracing` **or** injected `startObservation`.
 
 Maps:
 
-- `turn.start` → Langfuse span
+- `turn.start` → Langfuse span (turn root)
+- `phase.start` / `phase.end` → nested phase spans under turn root
 - `turn.end` → span end + duration
-- `bus.trigger` → Langfuse event
+- `bus.trigger` → Langfuse event (child of turn when nested API available)
 
 ```javascript
 exporterConfig: {
@@ -103,9 +104,10 @@ Requires `langsmith` **or** injected `RunTree`.
 
 Maps:
 
-- `turn.start` → chain run
-- `bus.trigger` → tool run (child of turn)
+- `turn.start` → chain run (turn root)
+- `phase.start` / `phase.end` → nested chain runs under turn root
 - `turn.end` → run end
+- `bus.trigger` → tool run (child of turn)
 
 ```javascript
 exporterConfig: {

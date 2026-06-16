@@ -1,4 +1,9 @@
 import { resolveOptionalDependency } from '../utils/probeOptional.js'
+import {
+	baseEventMetadata,
+	createLlmExporterState,
+	endLlmHandle,
+} from './llmExporterState.js'
 
 /**
  * LangSmith exporter (optional dependency).
@@ -7,8 +12,9 @@ import { resolveOptionalDependency } from '../utils/probeOptional.js'
 export function createLangsmithExporter(config = {}) {
 	const id = 'langsmith'
 	let RunTree = null
-	let activeRuns = new Map()
+	const state = createLlmExporterState()
 	let exporterConfig = {}
+	let projectName = 'semantic-event-observability'
 
 	return {
 		id,
@@ -24,48 +30,37 @@ export function createLangsmithExporter(config = {}) {
 			RunTree = resolved?.module?.RunTree || config.RunTree
 			if (typeof RunTree !== 'function') return
 
+			projectName = config.projectName || context.identity.slug
 			this.available = true
-			this.projectName = config.projectName || context.identity.slug
+			this.projectName = projectName
 		},
 
 		onEvent(event) {
 			if (!RunTree) return
 
-			if (event.type === 'turn.start') {
-				const run = new RunTree({
-					name: `turn:${event.name || 'conversation'}`,
-					run_type: 'chain',
-					project_name: this.projectName,
-					inputs: { event: event.name },
-					extra: baseExtra(event, exporterConfig),
-				})
-				run.postRun()
-				activeRuns.set(event.turnId, run)
-				return
+			switch (event.type) {
+				case 'turn.start':
+					handleTurnStart(event)
+					break
+				case 'turn.end':
+					handleTurnEnd(event)
+					break
+				case 'turn.abandoned':
+					handleTurnAbandoned(event)
+					break
+				case 'phase.start':
+					handlePhaseStart(event)
+					break
+				case 'phase.end':
+					handlePhaseEnd(event)
+					break
+				default:
+					handleBusEvent(event)
 			}
+		},
 
-			if (event.type === 'turn.end') {
-				const run = activeRuns.get(event.turnId)
-				if (run) {
-					run.end({
-						outputs: { durationMs: event.durationMs },
-					})
-				}
-				activeRuns.delete(event.turnId)
-				return
-			}
-
-			const parent = event.turnId ? activeRuns.get(event.turnId) : null
-			const child = new RunTree({
-				name: `event:${event.name}`,
-				run_type: 'tool',
-				project_name: this.projectName,
-				inputs: { preview: event.payloadSummary?.preview },
-				parent_run: parent || undefined,
-				extra: baseExtra(event, exporterConfig),
-			})
-			child.postRun()
-			child.end()
+		onPhaseEnd(event) {
+			handlePhaseEnd(event)
 		},
 
 		onMetric(metric) {
@@ -73,7 +68,7 @@ export function createLangsmithExporter(config = {}) {
 			const run = new RunTree({
 				name: `metric:${metric.name}`,
 				run_type: 'tool',
-				project_name: this.projectName,
+				project_name: projectName,
 				inputs: { value: metric.value, labels: metric.labels || {} },
 			})
 			run.postRun()
@@ -81,22 +76,92 @@ export function createLangsmithExporter(config = {}) {
 		},
 
 		destroy() {
-			for (const run of activeRuns.values()) {
-				try { run.end?.() } catch { /* noop */ }
-			}
-			activeRuns = new Map()
+			state.clear()
 		},
+	}
+
+	function handleTurnStart(event) {
+		const run = new RunTree({
+			name: `turn:${event.name || 'conversation'}`,
+			run_type: 'chain',
+			project_name: projectName,
+			inputs: { event: event.name },
+			extra: langsmithExtra(event, exporterConfig),
+		})
+		run.postRun()
+		state.setTurn(event.turnId, run)
+	}
+
+	function handleTurnEnd(event) {
+		state.endAllPhases(event.turnId, (phaseRun) => {
+			endLlmHandle(phaseRun, { outputs: { status: 'open_on_turn_end' } })
+		})
+
+		const run = state.getTurn(event.turnId)
+		endLlmHandle(run, { outputs: { durationMs: event.durationMs } })
+		state.deleteTurn(event.turnId)
+	}
+
+	function handleTurnAbandoned(event) {
+		state.endAllPhases(event.turnId, (phaseRun) => {
+			endLlmHandle(phaseRun, { outputs: { status: 'abandoned' } })
+		})
+
+		const run = state.getTurn(event.turnId)
+		endLlmHandle(run, { outputs: { status: 'abandoned' } })
+		state.deleteTurn(event.turnId)
+	}
+
+	function handlePhaseStart(event) {
+		const parent = state.getTurn(event.turnId)
+		if (!parent || !event.phase) return
+
+		const phaseRun = new RunTree({
+			name: `phase:${event.phase}`,
+			run_type: 'chain',
+			project_name: projectName,
+			inputs: { phase: event.phase, source: event.source },
+			parent_run: parent,
+			extra: langsmithExtra(event, exporterConfig),
+		})
+		phaseRun.postRun()
+		state.setPhase(event.turnId, event.phase, phaseRun)
+	}
+
+	function handlePhaseEnd(event) {
+		const phaseRun = state.getPhase(event.turnId, event.phase)
+		if (!phaseRun) return
+
+		endLlmHandle(phaseRun, {
+			outputs: {
+				durationMs: event.durationMs,
+				source: event.source,
+			},
+		})
+		state.deletePhase(event.turnId, event.phase)
+	}
+
+	function handleBusEvent(event) {
+		if (event.type !== 'bus.trigger') return
+
+		const parent = event.turnId ? state.getTurn(event.turnId) : null
+		const child = new RunTree({
+			name: `event:${event.name}`,
+			run_type: 'tool',
+			project_name: projectName,
+			inputs: { preview: event.payloadSummary?.preview },
+			parent_run: parent || undefined,
+			extra: langsmithExtra(event, exporterConfig),
+		})
+		child.postRun()
+		child.end()
 	}
 }
 
-function baseExtra(event, config = {}) {
+function langsmithExtra(event, config = {}) {
 	return {
 		metadata: {
-			sessionId: event.sessionId,
-			turnId: event.turnId,
-			traceId: event.traceId,
-			eventName: event.name,
-			environment: event.environment,
+			...baseEventMetadata(event, config),
 			tags: config.tags || [],
 		},
 	}
