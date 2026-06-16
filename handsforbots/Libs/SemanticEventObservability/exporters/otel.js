@@ -1,10 +1,12 @@
 import { resolveOptionalDependency } from '../utils/probeOptional.js'
-import { isErrorEvent } from '../core/isErrorEvent.js'
-import { SEO_METRICS } from '../core/MetricsRegistry.js'
+import { createTraceMapper } from '../core/TraceMapper.js'
+import { SEVO_METRICS } from '../core/MetricsRegistry.js'
+import { sevoMetricLabelAttributes } from '../core/telemetryAttributes.js'
+import { createOtelSpanBackend } from './otelTraceBackend.js'
 
 /**
  * OpenTelemetry exporter (optional dependency).
- * Builds one trace tree per conversation turn with phase spans for bottleneck analysis.
+ * Trace spans are driven by semantic events via TraceMapper.
  */
 export function createOtelExporter(config = {}) {
 	const id = 'otel'
@@ -12,10 +14,10 @@ export function createOtelExporter(config = {}) {
 	let meter = null
 	let otelContext = null
 	let otelTrace = null
+	let otelPropagation = null
 	let SpanStatusCode = null
-	let phases = []
-	/** @type {Map<string, TurnTraceState>} */
-	const turns = new Map()
+	let traceMapper = null
+	let isError = config.isError
 	/** @type {Map<string, import('@opentelemetry/api').Counter>} */
 	const counters = new Map()
 	/** @type {Map<string, import('@opentelemetry/api').Histogram>} */
@@ -32,6 +34,7 @@ export function createOtelExporter(config = {}) {
 	if (config.traceApi) {
 		otelContext = config.traceApi.context
 		otelTrace = config.traceApi.trace
+		otelPropagation = config.traceApi.propagation
 		SpanStatusCode = config.traceApi.SpanStatusCode
 	}
 
@@ -41,7 +44,9 @@ export function createOtelExporter(config = {}) {
 		description: 'OpenTelemetry spans and metrics for Grafana Tempo/Mimir',
 
 		async init(context) {
-			phases = context.phases || []
+			if (typeof config.isError !== 'function' && typeof context.isError === 'function') {
+				isError = context.isError
+			}
 
 			const resolved = await resolveOptionalDependency(config.api, {
 				globalName: 'otel',
@@ -69,36 +74,52 @@ export function createOtelExporter(config = {}) {
 			if (config.traceApi) {
 				otelContext = config.traceApi.context
 				otelTrace = config.traceApi.trace
+				otelPropagation = config.traceApi.propagation
 				SpanStatusCode = config.traceApi.SpanStatusCode
 			} else if (resolved?.module) {
 				otelContext = resolved.module.context
 				otelTrace = resolved.module.trace
+				otelPropagation = resolved.module.propagation
 				SpanStatusCode = resolved.module.SpanStatusCode
+			}
+
+			const backend = createOtelSpanBackend({
+				tracer,
+				context: otelContext,
+				trace: otelTrace,
+				SpanStatusCode,
+				propagation: otelPropagation,
+			})
+
+			if (backend) {
+				traceMapper = createTraceMapper({
+					backend,
+					isError,
+					onTurnContext(_turnId, carrier) {
+						const bridge = context.traceContextBridge
+						if (!bridge) return
+						if (carrier) {
+							bridge.setHeaderInjector(() => carrier)
+						} else {
+							bridge.setHeaderInjector(null)
+						}
+					},
+				})
 			}
 
 			if (meter) {
 				initMetricInstruments(meter)
 			}
 
-			this.available = Boolean(otelContext && otelTrace)
+			this.available = Boolean(traceMapper)
 		},
 
 		onEvent(event) {
-			if (!tracer || !otelContext || !otelTrace) return
+			traceMapper?.handleEvent(event)
+		},
 
-			if (event.type === 'turn.start') {
-				startTurnTrace(event)
-				return
-			}
-
-			if (event.type === 'turn.end') {
-				endTurnTrace(event)
-				return
-			}
-
-			if (event.type === 'bus.trigger' && event.turnId) {
-				handleBusEvent(event)
-			}
+		onPhaseEnd(phaseEvent) {
+			void phaseEvent
 		},
 
 		onMetric(metric) {
@@ -106,13 +127,8 @@ export function createOtelExporter(config = {}) {
 		},
 
 		destroy() {
-			for (const state of turns.values()) {
-				for (const phaseSpan of state.phaseSpans.values()) {
-					try { phaseSpan?.end() } catch { /* noop */ }
-				}
-				try { state.rootSpan?.end() } catch { /* noop */ }
-			}
-			turns.clear()
+			traceMapper?.destroy()
+			traceMapper = null
 			counters.clear()
 			histograms.clear()
 			gauges.clear()
@@ -120,30 +136,33 @@ export function createOtelExporter(config = {}) {
 	}
 
 	function initMetricInstruments(activeMeter) {
-		histograms.set(SEO_METRICS.TURN_DURATION, activeMeter.createHistogram(SEO_METRICS.TURN_DURATION, {
+		histograms.set(SEVO_METRICS.TURN_DURATION, activeMeter.createHistogram(SEVO_METRICS.TURN_DURATION, {
 			description: 'Conversation turn duration',
 			unit: 'ms',
 		}))
-		histograms.set(SEO_METRICS.PHASE_DURATION, activeMeter.createHistogram(SEO_METRICS.PHASE_DURATION, {
+		histograms.set(SEVO_METRICS.PHASE_DURATION, activeMeter.createHistogram(SEVO_METRICS.PHASE_DURATION, {
 			description: 'Phase duration within a turn',
 			unit: 'ms',
 		}))
-		counters.set(SEO_METRICS.TURNS_TOTAL, activeMeter.createCounter(SEO_METRICS.TURNS_TOTAL, {
+		counters.set(SEVO_METRICS.TURNS_TOTAL, activeMeter.createCounter(SEVO_METRICS.TURNS_TOTAL, {
 			description: 'Turn outcomes',
 		}))
-		counters.set(SEO_METRICS.EVENTS_DROPPED, activeMeter.createCounter(SEO_METRICS.EVENTS_DROPPED, {
+		counters.set(SEVO_METRICS.EVENTS_DROPPED, activeMeter.createCounter(SEVO_METRICS.EVENTS_DROPPED, {
 			description: 'Telemetry events dropped by policy',
 		}))
-		counters.set(SEO_METRICS.EVENTS_EMITTED, activeMeter.createCounter(SEO_METRICS.EVENTS_EMITTED, {
+		counters.set(SEVO_METRICS.EVENTS_EMITTED, activeMeter.createCounter(SEVO_METRICS.EVENTS_EMITTED, {
 			description: 'Semantic events emitted',
 		}))
-		counters.set(SEO_METRICS.EXPORTER_ERRORS, activeMeter.createCounter(SEO_METRICS.EXPORTER_ERRORS, {
+		counters.set(SEVO_METRICS.EXPORTER_ERRORS, activeMeter.createCounter(SEVO_METRICS.EXPORTER_ERRORS, {
 			description: 'Exporter handler errors',
 		}))
 
 		if (typeof activeMeter.createGauge === 'function') {
-			gauges.set(SEO_METRICS.STATE_GAUGE, activeMeter.createGauge(SEO_METRICS.STATE_GAUGE, {
+			gauges.set(SEVO_METRICS.STATE_GAUGE, activeMeter.createGauge(SEVO_METRICS.STATE_GAUGE, {
 				description: 'Host state gauge from stateProvider',
+			}))
+			gauges.set(SEVO_METRICS.ACTIVE_TURNS, activeMeter.createGauge(SEVO_METRICS.ACTIVE_TURNS, {
+				description: 'Open conversation turns',
 			}))
 		}
 	}
@@ -151,15 +170,16 @@ export function createOtelExporter(config = {}) {
 	function recordOtelMetric(metric) {
 		if (!metric) return
 
-		const attributes = toOtelAttributes(metric.labels)
+		const attributes = sevoMetricLabelAttributes(metric.labels)
 
 		if (metric.type === 'histogram') {
 			histograms.get(metric.name)?.record(metric.value, attributes)
 			return
 		}
 
-		if (metric.type === 'gauge' && metric.name === SEO_METRICS.STATE_GAUGE) {
-			gauges.get(SEO_METRICS.STATE_GAUGE)?.record(metric.value, attributes)
+		if (metric.type === 'gauge') {
+			const gauge = gauges.get(metric.name)
+			gauge?.record(metric.value, attributes)
 			return
 		}
 
@@ -167,134 +187,4 @@ export function createOtelExporter(config = {}) {
 			counters.get(metric.name)?.add(metric.value ?? 1, attributes)
 		}
 	}
-
-	function startTurnTrace(event) {
-		const rootSpan = tracer.startSpan(`turn:${event.name || 'conversation'}`, {
-			attributes: baseAttributes(event),
-		})
-		turns.set(event.turnId, {
-			rootSpan,
-			phaseSpans: new Map(),
-			phaseStartedAt: new Map(),
-			lastPhaseEndedAt: null,
-		})
-	}
-
-	function endTurnTrace(event) {
-		const state = turns.get(event.turnId)
-		if (!state) return
-
-		for (const phaseSpan of state.phaseSpans.values()) {
-			try { phaseSpan.end() } catch { /* noop */ }
-		}
-		state.phaseSpans.clear()
-
-		if (event.durationMs != null) {
-			state.rootSpan.setAttribute('turn.duration_ms', event.durationMs)
-		}
-
-		if (state.lastPhaseEndedAt != null) {
-			const renderMs = Math.max(0, Date.now() - state.lastPhaseEndedAt)
-			state.rootSpan.setAttribute('phase.render_ms', renderMs)
-		}
-
-		state.rootSpan.end()
-		turns.delete(event.turnId)
-	}
-
-	function handleBusEvent(event) {
-		const state = turns.get(event.turnId)
-		if (!state) {
-			recordEventSpan(event, null)
-			return
-		}
-
-		const parentCtx = parentContext(state.rootSpan)
-
-		for (const phase of phases) {
-			if (event.name === phase.startEvent) {
-				state.phaseStartedAt.set(phase.id, Date.now())
-				const phaseSpan = tracer.startSpan(`phase:${phase.id}`, {
-					attributes: {
-						...baseAttributes(event),
-						'phase.name': phase.id,
-					},
-				}, parentCtx)
-				state.phaseSpans.set(phase.id, phaseSpan)
-				recordEventSpan(event, parentCtx)
-				return
-			}
-
-			if (event.name === phase.endEvent) {
-				const phaseSpan = state.phaseSpans.get(phase.id)
-				const startedAt = state.phaseStartedAt.get(phase.id)
-				if (phaseSpan && startedAt != null) {
-					const phaseMs = Math.max(0, Date.now() - startedAt)
-					state.rootSpan.setAttribute(`phase.${phase.id}_ms`, phaseMs)
-					phaseSpan.end()
-					state.phaseSpans.delete(phase.id)
-					state.phaseStartedAt.delete(phase.id)
-					state.lastPhaseEndedAt = Date.now()
-				}
-				recordEventSpan(event, parentCtx)
-				return
-			}
-		}
-
-		recordEventSpan(event, parentCtx)
-		maybeMarkError(event, state.rootSpan)
-	}
-
-	function recordEventSpan(event, parentCtx) {
-		const span = tracer.startSpan(`event:${event.name}`, {
-			attributes: {
-				...baseAttributes(event),
-				'event.payload_preview': event.payloadSummary?.preview,
-			},
-		}, parentCtx || undefined)
-		span.end()
-
-		if (event.turnId) {
-			const state = turns.get(event.turnId)
-			if (state) maybeMarkError(event, state.rootSpan)
-		}
-	}
-
-	function parentContext(parentSpan) {
-		return otelTrace.setSpan(otelContext.active(), parentSpan)
-	}
-
-	function maybeMarkError(event, rootSpan) {
-		if (!SpanStatusCode || !rootSpan || !isErrorEvent(event)) return
-		rootSpan.setStatus({ code: SpanStatusCode.ERROR, message: event.name })
-		rootSpan.setAttribute('turn.error_event', event.name)
-		rootSpan.setAttribute('error.type', event.name)
-	}
 }
-
-function baseAttributes(event) {
-	return {
-		'seo.session_id': event.sessionId,
-		'seo.turn_id': event.turnId,
-		'seo.trace_id': event.traceId,
-		'seo.event_name': event.name,
-		'seo.environment': event.environment,
-	}
-}
-
-function toOtelAttributes(labels = {}) {
-	const output = {}
-	for (const [key, value] of Object.entries(labels)) {
-		if (value == null) continue
-		output[`seo.${key}`] = String(value)
-	}
-	return output
-}
-
-/**
- * @typedef {object} TurnTraceState
- * @property {import('@opentelemetry/api').Span} rootSpan
- * @property {Map<string, import('@opentelemetry/api').Span>} phaseSpans
- * @property {Map<string, number>} phaseStartedAt
- * @property {number | null} lastPhaseEndedAt
- */

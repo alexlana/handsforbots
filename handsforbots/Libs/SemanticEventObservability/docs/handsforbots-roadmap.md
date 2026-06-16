@@ -2,7 +2,7 @@
 
 Metrics, phases, and integration work specific to **Hands for Bots** as a consumer of [Semantic Event Observability](./roadmap.md).
 
-> **Library metrics (`seo_*`):** [metrics-roadmap.md](./metrics-roadmap.md)  
+> **Library metrics (`sevo_*`):** [metrics-roadmap.md](./metrics-roadmap.md)  
 > **Integration guide:** [handsforbots-adapter.md](./handsforbots-adapter.md)
 
 ---
@@ -27,7 +27,7 @@ flowchart LR
   HFB --> Plugin --> Adapter --> SEO
   HFB -->|"hfb_* metrics"| SEO
   HFB -->|"gen_ai.* traces"| Tempo["Tempo / backend"]
-  SEO -->|"seo_* + traces"| LGTM["Grafana LGTM"]
+  SEO -->|"sevo_* + traces"| LGTM["Grafana LGTM"]
 ```
 
 ---
@@ -66,10 +66,10 @@ export const HFB_SEMANTIC_EVENTS = [ /* allowlist for high-signal events */ ]
 
 ## Metric naming (`hfb_*`)
 
-| Prefix | Owner |
-|--------|-------|
-| `hfb_` | Hands for Bots cores, plugins, adapter |
-| `seo_` | Library only — never defined in HfB code |
+| Prefix  | Owner |
+|---------|-------|
+| `hfb_`  | Hands for Bots cores, plugins, adapter |
+| `sevo_` | Library only — never defined in HfB code |
 
 **Recommended labels:** `plugin`, `backend`, `modality` (`text` \| `voice`), `environment`.
 
@@ -85,7 +85,7 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 |---|------|--------|
 | H0.1 | Move phase preset from otel exporter to adapter `HFB_PHASE_MODEL` | [x] |
 | H0.2 | Wire adapter to `PhaseModel` when lib Phase B ships | [x] |
-| H0.3 | Enable Observability plugin in example stack with `seo_*` validation | [~] |
+| H0.3 | Enable Observability plugin in example stack with `sevo_*` validation | [~] |
 | H0.4 | Document adapter preset in [handsforbots-adapter.md](./handsforbots-adapter.md) | [~] |
 
 ---
@@ -97,8 +97,8 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 | H1.1 | `hfb_input_total{plugin}` | `core.input` | [ ] |
 | H1.2 | `hfb_output_ready_total` | `core.output_ready` | [ ] |
 | H1.3 | `hfb_backend_requests_total{backend,status}` | `core.calling_backend` + errors | [ ] |
-| H1.4 | Turn labels `input_plugin` on `seo_*` via adapter metadata | `core.input` payload | [x] |
-| H1.5 | `seo_queue_wait_ms` data — emit via phase or custom span | input → calling_backend | [ ] |
+| H1.4 | Turn labels `input_plugin` on `sevo_*` via adapter metadata | `core.input` payload | [x] |
+| H1.5 | `sevo_queue_wait_ms` data — emit via phase or custom span | input → calling_backend | [ ] |
 | H1.6 | Backend error → `error.type` on phase span | orchestrator / backend | [ ] |
 
 ---
@@ -148,11 +148,11 @@ Backend work stays in **BotOrchestrator** and backend cores. The lib provides tr
 | H3.6 | End-to-end trace demo in `examples/OBSERVABILITY.md` | Examples | [ ] |
 | H3.7 | Backend observability guide | `docs/en-us/` or `docs-dev/` | [ ] |
 
-| Question | `seo_*` (lib) | `hfb_*` (HfB) | `gen_ai.*` (backend) |
+| Question | `sevo_*` (lib) | `hfb_*` (HfB) | `gen_ai.*` (backend) |
 |----------|---------------|---------------|----------------------|
-| User wait time | `seo_turn_duration_ms` | — | — |
-| Backend wall time | `seo_phase_duration_ms{phase="backend"}` | — | `gen_ai.client.operation.duration` |
-| Render / speak time | `seo_phase_duration_ms` or render attr | `hfb_voice_tts_ttfb_ms` | — |
+| User wait time | `sevo_turn_duration_ms` | — | — |
+| Backend wall time | `sevo_phase_duration_ms{phase="backend"}` | — | `gen_ai.client.operation.duration` |
+| Render / speak time | `sevo_phase_duration_ms` or render attr | `hfb_voice_tts_ttfb_ms` | — |
 | Input modality | label on seo | `hfb_input_total` | — |
 | Token cost | — | — | `gen_ai.client.token.usage` |
 

@@ -10,6 +10,7 @@ All exporters implement the same interface:
   init(context): Promise<void>,
   onEvent(event): void,
   onMetric(metric): void,
+  onPhaseEnd?(phaseEvent): void,
   destroy(): void,
 }
 ```
@@ -58,7 +59,7 @@ Creates **one trace tree per conversation turn**:
 - Configured `phases` → `phase:<id>` spans (Hands for Bots: `phase:backend`)
 - Each `bus.trigger` → child span `event:<name>` under the turn root
 - Root attributes: `turn.duration_ms`, `phase.<id>_ms`, `phase.render_ms`
-- **Metrics:** `seo_*` histograms/counters via OTel Metrics API when `getMeter` is provided
+- **Metrics:** `sevo_*` histograms/counters via OTel Metrics API when `getMeter` is provided
 
 ```javascript
 exporterConfig: {

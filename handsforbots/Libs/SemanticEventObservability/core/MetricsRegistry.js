@@ -1,15 +1,19 @@
-export const SEO_METRICS = {
-	TURN_DURATION: 'seo_turn_duration_ms',
-	PHASE_DURATION: 'seo_phase_duration_ms',
-	TURNS_TOTAL: 'seo_turns_total',
-	EVENTS_DROPPED: 'seo_events_dropped_total',
-	STATE_GAUGE: 'seo_state_gauge',
-	EVENTS_EMITTED: 'seo_events_emitted_total',
-	EXPORTER_ERRORS: 'seo_exporter_errors_total',
+export const SEVO_METRICS = {
+	TURN_DURATION: 'sevo_turn_duration_ms',
+	PHASE_DURATION: 'sevo_phase_duration_ms',
+	TURNS_TOTAL: 'sevo_turns_total',
+	EVENTS_DROPPED: 'sevo_events_dropped_total',
+	STATE_GAUGE: 'sevo_state_gauge',
+	EVENTS_EMITTED: 'sevo_events_emitted_total',
+	EXPORTER_ERRORS: 'sevo_exporter_errors_total',
+	ACTIVE_TURNS: 'sevo_active_turns',
 }
 
+/** @deprecated Use SEVO_METRICS */
+export const SEO_METRICS = SEVO_METRICS
+
 /**
- * Canonical seo_* metric recording for Semantic Event Observability.
+ * Canonical sevo_* metric recording for Semantic Event Observability.
  */
 export function createMetricsRegistry(options = {}) {
 	const environment = options.environment || 'development'
@@ -35,6 +39,8 @@ export function createMetricsRegistry(options = {}) {
 	}
 
 	return {
+		SEVO_METRICS,
+
 		subscribe(listener) {
 			listeners.add(listener)
 			return () => listeners.delete(listener)
@@ -43,7 +49,7 @@ export function createMetricsRegistry(options = {}) {
 		recordTurnDuration(durationMs, labels = {}) {
 			if (durationMs == null || Number.isNaN(durationMs)) return
 			return emit({
-				name: SEO_METRICS.TURN_DURATION,
+				name: SEVO_METRICS.TURN_DURATION,
 				type: 'histogram',
 				value: Math.max(0, durationMs),
 				labels,
@@ -53,7 +59,7 @@ export function createMetricsRegistry(options = {}) {
 		recordPhaseDuration(phase, durationMs, labels = {}) {
 			if (durationMs == null || Number.isNaN(durationMs)) return
 			return emit({
-				name: SEO_METRICS.PHASE_DURATION,
+				name: SEVO_METRICS.PHASE_DURATION,
 				type: 'histogram',
 				value: Math.max(0, durationMs),
 				labels: { phase, ...labels },
@@ -62,7 +68,7 @@ export function createMetricsRegistry(options = {}) {
 
 		recordTurnStatus(status, labels = {}) {
 			return emit({
-				name: SEO_METRICS.TURNS_TOTAL,
+				name: SEVO_METRICS.TURNS_TOTAL,
 				type: 'counter',
 				value: 1,
 				labels: { status, ...labels },
@@ -71,7 +77,7 @@ export function createMetricsRegistry(options = {}) {
 
 		recordEventDropped(reason) {
 			return emit({
-				name: SEO_METRICS.EVENTS_DROPPED,
+				name: SEVO_METRICS.EVENTS_DROPPED,
 				type: 'counter',
 				value: 1,
 				labels: { reason: reason || 'unknown' },
@@ -81,7 +87,7 @@ export function createMetricsRegistry(options = {}) {
 		recordStateGauge(key, value, labels = {}) {
 			if (typeof value !== 'number' || Number.isNaN(value)) return
 			return emit({
-				name: SEO_METRICS.STATE_GAUGE,
+				name: SEVO_METRICS.STATE_GAUGE,
 				type: 'gauge',
 				value,
 				labels: { key, ...labels },
@@ -90,7 +96,7 @@ export function createMetricsRegistry(options = {}) {
 
 		recordEventEmitted(eventType, labels = {}) {
 			return emit({
-				name: SEO_METRICS.EVENTS_EMITTED,
+				name: SEVO_METRICS.EVENTS_EMITTED,
 				type: 'counter',
 				value: 1,
 				labels: { event_type: eventType || 'unknown', ...labels },
@@ -99,10 +105,20 @@ export function createMetricsRegistry(options = {}) {
 
 		recordExporterError(exporterId) {
 			return emit({
-				name: SEO_METRICS.EXPORTER_ERRORS,
+				name: SEVO_METRICS.EXPORTER_ERRORS,
 				type: 'counter',
 				value: 1,
 				labels: { exporter: exporterId || 'unknown' },
+			})
+		},
+
+		recordActiveTurns(count) {
+			if (typeof count !== 'number' || Number.isNaN(count)) return
+			return emit({
+				name: SEVO_METRICS.ACTIVE_TURNS,
+				type: 'gauge',
+				value: Math.max(0, count),
+				labels: {},
 			})
 		},
 	}

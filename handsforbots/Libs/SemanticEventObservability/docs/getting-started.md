@@ -103,4 +103,9 @@ instrumentEventBus(observability, myBus, {
 })
 ```
 
-Configure phases and metrics via [roadmap.md](./roadmap.md) as those APIs land.
+Configure phases and metrics via [roadmap.md](./roadmap.md). Manual phases:
+
+```javascript
+observability.startPhase('custom-work')
+observability.endPhase('custom-work')
+```

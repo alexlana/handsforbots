@@ -3,8 +3,12 @@ import CorrelationContext from './CorrelationContext.js'
 import Policy from './Policy.js'
 import EventBuffer from './EventBuffer.js'
 import { createMetricsRegistry } from './MetricsRegistry.js'
-import { createTurnMetricsCollector } from './TurnMetricsCollector.js'
+import { createPhaseTracker } from './PhaseTracker.js'
 import { definePhaseModel } from './definePhaseModel.js'
+import { defineTurnModel } from './TurnModel.js'
+import { createTraceContextBridge } from './TraceContextBridge.js'
+import { createEventInstrumentation } from './eventInstrumentation.js'
+import { isErrorEvent } from './isErrorEvent.js'
 import { createExporters, initExporters } from '../exporters/index.js'
 import { createId } from '../utils/id.js'
 
@@ -17,6 +21,11 @@ export function createObservability(options = {}) {
 	const identity = getPackageIdentity(options.identity)
 	const environment = options.environment || 'development'
 	const phases = definePhaseModel(options.phases || [])
+	const isError = options.isError || isErrorEvent
+	const eventInstrumentation = createEventInstrumentation({
+		eventFilter: options.eventFilter,
+		eventAllowlist: options.eventAllowlist,
+	})
 	const metricsRegistry = createMetricsRegistry({ environment })
 
 	const policy = new Policy({
@@ -31,8 +40,16 @@ export function createObservability(options = {}) {
 
 	const correlation = new CorrelationContext({
 		sessionId: options.sessionId,
+		turnModel: options.turn || defineTurnModel({
+			startEvents: options.turnStartEvents,
+			endEvents: options.turnEndEvents,
+		}),
 		turnStartEvents: options.turnStartEvents || [],
 		turnEndEvents: options.turnEndEvents || [],
+	})
+
+	const traceContextBridge = createTraceContextBridge({
+		getContext: () => correlation.getContext(),
 	})
 
 	const buffer = new EventBuffer(options.bufferSize || 200)
@@ -42,18 +59,52 @@ export function createObservability(options = {}) {
 	let initialized = false
 	let initPromise = null
 
-	const turnMetrics = createTurnMetricsCollector({
+	const api = {
+		identity,
+		policy,
+		correlation,
+		buffer,
+		metricsRegistry,
 		phases,
-		onPhaseDuration: (phase, durationMs, labels) => {
-			metricsRegistry.recordPhaseDuration(phase, durationMs, labels)
+		isError,
+		eventInstrumentation,
+		traceContextBridge,
+		exporters: [],
+	}
+
+	const phaseTracker = createPhaseTracker({
+		phases,
+		isError,
+		onPhaseStart: (data) => {
+			emitEvent(api, buildPhaseEvent(api, 'phase.start', data))
+		},
+		onPhaseEnd: (data) => {
+			metricsRegistry.recordPhaseDuration(data.phase, data.durationMs, data.labels)
+			const event = buildPhaseEvent(api, 'phase.end', data)
+			emitEvent(api, event)
+			dispatchPhaseEnd(api, event)
 		},
 		onRenderDuration: (durationMs, labels) => {
 			metricsRegistry.recordPhaseDuration('render', durationMs, labels)
+			const ctx = correlation.getContext()
+			if (!ctx.turnId) return
+			const event = buildPhaseEvent(api, 'phase.end', {
+				turnId: ctx.turnId,
+				phase: 'render',
+				durationMs,
+				source: 'computed',
+				labels,
+			})
+			emitEvent(api, event)
+			dispatchPhaseEnd(api, event)
 		},
 		onTurnStatus: (status, labels) => {
 			metricsRegistry.recordTurnStatus(status, labels)
 		},
 	})
+
+	api.phaseTracker = phaseTracker
+	api.traceContext = traceContextBridge
 
 	metricsRegistry.subscribe((metric) => {
 		buffer.pushMetric(metric)
@@ -62,16 +113,7 @@ export function createObservability(options = {}) {
 		}
 	})
 
-	const api = {
-		identity,
-		policy,
-		correlation,
-		buffer,
-		metricsRegistry,
-		turnMetrics,
-		phases,
-		exporters: [],
-
+	Object.assign(api, {
 		async init() {
 			if (initialized) return exporterStatus
 			if (initPromise) return initPromise
@@ -143,6 +185,36 @@ export function createObservability(options = {}) {
 			}
 		},
 
+		startPhase(phaseId, labels = {}) {
+			const { turnId } = correlation.getContext()
+			if (!turnId) return false
+			return phaseTracker.startPhase(turnId, phaseId, {
+				environment,
+				...labels,
+			})
+		},
+
+		endPhase(phaseId, labels = {}) {
+			const { turnId } = correlation.getContext()
+			if (!turnId) return false
+			return phaseTracker.endPhase(turnId, phaseId, {
+				environment,
+				...labels,
+			})
+		},
+
+		getTraceHeaders() {
+			return traceContextBridge.getTraceHeaders()
+		},
+
+		withTraceContext(input, init = {}) {
+			return traceContextBridge.withTraceContext(input, init)
+		},
+
+		withFetch(input, init = {}) {
+			return traceContextBridge.withFetch(input, init)
+		},
+
 		getTimeline(limit) {
 			return buffer.getTimeline(limit)
 		},
@@ -165,11 +237,11 @@ export function createObservability(options = {}) {
 			}
 			exporters = []
 			api.exporters = []
-			turnMetrics.clear()
+			phaseTracker.clear()
 			buffer.clear()
 			removeGlobal(identity)
 		},
-	}
+	})
 
 	function createContext() {
 		return {
@@ -177,6 +249,8 @@ export function createObservability(options = {}) {
 			buffer,
 			phases,
 			metricsRegistry,
+			isError,
+			traceContextBridge,
 			getTimeline: api.getTimeline,
 			getMetrics: api.getMetrics,
 			getPolicyStats: api.getPolicyStats,
@@ -186,6 +260,21 @@ export function createObservability(options = {}) {
 	api.init().catch(() => {})
 
 	return api
+}
+
+function buildPhaseEvent(api, type, data) {
+	const ctx = api.correlation.getContext()
+	return {
+		type,
+		name: `phase:${data.phase}`,
+		phase: data.phase,
+		source: data.source,
+		durationMs: data.durationMs,
+		sessionId: ctx.sessionId,
+		turnId: data.turnId || ctx.turnId,
+		traceId: ctx.traceId,
+		turnMetadata: ctx.turnMetadata,
+	}
 }
 
 function recordBusEvent(api, name, args, type) {
@@ -208,19 +297,29 @@ function emit(api, partial) {
 	if (correlationChange?.abandoned) {
 		handleTurnAbandoned(api, correlationChange.abandoned)
 		handleTurnStart(api, partial, correlationChange.started)
-		emitEvent(api, { ...partial, ...correlation.getContext() })
+		if (api.eventInstrumentation.shouldRecord(partial.name)) {
+			emitEvent(api, { ...partial, ...correlation.getContext() })
+		}
 		return
 	}
 
 	if (correlationChange?.type === 'turn.start') {
 		handleTurnStart(api, partial, correlationChange)
-		emitEvent(api, { ...partial, ...correlation.getContext() })
+		if (api.eventInstrumentation.shouldRecord(partial.name)) {
+			emitEvent(api, { ...partial, ...correlation.getContext() })
+		}
 		return
 	}
 
 	if (correlationChange?.type === 'turn.end') {
-		emitEvent(api, { ...partial, ...snapshotBefore })
+		if (api.eventInstrumentation.shouldRecord(partial.name)) {
+			emitEvent(api, { ...partial, ...snapshotBefore })
+		}
 		handleTurnEnd(api, partial, snapshotBefore, correlationChange.durationMs)
+		return
+	}
+
+	if (!api.eventInstrumentation.shouldRecord(partial.name)) {
 		return
 	}
 
@@ -230,7 +329,7 @@ function emit(api, partial) {
 function handleTurnAbandoned(api, abandoned) {
 	const labels = metricLabels(api, abandoned)
 	api.metricsRegistry.recordTurnStatus('abandoned', labels)
-	api.turnMetrics?.onTurnAbandoned(abandoned)
+	api.phaseTracker.onTurnAbandoned(abandoned)
 	emitEvent(api, {
 		type: 'turn.abandoned',
 		name: 'turn.abandoned',
@@ -243,8 +342,8 @@ function handleTurnStart(api, partial, started) {
 	const plugin = extractPluginFromPayload(partial.payload)
 	if (plugin) api.correlation.setTurnMetadata({ input_plugin: plugin })
 
-	const labels = metricLabels(api, { ...started, name: partial.name, payload: partial.payload })
-	api.turnMetrics.onTurnStart({ ...started, name: partial.name })
+	api.metricsRegistry.recordActiveTurns(1)
+	api.phaseTracker.onTurnStart({ ...started, name: partial.name })
 	emitEvent(api, {
 		type: 'turn.start',
 		name: partial.name,
@@ -260,7 +359,8 @@ function handleTurnEnd(api, partial, snapshot, durationMs) {
 		turnMetadata: snapshot.turnMetadata,
 	})
 	api.metricsRegistry.recordTurnDuration(durationMs, labels)
-	api.turnMetrics.onTurnEnd({ ...snapshot, name: partial.name, durationMs }, labels)
+	api.metricsRegistry.recordActiveTurns(0)
+	api.phaseTracker.onTurnEnd({ ...snapshot, name: partial.name, durationMs }, labels)
 	emitEvent(api, {
 		type: 'turn.end',
 		name: partial.name,
@@ -273,6 +373,7 @@ function emitEvent(api, partial) {
 	const { policy, buffer } = api
 	if (!policy.shouldEmit(partial.type)) return
 
+	const labels = metricLabels(api, partial)
 	const event = {
 		id: createId('evt'),
 		timestamp: new Date().toISOString(),
@@ -287,7 +388,7 @@ function emitEvent(api, partial) {
 	api.metricsRegistry.recordEventEmitted(event.type)
 
 	if (event.type === 'bus.trigger' && event.turnId) {
-		api.turnMetrics.onBusEvent(event, metricLabels(api, event))
+		api.phaseTracker.onBusEvent(event, labels)
 	}
 
 	for (const exporter of api.exporters) {
@@ -307,6 +408,8 @@ function recordStateMetrics(api, state) {
 function metricLabels(api, event) {
 	const labels = { environment: api.policy.environment }
 	if (event?.name) labels.start_event = event.name
+	if (event?.phase) labels.phase = event.phase
+	if (event?.source) labels.source = event.source
 
 	const metadata = event?.turnMetadata || api.correlation.getContext().turnMetadata
 	if (metadata?.input_plugin) labels.input_plugin = metadata.input_plugin
@@ -329,6 +432,16 @@ function dispatchEvent(exporter, event, metricsRegistry) {
 		exporter.onEvent?.(event)
 	} catch {
 		metricsRegistry.recordExporterError(exporter.id)
+	}
+}
+
+function dispatchPhaseEnd(api, event) {
+	for (const exporter of api.exporters) {
+		try {
+			exporter.onPhaseEnd?.(event)
+		} catch {
+			api.metricsRegistry.recordExporterError(exporter.id)
+		}
 	}
 }
 

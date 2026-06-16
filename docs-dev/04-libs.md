@@ -45,7 +45,7 @@ Biblioteca em [`handsforbots/Libs/SemanticEventObservability/`](../handsforbots/
 | `exporters/*` | Faro, OTel, Langfuse, LangSmith (todos opcionais) |
 | `grafana/*.json` | Dashboard template para LGTM stack |
 
-Dependências externas são **peer optional** — ausência não quebra o bot. Ver [README da lib](../handsforbots/Libs/SemanticEventObservability/README.md). Roadmaps: [lib](../handsforbots/Libs/SemanticEventObservability/docs/roadmap.md) · [métricas seo_*](../handsforbots/Libs/SemanticEventObservability/docs/metrics-roadmap.md) · [Hands for Bots](../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md).
+Dependências externas são **peer optional** — ausência não quebra o bot. Ver [README da lib](../handsforbots/Libs/SemanticEventObservability/README.md). Roadmaps: [lib](../handsforbots/Libs/SemanticEventObservability/docs/roadmap.md) · [métricas sevo_*](../handsforbots/Libs/SemanticEventObservability/docs/metrics-roadmap.md) · [Hands for Bots](../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md).
 
 ## EventEmitter — barramento in-process
 

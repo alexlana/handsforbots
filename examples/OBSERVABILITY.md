@@ -77,7 +77,7 @@ With `.env.observability` present:
 Grafana **Drilldown** lists *all* telemetry in the local LGTM stack (including tools like Cursor IDE as `cursor-agent`).  
 This dashboard filters **`semantic-event-observability` only** — data appears after you use the chat at http://localhost (reload the page after stack changes).
 
-Prometheus panels for `seo_*` metrics populate when the lib exports via OTel Metrics API and the LGTM stack is running. Run `npm install` in `examples/vite` after pulling (adds `@opentelemetry/sdk-metrics`).
+Prometheus panels for `sevo_*` metrics populate when the lib exports via OTel Metrics API and the LGTM stack is running. Run `npm install` in `examples/vite` after pulling (adds `@opentelemetry/sdk-metrics`).
 
 Roadmaps: [lib metrics](../../handsforbots/Libs/SemanticEventObservability/docs/metrics-roadmap.md) · [Hands for Bots](../../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md).
 

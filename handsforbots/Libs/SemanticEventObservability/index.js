@@ -11,12 +11,19 @@ export { createObservability } from './core/createObservability.js'
 export { default as CorrelationContext } from './core/CorrelationContext.js'
 export { default as Policy } from './core/Policy.js'
 export { default as EventBuffer } from './core/EventBuffer.js'
-export { createMetricsRegistry, SEO_METRICS } from './core/MetricsRegistry.js'
+export { createMetricsRegistry, SEVO_METRICS, SEO_METRICS } from './core/MetricsRegistry.js'
+export { createPhaseTracker } from './core/PhaseTracker.js'
 export { createTurnMetricsCollector } from './core/TurnMetricsCollector.js'
+export { createTraceMapper } from './core/TraceMapper.js'
 export { definePhaseModel } from './core/definePhaseModel.js'
+export { defineTurnModel, default as TurnModel } from './core/TurnModel.js'
+export { createTraceContextBridge } from './core/TraceContextBridge.js'
+export { createEventInstrumentation } from './core/eventInstrumentation.js'
+export { sevoAttributes, sevoMetricLabelAttributes } from './core/telemetryAttributes.js'
 export { isErrorEvent } from './core/isErrorEvent.js'
 
 export { instrumentEventBus, createInstrumentedBus } from './adapters/genericEventBus.js'
+export { instrumentChannel } from './adapters/instrumentChannel.js'
 export {
 	attachHandsForBotsObservability,
 	getHandsForBotsState,

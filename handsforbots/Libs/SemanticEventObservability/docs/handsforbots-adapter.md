@@ -62,8 +62,10 @@ Each semantic event may include:
 ## Access from other plugins
 
 ```javascript
-this.bot.observability?.record('plugin.custom_action', { action: 'open_gallery' })
-this.bot.observability?.recordMetric('gallery.open', 1, { plugin: 'ImageGallery' })
+bot.observability?.record('plugin.custom_action', { action: 'open_gallery' })
+bot.observability?.recordMetric('gallery.open', 1, { plugin: 'ImageGallery' })
+bot.observability?.startPhase('gallery.load')
+bot.observability?.endPhase('gallery.load')
 ```
 
 ## Dev panel
@@ -80,7 +82,7 @@ Or pass `exporterConfig: { devPanel: { enabled: true } }` in the plugin options.
 | Document | Scope |
 |----------|-------|
 | [roadmap.md](./roadmap.md) | Library vision, abstractions, development phases |
-| [metrics-roadmap.md](./metrics-roadmap.md) | `seo_*` metrics checklist |
+| [metrics-roadmap.md](./metrics-roadmap.md) | `sevo_*` metrics checklist |
 | [handsforbots-roadmap.md](./handsforbots-roadmap.md) | HfB adapter, `hfb_*` metrics, backend integration |
 
 ## Direct adapter (advanced)

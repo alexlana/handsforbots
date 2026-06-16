@@ -30,7 +30,7 @@ export default class Policy {
 			return false
 		}
 
-		if (eventType.startsWith('turn.') || eventType.startsWith('metric.')) {
+		if (eventType.startsWith('turn.') || eventType.startsWith('phase.') || eventType.startsWith('metric.')) {
 			return true
 		}
 

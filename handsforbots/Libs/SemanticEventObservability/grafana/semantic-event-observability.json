@@ -124,7 +124,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
-          "expr": "histogram_quantile(0.95, sum(rate(seo_turn_duration_ms_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(sevo_turn_duration_ms_bucket[5m])) by (le))",
           "legendFormat": "p95 turn duration",
           "refId": "A"
         }
@@ -140,7 +140,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
-          "expr": "avg(seo_queue_depth)",
+          "expr": "avg(sevo_state_gauge{key=\"queueDepth\"})",
           "legendFormat": "queue depth",
           "refId": "A"
         }
@@ -156,7 +156,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROM}" },
-          "expr": "sum(increase(seo_events_dropped_total[5m])) by (reason)",
+          "expr": "sum(increase(sevo_events_dropped_total[5m])) by (reason)",
           "legendFormat": "{{reason}}",
           "refId": "A"
         }

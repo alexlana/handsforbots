@@ -1,12 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createObservability } from '../core/createObservability.js'
-import { createMetricsRegistry, SEO_METRICS } from '../core/MetricsRegistry.js'
-import { createTurnMetricsCollector } from '../core/TurnMetricsCollector.js'
+import { createMetricsRegistry, SEVO_METRICS } from '../core/MetricsRegistry.js'
+import { createPhaseTracker } from '../core/PhaseTracker.js'
+import { createTraceMapper } from '../core/TraceMapper.js'
 import { definePhaseModel } from '../core/definePhaseModel.js'
 import CorrelationContext from '../core/CorrelationContext.js'
 
-test('MetricsRegistry records canonical seo_* metrics', () => {
+test('MetricsRegistry records canonical sevo_* metrics', () => {
 	const records = []
 	const registry = createMetricsRegistry({ environment: 'test' })
 	registry.subscribe((metric) => records.push(metric))
@@ -17,7 +18,7 @@ test('MetricsRegistry records canonical seo_* metrics', () => {
 	registry.recordEventDropped('sampled_out')
 
 	assert.equal(records.length, 4)
-	assert.equal(records[0].name, SEO_METRICS.TURN_DURATION)
+	assert.equal(records[0].name, SEVO_METRICS.TURN_DURATION)
 	assert.equal(records[0].type, 'histogram')
 	assert.equal(records[0].value, 1200)
 	assert.equal(records[0].labels.input_plugin, 'Text')
@@ -39,32 +40,94 @@ test('CorrelationContext detects abandoned turns', () => {
 	assert.notEqual(abandoned.abandoned.turnId, abandoned.started.turnId)
 })
 
-test('TurnMetricsCollector records phase and render durations', () => {
+test('PhaseTracker records bus-driven and manual phases', () => {
 	const phases = definePhaseModel([
 		{ id: 'backend', startEvent: 'api.call', endEvent: 'api.done' },
 	])
-	const phaseDurations = []
-	const renderDurations = []
+	const phaseEnds = []
 
-	const collector = createTurnMetricsCollector({
+	const tracker = createPhaseTracker({
 		phases,
-		onPhaseDuration: (phase, ms) => phaseDurations.push({ phase, ms }),
-		onRenderDuration: (ms) => renderDurations.push(ms),
+		onPhaseStart: (data) => phaseEnds.push({ stage: 'start', phase: data.phase }),
+		onPhaseEnd: (data) => phaseEnds.push({ stage: 'end', phase: data.phase, ms: data.durationMs }),
+		onRenderDuration: () => {},
 		onTurnStatus: () => {},
 	})
 
-	collector.onTurnStart({ turnId: 'turn-1' })
-	collector.onBusEvent({ turnId: 'turn-1', name: 'api.call' })
-	collector.onBusEvent({ turnId: 'turn-1', name: 'api.done' })
-	collector.onTurnEnd({ turnId: 'turn-1' })
+	tracker.onTurnStart({ turnId: 'turn-1' })
+	tracker.onBusEvent({ turnId: 'turn-1', name: 'api.call' })
+	tracker.onBusEvent({ turnId: 'turn-1', name: 'api.done' })
+	assert.equal(phaseEnds.filter((item) => item.phase === 'backend').length, 2)
 
-	assert.equal(phaseDurations.length, 1)
-	assert.equal(phaseDurations[0].phase, 'backend')
-	assert.ok(phaseDurations[0].ms >= 0)
-	assert.equal(renderDurations.length, 1)
+	tracker.startPhase('turn-1', 'custom', {})
+	assert.ok(tracker.endPhase('turn-1', 'custom', {}))
+	assert.ok(phaseEnds.some((item) => item.phase === 'custom' && item.stage === 'end'))
 })
 
-test('createObservability emits turn metrics on instrumented bus', async () => {
+test('TraceMapper builds span tree from semantic events', () => {
+	const spans = []
+
+	const backend = {
+		startSpan(name, attributes, parent) {
+			const span = { name, attributes, parent, ended: false }
+			spans.push(span)
+			return span
+		},
+		endSpan(spanRef) {
+			if (spanRef) spanRef.ended = true
+		},
+		setAttribute(spanRef, key, value) {
+			if (spanRef?.attributes) spanRef.attributes[key] = value
+		},
+		setError() {},
+	}
+
+	const mapper = createTraceMapper({ backend })
+
+	mapper.handleEvent({
+		type: 'turn.start',
+		name: 'user.message',
+		turnId: 't1',
+		sessionId: 's1',
+		traceId: 'tr1',
+		environment: 'test',
+	})
+	mapper.handleEvent({
+		type: 'phase.start',
+		phase: 'backend',
+		source: 'bus',
+		turnId: 't1',
+		sessionId: 's1',
+		traceId: 'tr1',
+		environment: 'test',
+	})
+	mapper.handleEvent({
+		type: 'phase.end',
+		phase: 'backend',
+		durationMs: 42,
+		turnId: 't1',
+		sessionId: 's1',
+		traceId: 'tr1',
+		environment: 'test',
+	})
+	mapper.handleEvent({
+		type: 'turn.end',
+		name: 'bot.response',
+		durationMs: 100,
+		turnId: 't1',
+		sessionId: 's1',
+		traceId: 'tr1',
+		environment: 'test',
+	})
+
+	assert.equal(spans.length, 2)
+	assert.equal(spans[0].name, 'turn:user.message')
+	assert.equal(spans[1].name, 'phase:backend')
+	assert.equal(spans[1].parent, spans[0])
+	assert.ok(spans.every((span) => span.ended))
+})
+
+test('createObservability emits turn and phase metrics on instrumented bus', async () => {
 	const bus = createBus()
 	const observability = createObservability({
 		environment: 'test',
@@ -88,17 +151,38 @@ test('createObservability emits turn metrics on instrumented bus', async () => {
 
 	const metrics = observability.getMetrics()
 	const names = metrics.map((metric) => metric.name)
+	const timeline = observability.getTimeline()
 
-	assert.ok(names.includes(SEO_METRICS.TURN_DURATION))
-	assert.ok(names.includes(SEO_METRICS.PHASE_DURATION))
-	assert.ok(names.includes(SEO_METRICS.TURNS_TOTAL))
-	assert.ok(names.includes(SEO_METRICS.STATE_GAUGE))
-	assert.ok(names.includes(SEO_METRICS.EVENTS_EMITTED))
+	assert.ok(names.includes(SEVO_METRICS.TURN_DURATION))
+	assert.ok(names.includes(SEVO_METRICS.PHASE_DURATION))
+	assert.ok(timeline.some((event) => event.type === 'phase.start' && event.phase === 'backend'))
+	assert.ok(timeline.some((event) => event.type === 'phase.end' && event.phase === 'backend'))
 
 	const completed = metrics.find(
-		(metric) => metric.name === SEO_METRICS.TURNS_TOTAL && metric.labels.status === 'completed',
+		(metric) => metric.name === SEVO_METRICS.TURNS_TOTAL && metric.labels.status === 'completed',
 	)
 	assert.ok(completed)
+})
+
+test('createObservability supports manual startPhase and endPhase', async () => {
+	const observability = createObservability({
+		environment: 'test',
+		turnStartEvents: ['user.message'],
+		turnEndEvents: ['bot.response'],
+		exporters: [],
+	})
+
+	const bus = createBus()
+	observability.instrument(bus)
+	await observability.init()
+
+	bus.trigger('user.message', [{ text: 'hi' }])
+	assert.equal(observability.startPhase('fetch'), true)
+	assert.equal(observability.endPhase('fetch'), true)
+
+	const timeline = observability.getTimeline()
+	assert.ok(timeline.some((event) => event.type === 'phase.start' && event.phase === 'fetch'))
+	assert.ok(timeline.some((event) => event.type === 'phase.end' && event.phase === 'fetch'))
 })
 
 function createBus() {

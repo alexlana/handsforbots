@@ -38,7 +38,7 @@ Each recorded event includes:
 |-------|-------------|
 | `id` | Unique event id |
 | `timestamp` | ISO-8601 |
-| `type` | `bus.trigger`, `bus.listener`, `turn.start`, `turn.end`, `custom` |
+| `type` | `bus.trigger`, `bus.listener`, `turn.start`, `turn.end`, `turn.abandoned`, `phase.start`, `phase.end`, `custom` |
 | `name` | Event name (`core.input`, …) |
 | `sessionId` | Browser session |
 | `turnId` | Conversation turn (correlates input → output) |

@@ -48,7 +48,7 @@ export function createFaroExporter(config = {}) {
 		onMetric(metric) {
 			if (!faro?.api?.pushMeasurement) return
 			faro.api.pushMeasurement({
-				type: 'seo_metric',
+				type: 'sevo_metric',
 				values: { [metric.name]: metric.value },
 				labels: metric.labels || {},
 			})

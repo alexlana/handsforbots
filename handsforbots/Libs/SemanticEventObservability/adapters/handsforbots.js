@@ -1,5 +1,6 @@
 import { createObservability } from '../core/createObservability.js'
 import { definePhaseModel } from '../core/definePhaseModel.js'
+import { instrumentChannel } from './instrumentChannel.js'
 
 export const HFB_TURN_START_EVENTS = ['core.input']
 export const HFB_TURN_END_EVENTS = ['core.output_ready']
@@ -63,7 +64,10 @@ export function attachHandsForBotsObservability(bot, options = {}) {
 	})
 
 	if (bot.bc && options.instrumentBroadcastChannel !== false) {
-		instrumentBroadcastChannel(observability, bot.bc)
+		instrumentChannel(observability, bot.bc, {
+			eventName: 'broadcast.post',
+			type: 'bus.trigger',
+		})
 	}
 
 	bot.observability = observability
@@ -76,13 +80,5 @@ export function getHandsForBotsState(bot) {
 		queueDepth: orchestrator?.queue?.length ?? 0,
 		callingBackend: Boolean(orchestrator?.calling_backend),
 		redirectInput: bot.redirectInput || null,
-	}
-}
-
-function instrumentBroadcastChannel(observability, channel) {
-	const originalPostMessage = channel.postMessage.bind(channel)
-	channel.postMessage = function instrumentedPostMessage(data) {
-		observability.record('broadcast.post', data, { type: 'bus.trigger' })
-		return originalPostMessage(data)
 	}
 }

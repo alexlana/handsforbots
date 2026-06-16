@@ -59,13 +59,13 @@ flowchart TB
   Backend -.->|traceparent| Trace
 ```
 
-| Concern | Library (`seo_*`) | Host (`hfb_*`, backend) |
+| Concern | Library (`sevo_*`) | Host (`hfb_*`, backend) |
 |---------|-------------------|-------------------------|
 | Turn start / end detection | Configurable `TurnModel` | Preset event names |
 | Phase timing (generic) | `PhaseModel` e.g. `fetch`, `render` | Map events → phase config |
 | Bus instrumentation | `instrument()` | Choose which bus |
 | Runtime state snapshot | `stateProvider` callback | Return queue depth, etc. |
-| Metric names & labels | `seo_*` only | Host prefix + labels |
+| Metric names & labels | `sevo_*` only | Host prefix + labels |
 | Voice / plugin / modality | — | Host cores & plugins |
 | Token usage, LLM latency | Trace correlation hook | Backend instrumentation |
 | Grafana dashboard template | Generic turn/phase panels | Host-specific panels optional |
@@ -158,7 +158,7 @@ const phaseModel = [
     id: 'remote',
     startEvent: 'api.request',
     endEvent: 'api.response',
-    metric: 'seo_phase_duration_ms',  // label phase=remote
+    metric: 'sevo_phase_duration_ms',  // label phase=remote
     spanName: 'phase:remote',
   },
   {
@@ -178,32 +178,32 @@ const phaseModel = [
 
 **Roadmap:**
 
-- [x] `core/PhaseTracker.js` — event-driven phase timing (`TurnMetricsCollector`)
+- [x] `core/PhaseTracker.js` — event-driven phase timing + manual API
 - [x] `core/PhaseModel.js` — validate + normalize phase config (`definePhaseModel`)
-- [ ] Refactor `exporters/otel.js` to consume phase events, not event names
-- [ ] Manual API: `observability.startPhase(id)` / `endPhase(id)` for non-bus work
+- [x] `exporters/otel.js` consumes `phase.start` / `phase.end` semantic events via `TraceMapper`
+- [x] Manual API: `observability.startPhase(id)` / `endPhase(id)` for non-bus work
 - [x] Default: zero phases (turn + events only) for minimal adopters
 
 ---
 
 ### 4. MetricsRegistry (new — single source of truth)
 
-Central recording for `seo_*` instruments. Exporters subscribe; no duplicate logic in OTel exporter.
+Central recording for `sevo_*` instruments. Exporters subscribe; no duplicate logic in OTel exporter.
 
 ```javascript
 // core/MetricsRegistry.js
 const instruments = {
-  turnDuration: histogram('seo_turn_duration_ms', { unit: 'ms' }),
-  phaseDuration: histogram('seo_phase_duration_ms', { labels: ['phase'] }),
-  turnsTotal: counter('seo_turns_total', { labels: ['status'] }),
-  eventsDropped: counter('seo_events_dropped_total', { labels: ['reason'] }),
-  stateGauge: observableGauge('seo_state_gauge', { labels: ['key'] }),
+  turnDuration: histogram('sevo_turn_duration_ms', { unit: 'ms' }),
+  phaseDuration: histogram('sevo_phase_duration_ms', { labels: ['phase'] }),
+  turnsTotal: counter('sevo_turns_total', { labels: ['status'] }),
+  eventsDropped: counter('sevo_events_dropped_total', { labels: ['reason'] }),
+  stateGauge: observableGauge('sevo_state_gauge', { labels: ['key'] }),
 }
 ```
 
 | Rule | Detail |
 |------|--------|
-| Prefix | Always `seo_` |
+| Prefix | Always `sevo_` |
 | Recording triggers | `turn.end`, phase end, `Policy.recordDrop()`, periodic state scrape |
 | OTel export | Metrics API histograms/counters — **not** one span per metric |
 | Host metrics | `recordMetric()` bypasses registry naming or uses `host.` prefix policy |
@@ -226,13 +226,13 @@ turn:<startEvent>                    [root]
 | Concern | Approach |
 |---------|----------|
 | Error marking | Pluggable `isError(event)` — default heuristic, host override |
-| Attributes | `seo.*` namespace on spans |
+| Attributes | `sevo.*` namespace on spans |
 | Active context | Set span context on turn root for child manual spans |
 
 **Roadmap:**
 
-- [ ] `core/TraceMapper.js` — span lifecycle independent of OTel import
-- [ ] `exporters/otel.js` — thin adapter over TraceMapper
+- [x] `core/TraceMapper.js` — span lifecycle independent of OTel import
+- [x] `exporters/otel.js` — thin adapter over TraceMapper + `otelTraceBackend.js`
 - [ ] Align span names with OTel incubating `invoke_agent` guidance where applicable
 
 ---
@@ -250,9 +250,9 @@ fetch(url, withTraceContext(observability, { method: 'POST', body }))
 
 **Roadmap:**
 
-- [ ] Read active `traceId` / span context from turn root
-- [ ] `withTraceContext(fn)` wrapper for fetch, XHR, WebSocket
-- [ ] Document host integration (no fetch patching inside lib by default)
+- [x] Read active `traceId` / span context from turn root
+- [x] `withTraceContext` / `withFetch` for outbound calls
+- [x] Document host integration (no fetch patching inside lib by default)
 
 ---
 
@@ -262,14 +262,14 @@ fetch(url, withTraceContext(observability, { method: 'POST', body }))
 |-----|--------|
 | `instrument(bus, { stateProvider, wrapListeners })` | Exists |
 | `instrumentEventBus()` | Generic adapter |
-| **`instrumentChannel(channel, options)`** | Pattern for BroadcastChannel, MessagePort |
+| **`instrumentChannel(channel, options)`** | Generic BroadcastChannel / MessagePort helper |
 | **`createInstrumentedBus()`** | Bootstrap helper |
 
 **Roadmap:**
 
-- [ ] Extract channel instrumentation from HfB adapter into generic `instrumentChannel`
-- [ ] Optional `eventFilter(name) => boolean` to reduce noise
-- [ ] `semanticEvents` allowlist mode for high-volume buses
+- [x] Extract channel instrumentation from HfB adapter into generic `instrumentChannel`
+- [x] Optional `eventFilter(name) => boolean` to reduce noise
+- [x] `eventAllowlist` mode for high-volume buses
 
 ---
 
@@ -289,7 +289,7 @@ interface Exporter {
 
 **Roadmap:**
 
-- [ ] `onPhaseEnd` for exporters that need phase granularity
+- [x] `onPhaseEnd` for exporters that need phase granularity
 - [ ] Shared `ExporterContext` with MetricsRegistry + TurnModel stats
 - [ ] Custom exporter template in docs
 
@@ -320,14 +320,20 @@ export function attachMyAppObservability(app, options) {
 ### Minimal (today)
 
 ```javascript
-import { createObservability, instrumentEventBus } from '@handsforbots/semantic-event-observability'
+import { createObservability, instrumentEventBus, definePhaseModel } from '@handsforbots/semantic-event-observability'
 
 const obs = createObservability({
   turnStartEvents: ['user.message'],
   turnEndEvents: ['bot.response'],
+  phases: definePhaseModel([
+    { id: 'backend', startEvent: 'api.call', endEvent: 'api.done' },
+  ]),
   exporters: ['memory', 'console'],
 })
 instrumentEventBus(obs, myBus, { stateProvider: () => ({}) })
+
+obs.startPhase('custom-work')  // manual phase within active turn
+obs.endPhase('custom-work')
 ```
 
 ### Target (after abstraction work)
@@ -370,7 +376,7 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 | # | Item | Status |
 |---|------|--------|
 | A.1 | `MetricsRegistry` module | [x] |
-| A.2 | Emit `seo_turn_duration_ms`, `seo_phase_duration_ms`, `seo_events_dropped_total` | [x] |
+| A.2 | Emit `sevo_turn_duration_ms`, `sevo_phase_duration_ms`, `sevo_events_dropped_total` | [x] |
 | A.3 | Turn completion / abandonment counters | [x] |
 | A.4 | OTel Metrics API export (replace span-per-metric) | [x] |
 | A.5 | State gauge from `stateProvider` keys | [x] |
@@ -383,20 +389,20 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 | # | Item | Status |
 |---|------|--------|
 | B.1 | `PhaseTracker` + `PhaseModel` config | [x] |
-| B.2 | Extract `TraceMapper` from otel exporter | [ ] |
+| B.2 | Extract `TraceMapper` from otel exporter | [x] |
 | B.3 | Remove hardcoded `core.calling_backend` from lib core | [x] |
-| B.4 | Manual `startPhase` / `endPhase` API | [ ] |
-| B.5 | `onPhaseEnd` exporter hook | [ ] |
+| B.4 | Manual `startPhase` / `endPhase` API | [x] |
+| B.5 | `onPhaseEnd` exporter hook | [x] |
 | B.6 | Pluggable error detection | [x] |
 
 ### Phase C — Correlation & instrumentation (P1)
 
 | # | Item | Status |
 |---|------|--------|
-| C.1 | Formal `TurnModel` with abandonment | [~] |
-| C.2 | `TraceContextBridge` + `withTraceContext` | [ ] |
-| C.3 | Generic `instrumentChannel` | [ ] |
-| C.4 | `eventFilter` / allowlist for bus | [ ] |
+| C.1 | Formal `TurnModel` with abandonment | [x] |
+| C.2 | `TraceContextBridge` + `withTraceContext` | [x] |
+| C.3 | Generic `instrumentChannel` | [x] |
+| C.4 | `eventFilter` / allowlist for bus | [x] |
 | C.5 | Exporter error metrics | [x] |
 
 ### Phase D — DX & packaging (P2)
@@ -404,7 +410,7 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 | # | Item | Status |
 |---|------|--------|
 | D.1 | TypeScript types or `.d.ts` for public API | [ ] |
-| D.2 | `defineTurnModel` / `definePhaseModel` helpers | [ ] |
+| D.2 | `defineTurnModel` / `definePhaseModel` helpers | [~] |
 | D.3 | Custom exporter cookbook | [ ] |
 | D.4 | Framework-agnostic getting started (non-HfB) | [ ] |
 | D.5 | npm publish from `packageIdentity.js` | [ ] |
@@ -418,7 +424,7 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 | E.2 | Tail sampling guidance doc | [ ] |
 | E.3 | Langfuse/LangSmith phase-aware mapping | [ ] |
 | E.4 | Web Vitals bridge (optional exporter) | [ ] |
-| E.5 | Session-level rollup metrics (`seo_session_turns_total`) | [ ] |
+| E.5 | Session-level rollup metrics (`sevo_session_turns_total`) | [ ] |
 
 ---
 
@@ -439,7 +445,7 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 
 | Document | Scope |
 |----------|-------|
-| [metrics-roadmap.md](./metrics-roadmap.md) | `seo_*` metrics checklist (lib only) |
+| [metrics-roadmap.md](./metrics-roadmap.md) | `sevo_*` metrics checklist (lib only) |
 | [handsforbots-roadmap.md](./handsforbots-roadmap.md) | Hands for Bots adapter & `hfb_*` metrics |
 | [architecture.md](./architecture.md) | Current runtime design |
 | [exporters.md](./exporters.md) | Exporter interface |
@@ -452,4 +458,4 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 | Date | Change |
 |------|--------|
 | 2026-06-15 | Initial library roadmap; split from combined metrics doc |
-| 2026-06-15 | Phase A implemented; Phase B partial (`definePhaseModel`, `TurnMetricsCollector`, adapter phases) |
+| 2026-06-15 | Phase B: PhaseTracker, TraceMapper, phase semantic events, manual API, onPhaseEnd hook |

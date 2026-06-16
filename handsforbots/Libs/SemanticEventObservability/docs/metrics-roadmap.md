@@ -1,6 +1,6 @@
 # Metrics roadmap (library)
 
-Development checklist for **`seo_*` metrics only** — emitted by Semantic Event Observability.
+Development checklist for **`sevo_*` metrics only** — emitted by Semantic Event Observability.
 
 > **Not in this document:** Hands for Bots product metrics (`hfb_*`) → [handsforbots-roadmap.md](./handsforbots-roadmap.md).  
 > **Abstractions plan:** [roadmap.md](./roadmap.md).
@@ -11,7 +11,7 @@ Development checklist for **`seo_*` metrics only** — emitted by Semantic Event
 
 | Rule | Example |
 |------|---------|
-| Prefix | `seo_` |
+| Prefix | `sevo_` |
 | Unit suffix | `_ms`, `_total`, `_bytes` |
 | Histograms | Turn duration, phase duration |
 | Counters | Turns, drops, events emitted |
@@ -33,12 +33,12 @@ Never label with `sessionId`, `turnId`, or raw payload text.
 
 | Industry metric | Library metric | Notes |
 |-----------------|----------------|-------|
-| End-to-end turn latency | `seo_turn_duration_ms` | Client-perceived wait |
-| Per-stage latency | `seo_phase_duration_ms{phase}` | PhaseModel-driven |
-| Turn success rate | `seo_turns_total{status}` | completed vs abandoned |
-| Telemetry loss | `seo_events_dropped_total{reason}` | Policy transparency |
-| Queue / backlog pressure | `seo_state_gauge{key="queueDepth"}` | From stateProvider |
-| Throughput | `rate(seo_turns_total{status="completed"})` | Derived in Grafana |
+| End-to-end turn latency | `sevo_turn_duration_ms` | Client-perceived wait |
+| Per-stage latency | `sevo_phase_duration_ms{phase}` | PhaseModel-driven |
+| Turn success rate | `sevo_turns_total{status}` | completed vs abandoned |
+| Telemetry loss | `sevo_events_dropped_total{reason}` | Policy transparency |
+| Queue / backlog pressure | `sevo_state_gauge{key="queueDepth"}` | From stateProvider |
+| Throughput | `rate(sevo_turns_total{status="completed"})` | Derived in Grafana |
 
 Backend `gen_ai.*` metrics are **not** emitted by this lib. Hosts join traces via [TraceContextBridge](./roadmap.md#6-tracecontextbridge-new--backend-correlation).
 
@@ -52,12 +52,12 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 
 | # | Metric | Type | Trigger | Status |
 |---|--------|------|---------|--------|
-| M0.1 | `seo_turn_duration_ms` | histogram | `turn.end` → `durationMs` | [x] |
-| M0.2 | `seo_phase_duration_ms` | histogram | PhaseTracker phase end | [x] |
-| M0.3 | `seo_turns_total` | counter | `status=completed` on turn end | [x] |
-| M0.4 | `seo_turns_total` | counter | `status=abandoned` on new turn without end | [x] |
-| M0.5 | `seo_events_dropped_total` | counter | `Policy.recordDrop(reason)` | [x] |
-| M0.6 | `seo_state_gauge` | gauge | `stateProvider()` keys | [x] |
+| M0.1 | `sevo_turn_duration_ms` | histogram | `turn.end` → `durationMs` | [x] |
+| M0.2 | `sevo_phase_duration_ms` | histogram | PhaseTracker phase end | [x] |
+| M0.3 | `sevo_turns_total` | counter | `status=completed` on turn end | [x] |
+| M0.4 | `sevo_turns_total` | counter | `status=abandoned` on new turn without end | [x] |
+| M0.5 | `sevo_events_dropped_total` | counter | `Policy.recordDrop(reason)` | [x] |
+| M0.6 | `sevo_state_gauge` | gauge | `stateProvider()` keys | [x] |
 | M0.7 | OTel Metrics API wiring | — | `MetricsRegistry` → exporter | [x] |
 | M0.8 | Grafana dashboard smoke test | — | `grafana/semantic-event-observability.json` | [~] |
 
@@ -66,9 +66,9 @@ Status: `[ ]` not started · `[~]` partial · `[x]` done
 **SLO examples:**
 
 ```promql
-histogram_quantile(0.95, sum(rate(seo_turn_duration_ms_bucket[5m])) by (le))
-sum(rate(seo_turns_total{status="abandoned"}[5m])) / sum(rate(seo_turns_total[5m]))
-sum(increase(seo_events_dropped_total[5m])) by (reason)
+histogram_quantile(0.95, sum(rate(sevo_turn_duration_ms_bucket[5m])) by (le))
+sum(rate(sevo_turns_total{status="abandoned"}[5m])) / sum(rate(sevo_turns_total[5m]))
+sum(increase(sevo_events_dropped_total[5m])) by (reason)
 ```
 
 ---
@@ -77,11 +77,11 @@ sum(increase(seo_events_dropped_total[5m])) by (reason)
 
 | # | Metric | Type | Trigger | Status |
 |---|--------|------|---------|--------|
-| M1.1 | `seo_phase_wait_ms` | histogram | turn start → phase start | [ ] |
-| M1.2 | `seo_turns_total` | counter | `status=error` when error heuristic fires | [x] |
-| M1.3 | `seo_events_emitted_total` | counter | `type` + bucketed `name` | [x] |
-| M1.4 | `seo_exporter_errors_total` | counter | exporter catch blocks | [x] |
-| M1.5 | `seo_active_turns` | gauge | open turns (diagnostic) | [ ] |
+| M1.1 | `sevo_phase_wait_ms` | histogram | turn start → phase start | [ ] |
+| M1.2 | `sevo_turns_total` | counter | `status=error` when error heuristic fires | [x] |
+| M1.3 | `sevo_events_emitted_total` | counter | `type` + bucketed `name` | [x] |
+| M1.4 | `sevo_exporter_errors_total` | counter | exporter catch blocks | [x] |
+| M1.5 | `sevo_active_turns` | gauge | open turns (diagnostic) | [x] |
 | M1.6 | Span `error.type` attribute | — | pluggable `isError(event)` | [x] |
 
 ---
@@ -90,10 +90,10 @@ sum(increase(seo_events_dropped_total[5m])) by (reason)
 
 | # | Metric | Type | Trigger | Status |
 |---|--------|------|---------|--------|
-| M2.1 | `seo_session_turns_total` | counter | session boundary (configurable) | [ ] |
-| M2.2 | `seo_custom_metrics_total` | counter | `recordMetric()` with name allowlist | [ ] |
-| M2.3 | `seo_bus_events_total` | counter | `bus.trigger` by bucketed name | [ ] |
-| M2.4 | `seo_listener_duration_ms` | histogram | `wrapListeners: true` | [ ] |
+| M2.1 | `sevo_session_turns_total` | counter | session boundary (configurable) | [ ] |
+| M2.2 | `sevo_custom_metrics_total` | counter | `recordMetric()` with name allowlist | [ ] |
+| M2.3 | `sevo_bus_events_total` | counter | `bus.trigger` by bucketed name | [ ] |
+| M2.4 | `sevo_listener_duration_ms` | histogram | `wrapListeners: true` | [ ] |
 
 ---
 
@@ -106,7 +106,7 @@ Host apps may call `observability.recordMetric(name, value, labels)` for domain 
 | Lib does not rename | Host owns prefix (`hfb_`, `myapp_`) |
 | Policy | Subject to `metric.gauge` policy gate |
 | Export | All exporters receive `onMetric` |
-| Recommendation | Document host prefix in adapter; avoid `seo_` in `recordMetric` |
+| Recommendation | Document host prefix in adapter; avoid `sevo_` in `recordMetric` |
 
 ---
 
