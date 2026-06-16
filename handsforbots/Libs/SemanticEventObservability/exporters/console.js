@@ -1,7 +1,7 @@
 export function createConsoleExporter(config = {}) {
 	const id = 'console'
 	const level = config.level || 'debug'
-	const prefix = config.prefix || '[seo]'
+	const prefix = config.prefix || '[sevo]'
 
 	return {
 		id,
