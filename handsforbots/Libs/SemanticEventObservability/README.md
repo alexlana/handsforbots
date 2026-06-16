@@ -72,6 +72,7 @@ instrumentEventBus(observability, myBus, {
 | `faro` | `@grafana/faro-web-sdk` (optional) | Loki via Faro collector |
 | `langfuse` | `@langfuse/tracing` (optional) | Langfuse traces |
 | `langsmith` | `langsmith` (optional) | LangSmith runs |
+| `webVitals` | `web-vitals` (optional) | Core Web Vitals → `sevo_web_vital` |
 
 Dependencies are **optional peer dependencies**. Inject clients manually when dynamic import is not available:
 
@@ -110,6 +111,7 @@ The example stack mounts the `.lgtm.json` variant into `grafana/otel-lgtm` and s
 - [Library roadmap & abstractions](./docs/roadmap.md)
 - [Metrics checklist (`sevo_*`)](./docs/metrics-roadmap.md)
 - [Exporters](./docs/exporters.md)
+- [Tail sampling guidance](./docs/tail-sampling.md)
 - [Custom exporter cookbook](./docs/custom-exporter.md)
 - [Publishing to npm](./docs/publishing.md)
 - [Hands for Bots adapter](./docs/handsforbots-adapter.md)

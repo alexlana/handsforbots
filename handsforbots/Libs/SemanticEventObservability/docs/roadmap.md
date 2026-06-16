@@ -421,7 +421,7 @@ Details: [metrics-roadmap.md](./metrics-roadmap.md).
 | # | Item | Status |
 |---|------|--------|
 | E.1 | OTel `invoke_agent` span naming option on turn root | [x] |
-| E.2 | Tail sampling guidance doc | [ ] |
+| E.2 | Tail sampling guidance doc | [x] |
 | E.3 | Langfuse/LangSmith phase-aware mapping | [x] |
 | E.4 | Web Vitals bridge (optional exporter) | [ ] |
 | E.5 | Session-level rollup metrics (`sevo_session_turns_total`) | [x] |
