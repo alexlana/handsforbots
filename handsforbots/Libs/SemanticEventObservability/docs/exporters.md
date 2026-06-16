@@ -121,6 +121,36 @@ exporterConfig: {
 
 Set `LANGSMITH_API_KEY` in the host environment when using the LangSmith SDK directly.
 
+## Web Vitals
+
+### `webVitals`
+
+Requires `web-vitals` **or** injected `onReport` callback.
+
+Records Core Web Vitals as `sevo_web_vital` histograms with `vital` label (`LCP`, `INP`, `CLS`, `FCP`, `TTFB`).
+
+```javascript
+exporters: ['memory', 'otel', 'webVitals'],
+exporterConfig: {
+  webVitals: {
+    // optional: vitals module injection
+    // vitals: webVitals,
+    metrics: ['LCP', 'INP', 'CLS'],
+    labels: { surface: 'chat' },
+  },
+},
+```
+
+Install optional peer in the host app:
+
+```bash
+npm i web-vitals
+```
+
+## Sampling
+
+See [tail-sampling.md](./tail-sampling.md) for head vs tail sampling with OTel Collector policies.
+
 ## Custom exporter
 
 See [custom-exporter.md](./custom-exporter.md) for a full cookbook with `registerExporter()`, phase hooks, and production checklist.

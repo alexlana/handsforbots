@@ -109,6 +109,7 @@ export type MetricsRegistry = {
 		counts: { completed?: number; abandoned?: number },
 		labels?: Record<string, string>,
 	) => MetricRecord[] | void
+	recordWebVital: (name: string, value: number, labels?: Record<string, string>) => MetricRecord | void
 }
 
 export const SEVO_METRICS: {
@@ -121,6 +122,7 @@ export const SEVO_METRICS: {
 	readonly EXPORTER_ERRORS: 'sevo_exporter_errors_total'
 	readonly ACTIVE_TURNS: 'sevo_active_turns'
 	readonly SESSION_TURNS_TOTAL: 'sevo_session_turns_total'
+	readonly WEB_VITAL: 'sevo_web_vital'
 }
 
 /** @deprecated Use SEVO_METRICS */

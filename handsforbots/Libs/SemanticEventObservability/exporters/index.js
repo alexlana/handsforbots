@@ -5,6 +5,7 @@ import { createOtelExporter } from './otel.js'
 import { createFaroExporter } from './faro.js'
 import { createLangfuseExporter } from './langfuse.js'
 import { createLangsmithExporter } from './langsmith.js'
+import { createWebVitalsExporter } from './webVitals.js'
 
 export const BUILTIN_EXPORTERS = {
 	memory: createMemoryExporter,
@@ -14,6 +15,7 @@ export const BUILTIN_EXPORTERS = {
 	faro: createFaroExporter,
 	langfuse: createLangfuseExporter,
 	langsmith: createLangsmithExporter,
+	webVitals: createWebVitalsExporter,
 }
 
 export async function createExporters(requested = [], config = {}) {

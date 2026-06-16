@@ -95,6 +95,7 @@ sum(increase(sevo_session_turns_total[5m])) by (status, reason)
 | M2.2 | `sevo_custom_metrics_total` | counter | `recordMetric()` with name allowlist | [ ] |
 | M2.3 | `sevo_bus_events_total` | counter | `bus.trigger` by bucketed name | [ ] |
 | M2.4 | `sevo_listener_duration_ms` | histogram | `wrapListeners: true` | [ ] |
+| M2.5 | `sevo_web_vital` | histogram | `webVitals` exporter | [x] |
 
 ---
 

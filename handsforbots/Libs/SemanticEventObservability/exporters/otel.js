@@ -167,6 +167,10 @@ export function createOtelExporter(config = {}) {
 		counters.set(SEVO_METRICS.SESSION_TURNS_TOTAL, activeMeter.createCounter(SEVO_METRICS.SESSION_TURNS_TOTAL, {
 			description: 'Turn outcomes rolled up at session boundary',
 		}))
+		histograms.set(SEVO_METRICS.WEB_VITAL, activeMeter.createHistogram(SEVO_METRICS.WEB_VITAL, {
+			description: 'Core Web Vitals measurements',
+			unit: 'ms',
+		}))
 
 		if (typeof activeMeter.createGauge === 'function') {
 			gauges.set(SEVO_METRICS.STATE_GAUGE, activeMeter.createGauge(SEVO_METRICS.STATE_GAUGE, {

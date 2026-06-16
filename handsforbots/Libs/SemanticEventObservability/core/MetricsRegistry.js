@@ -8,6 +8,7 @@ export const SEVO_METRICS = {
 	EXPORTER_ERRORS: 'sevo_exporter_errors_total',
 	ACTIVE_TURNS: 'sevo_active_turns',
 	SESSION_TURNS_TOTAL: 'sevo_session_turns_total',
+	WEB_VITAL: 'sevo_web_vital',
 }
 
 /** @deprecated Use SEVO_METRICS */
@@ -142,6 +143,16 @@ export function createMetricsRegistry(options = {}) {
 				}))
 			}
 			return records
+		},
+
+		recordWebVital(name, value, labels = {}) {
+			if (value == null || Number.isNaN(value)) return
+			return emit({
+				name: SEVO_METRICS.WEB_VITAL,
+				type: 'histogram',
+				value: Math.max(0, value),
+				labels: { vital: name || 'unknown', ...labels },
+			})
 		},
 	}
 }
