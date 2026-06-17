@@ -12,6 +12,21 @@
 
 Passive **output plugin** that instruments the Hands for Bots event bus via [Semantic Event Observability](../../handsforbots/Libs/SemanticEventObservability/README.md). It does not render chat UI — it only configures semantic logs, metrics, and tracing.
 
+## Scope
+
+This plugin monitors **how the bot behaves while it is running** — not **whether it is up**.
+
+| In scope | Out of scope (other stack) |
+|----------|----------------------------|
+| Turn and phase latency (`sevo_*`) | Uptime / synthetic HTTP probes |
+| Orchestrator queue and backend phase | Backend `/health` (e.g. Rasa `/api/health`) |
+| Abandoned turns, flow errors | Kubernetes liveness/readiness |
+| Telemetry export failures | “Application is down” alerting |
+
+Absence of Grafana data does not prove an outage — export may be off, sampled, or the LGTM stack may be down. For functional degradation, watch `sevo_turns_total`, queue gauges, and `sevo_exporter_errors_total`.
+
+Details: [library scope](../../handsforbots/Libs/SemanticEventObservability/docs/architecture.md#scope) · [adapter](../../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-adapter.md#scope).
+
 ## Configuration
 
 ```javascript

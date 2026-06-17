@@ -30,6 +30,22 @@ flowchart TB
   Exporters --> LLM
 ```
 
+## Scope
+
+This library answers **how the conversational flow behaves while the app is running** — not **whether the service is reachable**.
+
+| In scope (`sevo_*`) | Out of scope (other stack) |
+|---------------------|----------------------------|
+| Turn and phase latency | Uptime / synthetic monitoring |
+| Turn completion, abandonment, errors | Backend `/health` endpoints (e.g. Rasa `/api/health`) |
+| Queue pressure via `stateProvider` | Kubernetes liveness/readiness probes |
+| Telemetry pipeline health (`sevo_exporter_errors_total`, policy drops) | Server-side APM for backends (`gen_ai.*`) |
+| Optional Core Web Vitals (`sevo_web_vital`) | Binary “application is up” alerts |
+
+**Functional degradation** can be inferred from metrics (abandoned turns, persistent queue depth, exporter failures). **Absence of metrics** does not prove an outage — export may be disabled, sampled, or the collector may be down.
+
+Full boundaries: [roadmap.md](./roadmap.md#boundary-library-vs-host).
+
 ## Semantic event schema
 
 Each recorded event includes:

@@ -7,6 +7,20 @@ Development checklist for **`sevo_*` metrics only** — emitted by Semantic Even
 
 ---
 
+## Out of scope
+
+These concerns are intentionally **not** `sevo_*` metrics:
+
+| Concern | Owner | Examples |
+|---------|-------|----------|
+| Service uptime | Infra / synthetics | HTTP probes, Grafana Cloud checks, “site down” alerts |
+| Backend health | Backend deploy | Rasa `/api/health`, LLM server health |
+| Platform probes | Kubernetes / Docker | `livenessProbe`, `readinessProbe` on app containers |
+
+`sevo_exporter_errors_total` measures **telemetry export failures**, not application availability. See [architecture.md](./architecture.md#scope).
+
+---
+
 ## Naming rules
 
 | Rule | Example |

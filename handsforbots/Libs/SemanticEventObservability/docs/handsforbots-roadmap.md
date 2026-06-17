@@ -17,6 +17,8 @@ Hands for Bots does **not** extend the lib core. It provides:
 4. **Phase preset** — `HFB_PHASE_MODEL` in adapter (passed to `createObservability`)
 5. **Backend correlation** — trace propagation from orchestrator / backend cores
 
+The adapter and Observability plugin do **not** provide uptime monitoring, health endpoints, or platform probes. Those stay in deploy/infra and backend stacks — see [library scope](./architecture.md#scope).
+
 ```mermaid
 flowchart LR
   HFB["Hands for Bots"]

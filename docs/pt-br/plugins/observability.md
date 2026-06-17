@@ -12,6 +12,21 @@
 
 Plugin de **output passivo** que instrumenta o barramento de eventos do Hands for Bots com [Semantic Event Observability](../../handsforbots/Libs/SemanticEventObservability/README.md). Não renderiza UI de chat — apenas configura logs, métricas e tracing semântico.
 
+## Escopo
+
+Este plugin monitora **como o bot se comporta enquanto está rodando** — não **se está de pé**.
+
+| No escopo | Fora do escopo (outra stack) |
+|-----------|------------------------------|
+| Latência de turno e fase (`sevo_*`) | Uptime / probes HTTP sintéticos |
+| Fila do orchestrator e fase de backend | `/health` de backend (ex.: Rasa `/api/health`) |
+| Turns abandonados, erros de fluxo | Liveness/readiness no Kubernetes |
+| Falhas na exportação de telemetria | Alertas de “aplicação fora do ar” |
+
+Ausência de dados no Grafana não prova outage — export pode estar desligado, amostrado, ou a stack LGTM pode estar fora. Para degradação funcional, acompanhe `sevo_turns_total`, gauges de fila e `sevo_exporter_errors_total`.
+
+Detalhes: [escopo da lib](../../handsforbots/Libs/SemanticEventObservability/docs/architecture.md#scope) · [adapter](../../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-adapter.md#scope).
+
 ## Configuração
 
 ```javascript

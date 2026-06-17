@@ -4,6 +4,8 @@ Semantic observability for async event systems: logs, metrics, and tracing with 
 
 Built to sit on top of proven stacks (OpenTelemetry, Grafana Faro, Langfuse, LangSmith). If an exporter dependency is missing, the host application keeps working — telemetry is simply skipped for that backend.
 
+**Scope:** semantic flow observability (turns, phases, queue pressure, telemetry health) — **not** service uptime, `/health` endpoints, or K8s probes. See [architecture — scope](./docs/architecture.md#scope).
+
 > **Working title.** The npm name lives in `packageIdentity.js`. Change `PACKAGE_SLUG` there when the final product name is decided.
 
 ## Quick start (Hands for Bots)

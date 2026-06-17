@@ -4,6 +4,19 @@ File: [`adapters/handsforbots.js`](../adapters/handsforbots.js)
 
 Plugin wrapper: [`handsforbots/Plugins/Output/Observability/Observability.js`](../../../Plugins/Output/Observability/Observability.js)
 
+## Scope
+
+The adapter instruments **semantic flow** on the Hands for Bots event bus (`sevo_*` via the lib). It does **not** monitor whether the application or its backends are up.
+
+| Covered | Not covered (use another stack) |
+|---------|--------------------------------|
+| Turn latency (`core.input` → `core.output_ready`) | Uptime / synthetic HTTP probes |
+| Backend phase timing (`calling_backend` → `backend_responded`) | Rasa or LLM `/health` endpoints |
+| Orchestrator state (`queueDepth`, `callingBackend`) | Kubernetes liveness/readiness |
+| Telemetry export health (`sevo_exporter_errors_total`) | “Site down” alerting |
+
+See [architecture.md](./architecture.md#scope) and the [Observability plugin docs](../../../docs/en-us/plugins/observability.md#scope).
+
 ## Integration model
 
 Observability is enabled by adding the **Observability output plugin** — not via `Bot` constructor options.

@@ -93,7 +93,7 @@ flowchart TB
 
 ## Observability — instrumentação do barramento
 
-[`Plugins/Output/Observability/Observability.js`](../handsforbots/Plugins/Output/Observability/Observability.js) é um output passivo que configura [Semantic Event Observability](../handsforbots/Libs/SemanticEventObservability/README.md). Instrumenta `eventEmitter.trigger` / fila / `BroadcastChannel`; exporters opcionais (Faro, OTel, Langfuse, LangSmith).
+[`Plugins/Output/Observability/Observability.js`](../handsforbots/Plugins/Output/Observability/Observability.js) é um output passivo que configura [Semantic Event Observability](../handsforbots/Libs/SemanticEventObservability/README.md). Instrumenta `eventEmitter.trigger` / fila / `BroadcastChannel`; exporters opcionais (Faro, OTel, Langfuse, LangSmith). **Não** monitora uptime nem `/health` de backend — ver [escopo](../docs/pt-br/plugins/observability.md#escopo).
 
 ```javascript
 options.plugins.push({

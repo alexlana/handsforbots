@@ -26,6 +26,8 @@ Offer industry-grade **semantic observability for browser event-driven applicati
 - Backend LLM SDK instrumentation (`gen_ai.*` — host responsibility)
 - Product analytics schemas (`hfb_*` — host adapter responsibility)
 - Storing or evaluating prompts at scale (delegate to Langfuse / eval platforms)
+- **Service uptime / availability** — synthetic HTTP probes, `/health` polling, “site down” alerting (infra / deploy responsibility)
+- **Platform health checks** — Kubernetes liveness/readiness, Docker healthchecks for app containers (not the telemetry collector)
 
 ---
 
@@ -69,6 +71,10 @@ flowchart TB
 | Voice / plugin / modality | — | Host cores & plugins |
 | Token usage, LLM latency | Trace correlation hook | Backend instrumentation |
 | Grafana dashboard template | Generic turn/phase panels | Host-specific panels optional |
+| Uptime / “app is up” | — | Infra, synthetics, backend `/health` endpoints |
+| Telemetry pipeline health | `sevo_exporter_errors_total`, policy drops | Collector uptime (LGTM / Alloy deploy) |
+
+> **Scope detail:** [architecture.md](./architecture.md#scope) · Hands for Bots plugin: [observability.md](../../../docs/en-us/plugins/observability.md#scope)
 
 ---
 
@@ -88,7 +94,7 @@ Production front-end and agent-UI observability expects:
 
 | Layer | Industry examples | Library coverage |
 |-------|-------------------|------------------|
-| **Infrastructure** | Load time, JS errors, telemetry health | Policy drops, exporter errors, init timing (host) |
+| **Infrastructure** | Load time, JS errors, service uptime | Partial: telemetry health (`sevo_exporter_errors_total`), optional Web Vitals; **not** endpoint uptime or K8s probes |
 | **Execution** | Stage latency breakdown | Turn + **PhaseModel** durations |
 | **Reliability** | Completion rate, errors, queue pressure | Turn completion/abandonment; state gauge from provider |
 | **Outcome** | Task success, user feedback | `record()` / exporter only — evals stay external |
