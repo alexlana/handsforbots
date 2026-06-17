@@ -1,5 +1,13 @@
-// Faro receiver for browser telemetry → Loki (inside otel-lgtm).
-// Browser sends to http://localhost:12347/collect
+// Hands for Bots example observability — Alloy config
+//
+// 1. Faro receiver → Loki (browser semantic events)
+// 2. Blackbox probes → OTLP → LGTM Prometheus (example app uptime)
+//
+// Probes reach the chatbot stack on the shared Docker network `handsforbots-example`
+// (see docker-compose.yml + docker-compose.observability.yml). Start the bot compose
+// before expecting chat/rasa probes to report UP.
+
+// ── Faro → Loki ─────────────────────────────────────────────────────────────
 
 faro.receiver "handsforbots" {
 	server {
@@ -20,5 +28,92 @@ faro.receiver "handsforbots" {
 loki.write "lgtm" {
 	endpoint {
 		url = "http://lgtm:3100/loki/api/v1/push"
+	}
+}
+
+// ── Uptime probes (example stack — not part of sevo_* lib) ────────────────────
+
+prometheus.exporter.blackbox "example_uptime" {
+	config_file = "/etc/alloy/blackbox_modules.yml"
+
+	target {
+		name    = "lgtm_grafana"
+		address = "http://lgtm:3000/api/health"
+		module  = "http_2xx"
+		labels = {
+			service = "grafana",
+			stack   = "observability",
+		}
+	}
+
+	target {
+		name    = "chat_ui"
+		address = "http://t4b-webserver/"
+		module  = "http_2xx"
+		labels = {
+			service = "chat",
+			stack   = "handsforbots-example",
+		}
+	}
+
+	target {
+		name    = "rasa"
+		address = "http://t4b-bot:5005/"
+		module  = "http_2xx"
+		labels = {
+			service = "rasa",
+			stack   = "handsforbots-example",
+		}
+	}
+
+	target {
+		name    = "rasa_actions"
+		address = "http://t4b-actions:5055/health"
+		module  = "http_2xx"
+		labels = {
+			service = "rasa-actions",
+			stack   = "handsforbots-example",
+		}
+	}
+
+	target {
+		name    = "duckling"
+		address = "t4b-duckling:8000"
+		module  = "tcp_connect"
+		labels = {
+			service = "duckling",
+			stack   = "handsforbots-example",
+		}
+	}
+}
+
+discovery.relabel "example_uptime" {
+	targets = prometheus.exporter.blackbox.example_uptime.targets
+
+	rule {
+		source_labels = ["__param_target"]
+		target_label  = "instance"
+	}
+}
+
+prometheus.scrape "example_uptime" {
+	targets         = discovery.relabel.example_uptime.output
+	scrape_interval = "30s"
+	forward_to      = [otelcol.receiver.prometheus.example_uptime.receiver]
+}
+
+otelcol.receiver.prometheus "example_uptime" {
+	output {
+		metrics = [otelcol.exporter.otlp.lgtm.input]
+	}
+}
+
+otelcol.exporter.otlp "lgtm" {
+	client {
+		endpoint = "lgtm:4317"
+		tls {
+			insecure             = true
+			insecure_skip_verify = true
+		}
 	}
 }

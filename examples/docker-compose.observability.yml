@@ -19,6 +19,8 @@
 #
 #   Dashboard (auto-provisioned):
 #     Hands for Bots → Semantic Event Observability
+#     Hands for Bots → Example uptime (blackbox probes)
+#     Hands for Bots → Example frontend (Web Vitals + Faro RUM)
 #
 # ── Basic example without Grafana ────────────────────────────────────────────
 #
@@ -44,6 +46,8 @@ services:
     volumes:
       - ./observability/grafana/provisioning/dashboards/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/handsforbots.yaml:ro
       - ../handsforbots/Libs/SemanticEventObservability/grafana/semantic-event-observability.lgtm.json:/otel-lgtm/grafana/conf/provisioning/dashboards/custom/semantic-event-observability.json:ro
+      - ./observability/grafana/example-uptime.lgtm.json:/otel-lgtm/grafana/conf/provisioning/dashboards/custom/example-uptime.json:ro
+      - ./observability/grafana/example-frontend.lgtm.json:/otel-lgtm/grafana/conf/provisioning/dashboards/custom/example-frontend.json:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:13133/ready || exit 1"]
       interval: 10s
@@ -59,8 +63,17 @@ services:
       - --server.http.listen-addr=0.0.0.0:12345
     ports:
       - "12347:12347"
+    networks:
+      - default
+      - t4bnet
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./observability/alloy/blackbox_modules.yml:/etc/alloy/blackbox_modules.yml:ro
     depends_on:
       lgtm:
         condition: service_healthy
+
+networks:
+  t4bnet:
+    external: true
+    name: handsforbots-example

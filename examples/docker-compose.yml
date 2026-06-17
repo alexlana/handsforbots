@@ -112,4 +112,4 @@ services:
 #   container_name: t4b-vosk
 #   networks: ['t4bnet']
 
-networks: { t4bnet: {} }
+networks: { t4bnet: { name: handsforbots-example } }

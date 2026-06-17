@@ -70,13 +70,16 @@ let observability_config = {
   environment: stackEnabled ? "development-lgtm" : "development",
   sampleRate: 1,
   exporters: stackEnabled
-    ? ["memory", "console", "devPanel", "faro", "otel"]
+    ? ["memory", "console", "devPanel", "faro", "otel", "webVitals"]
     : ["memory", "console", "devPanel"],
   exporterConfig: {
     console: { level: "debug" },
     devPanel: { enabled: false },
     faro: stack?.faro ? { client: stack.faro } : {},
     otel: stack ? { getTracer: stack.getTracer, getMeter: stack.getMeter, traceApi: stack.traceApi } : {},
+    webVitals: stackEnabled
+      ? { vitals: stack?.webVitals, labels: { environment: "development-lgtm" } }
+      : {},
   },
 };
 bot_settings.plugins.push(observability_config);

@@ -23,10 +23,11 @@ export async function maybeInitObservabilityStack() {
 			{ FetchInstrumentation },
 			{ ZoneContextManager },
 			{ SEMRESATTRS_SERVICE_NAME },
-			{ initializeFaro },
+			{ initializeFaro, getWebInstrumentations },
 			{ MeterProvider, PeriodicExportingMetricReader },
 			{ OTLPMetricExporter },
 			api,
+			webVitals,
 		] = await Promise.all([
 			import('@opentelemetry/sdk-trace-web'),
 			import('@opentelemetry/sdk-trace-base'),
@@ -40,6 +41,7 @@ export async function maybeInitObservabilityStack() {
 			import('@opentelemetry/sdk-metrics'),
 			import('@opentelemetry/exporter-metrics-otlp-http'),
 			import('@opentelemetry/api'),
+			import('web-vitals'),
 		])
 
 		const resource = new Resource({
@@ -84,6 +86,11 @@ export async function maybeInitObservabilityStack() {
 				name: serviceName,
 				environment: import.meta.env.VITE_OBSERVABILITY_ENV || 'development-lgtm',
 			},
+			instrumentations: [
+				...getWebInstrumentations({
+					captureConsole: false,
+				}),
+			],
 		})
 
 		console.log('[✔︎] Observability stack: OpenTelemetry traces →', otelEndpoint)
@@ -92,6 +99,7 @@ export async function maybeInitObservabilityStack() {
 
 		return {
 			faro,
+			webVitals,
 			traceApi: {
 				context: api.context,
 				trace: api.trace,
@@ -103,7 +111,7 @@ export async function maybeInitObservabilityStack() {
 			getMeter: (name, version) => meterProvider.getMeter(name || serviceName, version),
 		}
 	} catch (error) {
-		console.warn('[ℹ] Observability stack packages missing. Run npm install in examples/vite.', error)
+		console.warn('[ℹ] Observability stack failed to initialize. Run npm install in examples/vite.', error)
 		return null
 	}
 }

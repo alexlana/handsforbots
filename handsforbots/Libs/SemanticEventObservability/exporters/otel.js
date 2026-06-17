@@ -176,8 +176,7 @@ export function createOtelExporter(config = {}) {
 			description: 'Allowlisted custom metrics via recordMetric',
 		}))
 		histograms.set(SEVO_METRICS.WEB_VITAL, activeMeter.createHistogram(SEVO_METRICS.WEB_VITAL, {
-			description: 'Core Web Vitals measurements',
-			unit: 'ms',
+			description: 'Core Web Vitals measurements (milliseconds for LCP/FCP/TTFB/INP; unitless for CLS)',
 		}))
 		histograms.set(SEVO_METRICS.LISTENER_DURATION, activeMeter.createHistogram(SEVO_METRICS.LISTENER_DURATION, {
 			description: 'Instrumented bus listener duration (milliseconds)',
