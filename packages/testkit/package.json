@@ -1,7 +1,7 @@
 {
-  "name": "@handsforbots/transport-http",
+  "name": "@handsforbots/testkit",
   "version": "2.0.0-alpha.0",
-  "description": "Generic HTTP turn transport for Hands for Bots (sessions, SSE, tool calls) with UniversalLLM and OpenAI-compatible presets.",
+  "description": "Test helpers and a transport conformance suite for Hands for Bots plugins.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -24,10 +24,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@handsforbots/core": "workspace:^"
+    "@handsforbots/core": "workspace:^",
+    "vitest": ">=3"
   },
   "devDependencies": {
-    "@handsforbots/core": "workspace:^",
-    "@handsforbots/testkit": "workspace:^"
+    "@handsforbots/core": "workspace:^"
   }
 }

@@ -27,6 +27,7 @@
     "@handsforbots/core": "workspace:^"
   },
   "devDependencies": {
-    "@handsforbots/core": "workspace:^"
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/testkit": "workspace:^"
   }
 }

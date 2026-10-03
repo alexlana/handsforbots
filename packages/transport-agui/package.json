@@ -32,6 +32,7 @@
   "devDependencies": {
     "@ag-ui/client": "^1.0.1",
     "@ag-ui/encoder": "^1.0.1",
-    "@handsforbots/core": "workspace:^"
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/testkit": "workspace:^"
   }
 }
