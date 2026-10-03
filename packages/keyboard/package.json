@@ -1,0 +1,40 @@
+{
+  "name": "@handsforbots/keyboard",
+  "version": "2.0.0-alpha.0",
+  "description": "Keyboard shortcuts for Hands for Bots: push-to-talk, interrupt, command palette.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/voice": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/voice": "workspace:^",
+    "jsdom": "^27.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@handsforbots/voice": {
+      "optional": true
+    }
+  }
+}

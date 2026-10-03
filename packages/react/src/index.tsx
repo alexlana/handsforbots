@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -114,6 +115,19 @@ export function useH4BEvent<K extends keyof Events>(event: K, listener: (payload
   const h4b = useH4B()
   const latest = useLatest(listener)
   useEffect(() => h4b.on(event, (payload) => latest.current(payload)), [h4b, event])
+}
+
+/** Any store-like plugin service (e.g. `voice`): `getState()` + `subscribe()`. */
+export type ExternalStore<S> = { getState(): S; subscribe(listener: () => void): () => void }
+
+/**
+ * Subscribes to a plugin service with state, e.g.
+ * `const voice = useStore(useH4B().get('voice'))`. Returns undefined when the
+ * service is not installed.
+ */
+export function useStore<S>(store: ExternalStore<S> | undefined): S | undefined {
+  const subscribe = useCallback((onChange: () => void) => store?.subscribe(onChange) ?? (() => {}), [store])
+  return useSyncExternalStore(subscribe, () => store?.getState(), () => store?.getState())
 }
 
 /** Every stimulus as it arrives (UI effects, renders, deltas…). */
