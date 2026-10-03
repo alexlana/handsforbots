@@ -81,6 +81,9 @@ export class H4BChatElement extends BaseElement {
     input: HTMLInputElement
     mic: HTMLButtonElement
     speaker: HTMLButtonElement
+    attach: HTMLButtonElement
+    cam: HTMLButtonElement
+    camera: HTMLElement
   }
   private rendered = new Map<string, { message: Message; element: HTMLElement }>()
   private revealQueue: HTMLElement[] = []
@@ -108,10 +111,15 @@ export class H4BChatElement extends BaseElement {
       this.renderVoice()
     }
     watchVoice()
+    this.renderMedia()
+    const onService = ({ key }: { key: string }) => {
+      if (key === 'voice') watchVoice()
+      if (key === 'files' || key === 'camera') this.renderMedia()
+    }
     this.cleanups.push(
       () => unsubscribeVoice?.(),
-      h4b.on('service.provided', ({ key }) => key === ('voice' as never) && watchVoice()),
-      h4b.on('service.removed', ({ key }) => key === ('voice' as never) && watchVoice()),
+      h4b.on('service.provided', onService as never),
+      h4b.on('service.removed', onService as never),
     )
     this.render()
     this.greet()
@@ -163,9 +171,15 @@ export class H4BChatElement extends BaseElement {
         <div class="status" part="status" aria-live="polite"></div>
         <div class="chips" part="chips"></div>
         <div class="partial" part="partial" aria-live="polite"></div>
+        <div class="camera" part="camera" hidden>
+          <video playsinline muted></video>
+          <div><button type="button" class="cancel">${escapeHtml(s.cancel)}</button><button type="button" class="primary snap">${escapeHtml(s.capture)}</button></div>
+        </div>
         <form part="composer">
           <label class="sr-only" for="chat_input">${escapeHtml(s.placeholder)}</label>
           <input id="chat_input" autocomplete="off" placeholder="${escapeHtml(s.placeholder)}">
+          <button class="icon attach" type="button" hidden aria-label="${escapeHtml(s.attach)}" title="${escapeHtml(s.attach)}">📎</button>
+          <button class="icon cam" type="button" hidden aria-label="${escapeHtml(s.camera)}" title="${escapeHtml(s.camera)}">📷</button>
           <button id="speech_button" class="icon mic" type="button" hidden>🎤</button>
           <button class="icon speaker" type="button" hidden>🔈</button>
           <button type="submit">${escapeHtml(s.send)}</button>
@@ -185,6 +199,9 @@ export class H4BChatElement extends BaseElement {
       input: $('#chat_input'),
       mic: $('.mic'),
       speaker: $('.speaker'),
+      attach: $('.attach'),
+      cam: $('.cam'),
+      camera: $('.camera'),
     }
     const { launcher, form, input } = this.els
     const close = $<HTMLButtonElement>('.close')
@@ -209,6 +226,7 @@ export class H4BChatElement extends BaseElement {
       if (event.key === 'Escape' && this.dataset.alwaysOpen === undefined && !input.value) this.setOpen(false)
     })
     this.bindVoiceButtons()
+    this.bindMediaButtons()
 
     let open = this.dataset.alwaysOpen !== undefined || !!this.options.startOpen
     try {
@@ -458,6 +476,98 @@ export class H4BChatElement extends BaseElement {
   }
 
   /* ---------------------------------------------------------------------- */
+  /* Files and camera                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  private files(): FilesLike | undefined {
+    return this.h4b?.get('files' as never) as FilesLike | undefined
+  }
+
+  private camera(): CameraLike | undefined {
+    return this.h4b?.get('camera' as never) as CameraLike | undefined
+  }
+
+  private renderMedia() {
+    this.els.attach.hidden = !this.files()
+    this.els.cam.hidden = !this.camera()?.getState().supported
+  }
+
+  /** Text typed so far becomes the question about the image/file. */
+  private takePrompt(): string | undefined {
+    const text = this.els.input.value.trim()
+    this.els.input.value = ''
+    return text || undefined
+  }
+
+  private sendFiles(list: Iterable<File>) {
+    try {
+      this.files()?.attach(list, this.takePrompt())
+    } catch (error) {
+      this.showError((error as Error).message)
+    }
+  }
+
+  private showError(message: string) {
+    this.els.status.dataset.phase = 'error'
+    this.els.status.textContent = message
+  }
+
+  private bindMediaButtons() {
+    const { attach, cam, camera, input } = this.els
+    attach.addEventListener('click', () => {
+      const prompt = this.takePrompt()
+      void this.files()
+        ?.pick(prompt)
+        .catch((error: Error) => this.showError(error.message))
+    })
+    input.addEventListener('paste', (event) => {
+      const pasted = [...(event.clipboardData?.files ?? [])]
+      if (!pasted.length || !this.files()) return
+      event.preventDefault()
+      this.sendFiles(pasted)
+    })
+    const win = this.els.window
+    win.addEventListener('dragover', (event) => {
+      if (!this.files() || !event.dataTransfer?.types.includes('Files')) return
+      event.preventDefault()
+      win.classList.add('dragging')
+    })
+    win.addEventListener('dragleave', () => win.classList.remove('dragging'))
+    win.addEventListener('drop', (event) => {
+      win.classList.remove('dragging')
+      const dropped = [...(event.dataTransfer?.files ?? [])]
+      if (!dropped.length || !this.files()) return
+      event.preventDefault()
+      this.sendFiles(dropped)
+    })
+
+    const video = camera.querySelector('video')!
+    const closeCamera = () => {
+      camera.hidden = true
+      this.camera()?.close()
+    }
+    cam.addEventListener('click', async () => {
+      if (!camera.hidden) return closeCamera()
+      camera.hidden = false
+      try {
+        await this.camera()?.open(video)
+      } catch (error) {
+        camera.hidden = true
+        this.showError((error as Error).message)
+      }
+    })
+    camera.querySelector('.cancel')!.addEventListener('click', closeCamera)
+    camera.querySelector('.snap')!.addEventListener('click', async () => {
+      try {
+        await this.camera()?.capture(this.takePrompt())
+      } catch (error) {
+        this.showError((error as Error).message)
+      }
+      closeCamera()
+    })
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* Voice                                                                  */
   /* ---------------------------------------------------------------------- */
 
@@ -527,6 +637,18 @@ type VoiceLike = {
   toggle(): Promise<void>
   setOutput(output: 'auto' | 'voice' | 'text'): void
   cancelSpeech(): void
+}
+
+type FilesLike = {
+  pick(prompt?: string): Promise<unknown>
+  attach(files: Iterable<File>, prompt?: string): unknown
+}
+
+type CameraLike = {
+  getState(): { supported: boolean }
+  open(video?: HTMLVideoElement): Promise<unknown>
+  close(): void
+  capture(prompt?: string): Promise<unknown>
 }
 
 type MenuLike = {

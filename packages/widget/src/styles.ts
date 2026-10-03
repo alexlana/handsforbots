@@ -139,6 +139,13 @@ form button:hover { background: var(--h4b-primary-hover); }
 form button.icon { background: var(--h4b-soft); color: var(--h4b-primary); width: 38px; height: 38px; padding: 0; }
 form button.icon[aria-pressed='true'] { background: var(--h4b-primary); color: white; }
 form button[hidden] { display: none; }
+.camera { padding: 8px 12px 0; display: grid; gap: 6px; }
+.camera[hidden] { display: none; }
+.camera video { width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; background: #000; }
+.camera div { display: flex; gap: 6px; justify-content: flex-end; }
+.camera button { border: 1px solid var(--h4b-primary); border-radius: 99px; padding: 6px 12px; background: transparent; color: var(--h4b-primary); }
+.camera button.primary { background: var(--h4b-primary); color: white; }
+.window.dragging { outline: 3px dashed var(--h4b-primary); outline-offset: -6px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .log { scroll-behavior: auto; } .msg.streaming::after { animation: none; } }
 `

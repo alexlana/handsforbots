@@ -198,3 +198,40 @@ describe('<h4b-chat>', () => {
     expect(voice.setOutput).toHaveBeenCalledWith('text')
   })
 })
+
+describe('<h4b-chat> media', () => {
+  it('attaches pasted files with the typed text as the question', async () => {
+    const attach = vi.fn()
+    const h4b = createH4B({ plugins: [widget({ startOpen: true })] })
+    await h4b.start()
+    const root = document.querySelector('h4b-chat')!.shadowRoot!
+    expect((root.querySelector('.attach') as HTMLElement).hidden).toBe(true)
+    h4b.provide('files' as never, { attach, pick: vi.fn() } as never)
+    expect((root.querySelector('.attach') as HTMLElement).hidden).toBe(false)
+    const input = root.querySelector('#chat_input') as HTMLInputElement
+    input.value = 'o que é isto?'
+    const file = new File(['x'], 'a.png', { type: 'image/png' })
+    const paste = new Event('paste', { cancelable: true }) as any
+    paste.clipboardData = { files: [file] }
+    input.dispatchEvent(paste)
+    expect(attach).toHaveBeenCalledWith([file], 'o que é isto?')
+    expect(input.value).toBe('')
+  })
+
+  it('opens a camera preview and captures', async () => {
+    const camera = { getState: () => ({ supported: true }), open: vi.fn(async () => {}), close: vi.fn(), capture: vi.fn(async () => {}) }
+    const h4b = createH4B({ plugins: [widget({ startOpen: true })] })
+    h4b.provide('camera' as never, camera as never)
+    await h4b.start()
+    const root = document.querySelector('h4b-chat')!.shadowRoot!
+    ;(root.querySelector('.cam') as HTMLButtonElement).click()
+    await tick()
+    expect((root.querySelector('.camera') as HTMLElement).hidden).toBe(false)
+    expect(camera.open).toHaveBeenCalledWith(root.querySelector('.camera video'))
+    ;(root.querySelector('.snap') as HTMLButtonElement).click()
+    await tick()
+    expect(camera.capture).toHaveBeenCalled()
+    expect(camera.close).toHaveBeenCalled()
+    expect((root.querySelector('.camera') as HTMLElement).hidden).toBe(true)
+  })
+})

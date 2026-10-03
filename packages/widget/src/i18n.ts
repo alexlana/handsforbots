@@ -20,6 +20,10 @@ export type Strings = {
   voiceOn: string
   voiceOff: string
   disclaimer: string
+  attach: string
+  camera: string
+  capture: string
+  cancel: string
 }
 
 const pt: Strings = {
@@ -44,6 +48,10 @@ const pt: Strings = {
   voiceOn: 'Respostas faladas',
   voiceOff: 'Respostas só em texto',
   disclaimer: 'Isenção de responsabilidade',
+  attach: 'Anexar arquivo',
+  camera: 'Câmera',
+  capture: 'Capturar',
+  cancel: 'Cancelar',
 }
 
 export const STRINGS: Record<string, Strings> = {
@@ -69,6 +77,10 @@ export const STRINGS: Record<string, Strings> = {
     voiceOn: 'Spoken answers',
     voiceOff: 'Text-only answers',
     disclaimer: 'Disclaimer',
+    attach: 'Attach file',
+    camera: 'Camera',
+    capture: 'Capture',
+    cancel: 'Cancel',
   },
   pt,
   'pt-br': pt,
