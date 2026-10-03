@@ -376,7 +376,7 @@ Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com sub
 
 ---
 
-## 3. Estado da implementação (branch `v2`, 2026-10-03)
+## 3. Estado da implementação (branch `v2`, 2026-10-03, fim do dia)
 
 | Fase | Entregue | Pendente |
 |------|----------|----------|
@@ -384,8 +384,8 @@ Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com sub
 | 1 | Monorepo TS (pnpm, TS 7, vitest); `core` (plugins, Sinal/Estímulo, router, ações, interceptadores, captura seletiva, `ask`/`push`/`runAction`, conteúdo rico); `transport-agui` (SSE próprio); `react`; `testkit` com suíte de conformidade de transportes | — |
 | 2 | `voice` (Web Speech, HTTP, WebSocket, Vosk remoto, Vosk WASM offline; push-to-talk, mãos-livres, saída segue entrada, barge-in); `keyboard` | Provedor de nuvem de referência (adapter genérico pronto) |
 | 3 | `menu` (explícito, padrão, fuzzy); `copilotkit` (modo A); estados unificados com duração mínima no `widget`; latência percebida por rota (`h4b_first_response_ms`) no `observability`; mensagens na fila visíveis; ponte CopilotKit validada contra o runtime real (agente self-managed) | Validar com um runtime CopilotKit remoto (CopilotRuntime) |
-| 4 | `expose-webmcp`; `mcp-apps` (host de `ui://` em iframe com sandbox, validado no Chrome); `inputs` (câmera com foto e quadros de vídeo, arquivos, eventos da GUI, sensores); `ui.render` persistido + renderizadores no widget | Transporte `realtime` |
-| 5 | `transport-rasa`, `transport-http` (genérico + UniversalLLM + compatível com OpenAI/Ollama), `transport-ai-sdk` (validado contra o `streamText` real), `assistant-ui` (runtime real), `widget`, `guided` (tours, destaques, `show_section`, `image_gallery`), `storage-local`, `tab-sync`, `observability`; exemplo Rasa na v2; **v1 removida**; documentação v2 (en-us / pt-br). Substituibilidade provada: AG-UI ↔ AI SDK ↔ Rasa ↔ HTTP passam na mesma suíte; CopilotKit ↔ assistant-ui ↔ widget como superfícies | Validar o exemplo Rasa no Docker |
+| 4 | `expose-webmcp`; `mcp-apps` (host de `ui://` em iframe com sandbox, validado no Chrome); `inputs` (câmera com foto e quadros de vídeo, arquivos, eventos da GUI, sensores); `ui.render` persistido + renderizadores no widget | Transporte `realtime` (fala-a-fala via WebRTC): é baseado em sessão, precisa coordenar com o plugin `voice` e devolver resultados de ações pelo data channel; fica para quando houver um provedor e uma chave para validar |
+| 5 | `transport-rasa`, `transport-http` (genérico + UniversalLLM + compatível com OpenAI/Ollama), `transport-ai-sdk` (validado contra o `streamText` real), `assistant-ui` (runtime real), `widget`, `guided` (tours, destaques, `show_section`, `image_gallery`), `storage-local`, `tab-sync`, `observability`; exemplo Rasa na v2; **v1 removida**; documentação v2 (en-us / pt-br). Substituibilidade provada: AG-UI ↔ AI SDK ↔ Rasa ↔ HTTP passam na mesma suíte; CopilotKit ↔ assistant-ui ↔ widget como superfícies; exemplo Rasa validado no Docker com o Rasa real | — |
 
 Exemplos da v2: [examples/react-agui](./examples/react-agui/README.md) e [examples/vite](./examples/README.md) (Rasa), ambos validados em Chrome headless (o Rasa simulado por interceptação de rede).
 
