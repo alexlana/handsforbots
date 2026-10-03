@@ -243,6 +243,11 @@ export type Matcher = {
 
 export type CaptureHandler = (signal: Signal) => void | Promise<void>
 
+export type CaptureOptions = {
+  /** Only capture signals this returns true for; others follow the normal route. */
+  accepts?: (signal: Signal) => boolean | Promise<boolean>
+}
+
 /* -------------------------------------------------------------------------- */
 /* Storage                                                                    */
 /* -------------------------------------------------------------------------- */

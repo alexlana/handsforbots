@@ -1,0 +1,36 @@
+{
+  "name": "@handsforbots/guided",
+  "version": "2.0.0-alpha.0",
+  "description": "Guided tours and on-screen highlights that assistants, agents and users can trigger (successor of v1 GUIDed).",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "jsdom": "^27.0.0"
+  },
+  "dependencies": {
+    "@handsforbots/menu": "workspace:^"
+  }
+}

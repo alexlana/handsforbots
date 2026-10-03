@@ -1,7 +1,7 @@
 import type { H4B } from './kernel.js'
 import type { StandardSchemaV1 } from './standard-schema.js'
 import type { Events, Hooks, Interceptor, Services } from './registry.js'
-import type { ActionDefinition, CaptureHandler, Matcher, Signal, SignalInput } from './types.js'
+import type { ActionDefinition, CaptureHandler, CaptureOptions, Matcher, Signal, SignalInput } from './types.js'
 
 export const API_VERSION = 2
 
@@ -89,8 +89,8 @@ export class PluginContext {
   }
 
   /** Routes every trigger signal to `handler` (bypassing menu and transport) until released. */
-  capture(handler: CaptureHandler): () => void {
-    return this.track(this.app.capture(handler))
+  capture(handler: CaptureHandler, options?: CaptureOptions): () => void {
+    return this.track(this.app.capture(handler, options))
   }
 
   signal(input: SignalInput): Signal {

@@ -19,6 +19,7 @@ import type {
   AssistantMessage,
   Origin,
   CaptureHandler,
+  CaptureOptions,
   Match,
   Matcher,
   Message,
@@ -84,7 +85,7 @@ export class H4B {
   private mounted = new Map<Plugin<any>, { ctx: PluginContext; inject: (keyof Services)[] }>()
   private interceptors = new Map<keyof Hooks, { fn: Interceptor<any>; priority: number }[]>()
   private matchers: Matcher[] = []
-  private captures: CaptureHandler[] = []
+  private captures: { handler: CaptureHandler; accepts?: CaptureOptions['accepts'] }[] = []
   private contextSignals = new Map<string, Signal>()
   private queue: Job[] = []
   private running = false
@@ -462,11 +463,27 @@ export class H4B {
     }
   }
 
-  capture(handler: CaptureHandler): () => void {
-    this.captures = [...this.captures, handler]
+  /**
+   * Routes trigger signals to `handler` (bypassing menu and transport) until
+   * released. The most recent capture wins; `accepts` lets it take only some.
+   */
+  capture(handler: CaptureHandler, options: CaptureOptions = {}): () => void {
+    const entry = { handler, accepts: options.accepts }
+    this.captures = [...this.captures, entry]
     return () => {
-      this.captures = this.captures.filter((h) => h !== handler)
+      this.captures = this.captures.filter((c) => c !== entry)
     }
+  }
+
+  private async findCapture(signal: Signal): Promise<CaptureHandler | undefined> {
+    for (const entry of [...this.captures].reverse()) {
+      try {
+        if (!entry.accepts || (await entry.accepts(signal))) return entry.handler
+      } catch (error) {
+        this.emit('error', { error, source: 'capture.accepts' })
+      }
+    }
+    return undefined
   }
 
   /** Cancels the running turn (e.g. barge-in). */
@@ -533,7 +550,7 @@ export class H4B {
       }
       signal = { ...accepted, id: incoming.id }
 
-      const capture = this.captures[this.captures.length - 1]
+      const capture = await this.findCapture(signal)
       const match = capture ? undefined : await this.findMatch(signal)
       route = capture ? 'capture' : match ? 'direct' : 'transport'
       this.appendUser(signal, route)

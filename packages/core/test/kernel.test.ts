@@ -425,3 +425,15 @@ describe('events', () => {
     expect(onError).toHaveBeenCalled()
   })
 })
+
+describe('selective capture', () => {
+  it('captures only accepted signals; others follow the normal route', async () => {
+    const transport = scripted([[]])
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    const captured: string[] = []
+    h4b.capture((s) => void captured.push(textOf(s.parts)), { accepts: async (s) => textOf(s.parts) === 'próximo' })
+    expect((await h4b.ask('próximo')).status.route).toBe('capture')
+    expect((await h4b.ask('o que é isso?')).status.route).toBe('transport')
+    expect(captured).toEqual(['próximo'])
+  })
+})
