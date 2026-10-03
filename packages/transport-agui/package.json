@@ -1,0 +1,35 @@
+{
+  "name": "@handsforbots/transport-agui",
+  "version": "2.0.0-alpha.0",
+  "description": "AG-UI transport for Hands for Bots.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "dependencies": {
+    "@ag-ui/client": "^1.0.1",
+    "@ag-ui/core": "^1.0.1"
+  },
+  "devDependencies": {
+    "@ag-ui/encoder": "^1.0.1",
+    "@handsforbots/core": "workspace:^"
+  }
+}
