@@ -188,3 +188,42 @@ describe('transport over HTTP (HttpAgent + SSE)', () => {
     expect(textOf(h4b.messages.at(-1)!)).toBe('Olá do servidor')
   })
 })
+
+describe('interop with @ag-ui/client', () => {
+  let server: Server | undefined
+  afterEach(() => server?.close())
+
+  it('accepts the official HttpAgent as an injected agent', async () => {
+    const { HttpAgent } = await import('@ag-ui/client')
+    server = createServer(async (req, res) => {
+      for await (const _ of req) void _
+      const encoder = new EventEncoder({ accept: req.headers.accept })
+      res.writeHead(200, { 'Content-Type': encoder.getContentType() })
+      res.write(encoder.encode(ev(EventType.RUN_STARTED, { threadId: 't', runId: 'r' })))
+      res.write(encoder.encode(ev(EventType.TEXT_MESSAGE_CHUNK, { messageId: 'm', delta: 'via HttpAgent' })))
+      res.write(encoder.encode(ev(EventType.RUN_FINISHED, { threadId: 't', runId: 'r' })))
+      res.end()
+    })
+    await new Promise<void>((resolve) => server!.listen(0, resolve))
+    const { port } = server.address() as AddressInfo
+    const url = `http://127.0.0.1:${port}/agent`
+    const h4b = await createH4B({ plugins: [agui({ agent: () => new HttpAgent({ url }) })] }).start()
+    const result = await h4b.ask('oi')
+    expect(textOf(result.messages.at(-1)!)).toBe('via HttpAgent')
+  })
+
+  it('reports HTTP errors from the endpoint', async () => {
+    server = createServer((_req, res) => {
+      res.writeHead(503)
+      res.end()
+    })
+    await new Promise<void>((resolve) => server!.listen(0, resolve))
+    const { port } = server.address() as AddressInfo
+    const h4b = await createH4B({
+      plugins: [agui({ url: `http://127.0.0.1:${port}/agent` })],
+      onError: () => {},
+    }).start()
+    const result = await h4b.ask('oi')
+    expect(result.status).toMatchObject({ phase: 'error', error: expect.stringContaining('503') })
+  })
+})

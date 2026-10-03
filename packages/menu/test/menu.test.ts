@@ -60,8 +60,9 @@ describe('matchers', () => {
   })
 
   it('explicit: command signals from buttons or palettes', () => {
-    const signal = { ...createMenu().api.commandSignal('filter_orders', { status: 'x' }), id: 's', timestamp: 0 }
+    const signal = { ...createMenu().api.commandSignal('filter_orders', { status: 'x' }, 'Filtrar X'), id: 's', timestamp: 0 }
     expect(matchExplicit(signal)).toMatchObject({ action: 'filter_orders', args: { status: 'x' } })
+    expect(textOf(signal.parts)).toBe('Filtrar X')
   })
 
   it('pattern: templates are case/accent-insensitive; RegExps use named groups', () => {

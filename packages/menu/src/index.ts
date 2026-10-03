@@ -42,8 +42,11 @@ export type MenuService = {
   list(): Command[]
   /** Ranked commands for what the user is typing or saying (palettes, autocomplete). */
   suggest(text: string, limit?: number): Suggestion[]
-  /** Builds a signal that runs a command explicitly (buttons, palette, quick replies). */
-  commandSignal(action: string, args?: unknown): Omit<Signal, 'id' | 'timestamp'>
+  /**
+   * Builds a signal that runs a command explicitly (buttons, palette, quick
+   * replies). The label is kept as text so history reads naturally.
+   */
+  commandSignal(action: string, args?: unknown, label?: string): Omit<Signal, 'id' | 'timestamp'>
 }
 
 declare module '@handsforbots/core' {
@@ -178,11 +181,14 @@ export function createMenu(options: MenuOptions = {}) {
       }
       return scored.sort((a, b) => b.score - a.score).slice(0, limit)
     },
-    commandSignal: (action, args) => ({
+    commandSignal: (action, args, label) => ({
       kind: 'trigger',
       modality: 'command',
       source: 'menu',
-      parts: [{ type: 'data', name: 'command', value: { action, args } }],
+      parts: [
+        ...(label ? [{ type: 'text' as const, text: label }] : []),
+        { type: 'data', name: 'command', value: { action, args } },
+      ],
     }),
   }
 

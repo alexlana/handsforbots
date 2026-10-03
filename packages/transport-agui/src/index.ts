@@ -1,11 +1,9 @@
-import { HttpAgent } from '@ag-ui/client'
-import {
-  EventType,
-  type BaseEvent,
-  type ContentPart,
-  type Context as AguiContext,
-  type Message as AguiMessage,
-  type RunAgentInput,
+import type {
+  BaseEvent,
+  ContentPart,
+  Context as AguiContext,
+  Message as AguiMessage,
+  RunAgentInput,
 } from '@ag-ui/core'
 import {
   createId,
@@ -31,13 +29,14 @@ export type AguiRunner = {
 }
 
 export type AguiTransportOptions = {
-  /** AG-UI endpoint. Ignored when `agent` is given. */
+  /** AG-UI endpoint (HTTP POST + SSE). Ignored when `agent` is given. */
   url?: string
   /** Static headers or a function (e.g. to refresh an auth token per run). */
   headers?: Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>)
-  /** Use a custom AG-UI agent instead of HttpAgent. */
+  /** Any AG-UI agent, e.g. `new HttpAgent(...)` from @ag-ui/client or an in-process agent. */
   agent?: AguiRunner | (() => AguiRunner)
   forwardedProps?: unknown
+  fetch?: typeof fetch
 }
 
 /**
@@ -60,24 +59,72 @@ export const agui = definePlugin<AguiTransportOptions>({
 export function createAguiTransport(options: AguiTransportOptions): Transport {
   if (!options.agent && !options.url) throw new Error('[h4b] transport-agui needs `url` or `agent`')
 
-  const resolveAgent = async (): Promise<AguiRunner & { abortRun?: () => void }> => {
-    if (options.agent) return typeof options.agent === 'function' ? options.agent() : options.agent
-    const headers = typeof options.headers === 'function' ? await options.headers() : options.headers
-    return new HttpAgent({ url: options.url!, headers: headers ?? {} })
-  }
-
   return {
     name: 'agui',
     capabilities: { streaming: true, tools: true, media: ['image/*', 'audio/*', 'video/*', 'application/pdf'] },
     async *run(request, signal) {
-      const agent = await resolveAgent()
       const input = await toAguiInput(request, options.forwardedProps)
       const mapper = createEventMapper()
-      for await (const event of iterate(agent.run(input), signal, () => agent.abortRun?.())) {
-        yield* mapper(event)
+      let events: AsyncIterable<BaseEvent>
+      if (options.agent) {
+        const agent: AguiRunner & { abortRun?: () => void } =
+          typeof options.agent === 'function' ? options.agent() : options.agent
+        events = iterate(agent.run(input), signal, () => agent.abortRun?.())
+      } else {
+        const headers = typeof options.headers === 'function' ? await options.headers() : options.headers
+        events = postSSE(options.url!, input, headers ?? {}, signal, options.fetch ?? globalThis.fetch)
       }
+      for await (const event of events) yield* mapper(event)
     },
   }
+}
+
+/** POSTs a RunAgentInput and yields the AG-UI events of the SSE response. */
+export async function* postSSE(
+  url: string,
+  input: RunAgentInput,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+  fetchFn: typeof fetch = globalThis.fetch,
+): AsyncGenerator<BaseEvent> {
+  const response = await fetchFn(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...headers },
+    body: JSON.stringify(input),
+    signal,
+  })
+  if (!response.ok || !response.body) {
+    throw new Error(`AG-UI endpoint responded ${response.status} ${response.statusText}`.trim())
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += value
+      let boundary: number
+      while ((boundary = buffer.search(/\r?\n\r?\n/)) >= 0) {
+        const block = buffer.slice(0, boundary)
+        buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, '')
+        const event = parseSSEBlock(block)
+        if (event) yield event
+      }
+    }
+    const event = parseSSEBlock(buffer)
+    if (event) yield event
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function parseSSEBlock(block: string): BaseEvent | undefined {
+  const data = block
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).replace(/^ /, ''))
+    .join('\n')
+  return data ? (JSON.parse(data) as BaseEvent) : undefined
 }
 
 /* -------------------------------------------------------------------------- */
@@ -217,16 +264,16 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
 
   return (raw) => {
     const event = raw as any
-    switch (raw.type) {
-      case EventType.TEXT_MESSAGE_START:
+    switch (raw.type as string) {
+      case 'TEXT_MESSAGE_START':
         openMessages.add(event.messageId)
         return [{ type: 'message.start', messageId: event.messageId }]
-      case EventType.TEXT_MESSAGE_CONTENT:
+      case 'TEXT_MESSAGE_CONTENT':
         return [{ type: 'message.delta', messageId: event.messageId, delta: event.delta }]
-      case EventType.TEXT_MESSAGE_END:
+      case 'TEXT_MESSAGE_END':
         openMessages.delete(event.messageId)
         return [{ type: 'message.end', messageId: event.messageId }]
-      case EventType.TEXT_MESSAGE_CHUNK: {
+      case 'TEXT_MESSAGE_CHUNK': {
         const messageId: string = event.messageId ?? lastChunkMessage ?? createId('msg')
         const out: Stimulus[] = []
         if (!openMessages.has(messageId)) {
@@ -237,17 +284,17 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
         if (event.delta) out.push({ type: 'message.delta', messageId, delta: event.delta })
         return out
       }
-      case EventType.TOOL_CALL_START:
+      case 'TOOL_CALL_START':
         calls.set(event.toolCallId, { name: event.toolCallName, args: '', parentMessageId: event.parentMessageId })
         return []
-      case EventType.TOOL_CALL_ARGS: {
+      case 'TOOL_CALL_ARGS': {
         const call = calls.get(event.toolCallId)
         if (call) call.args += event.delta
         return []
       }
-      case EventType.TOOL_CALL_END:
+      case 'TOOL_CALL_END':
         return finishCall(event.toolCallId)
-      case EventType.TOOL_CALL_CHUNK: {
+      case 'TOOL_CALL_CHUNK': {
         const id: string = event.toolCallId ?? lastChunkCall
         if (!id) return []
         const out: Stimulus[] = []
@@ -259,7 +306,7 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
         lastChunkCall = id
         return out
       }
-      case EventType.TOOL_CALL_RESULT: {
+      case 'TOOL_CALL_RESULT': {
         let result: unknown = event.content
         if (typeof result === 'string') {
           try {
@@ -270,11 +317,11 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
         }
         return [{ type: 'action.result', callId: event.toolCallId, result }]
       }
-      case EventType.STATE_SNAPSHOT:
+      case 'STATE_SNAPSHOT':
         return [{ type: 'state.snapshot', state: event.snapshot }]
-      case EventType.STATE_DELTA:
+      case 'STATE_DELTA':
         return [{ type: 'state.patch', patch: event.delta }]
-      case EventType.CUSTOM:
+      case 'CUSTOM':
         if (event.name === CUSTOM_EVENTS.uiEffect) {
           return [{ type: 'ui.effect', name: event.value?.name, value: event.value?.value }]
         }
@@ -282,9 +329,9 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
           return [{ type: 'ui.render', component: event.value?.component, props: event.value?.props, slot: event.value?.slot }]
         }
         return [{ type: 'custom', name: event.name, value: event.value }]
-      case EventType.RUN_ERROR:
+      case 'RUN_ERROR':
         return [{ type: 'error', message: event.message, code: event.code }]
-      case EventType.RUN_FINISHED: {
+      case 'RUN_FINISHED': {
         // Flush chunked calls/messages that never got an explicit end.
         const out: Stimulus[] = []
         for (const id of [...calls.keys()]) out.push(...finishCall(id))
@@ -292,7 +339,7 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
         openMessages.clear()
         return out
       }
-      case EventType.RUN_STARTED:
+      case 'RUN_STARTED':
         return []
       default:
         return [{ type: 'custom', name: `agui.${raw.type}`, value: raw }]

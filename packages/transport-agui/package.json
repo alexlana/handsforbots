@@ -16,7 +16,9 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -25,10 +27,10 @@
     "@handsforbots/core": "workspace:^"
   },
   "dependencies": {
-    "@ag-ui/client": "^1.0.1",
     "@ag-ui/core": "^1.0.1"
   },
   "devDependencies": {
+    "@ag-ui/client": "^1.0.1",
     "@ag-ui/encoder": "^1.0.1",
     "@handsforbots/core": "workspace:^"
   }

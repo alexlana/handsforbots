@@ -2,6 +2,14 @@
 
 Runnable demos for the library. All commands below assume you are in this directory (`examples/`).
 
+## v2 examples
+
+| Example | What | Run |
+|---------|------|-----|
+| [react-agui](./react-agui/README.md) | React dashboard where the assistant acts on the GUI via AG-UI, plus direct menu commands | `pnpm --filter @handsforbots/example-react-agui dev` (from the repo root) |
+
+The sections below cover the **v1** examples (Rasa + Docker), kept until they are migrated to v2.
+
 ## Prerequisites
 
 - Docker and Docker Compose
