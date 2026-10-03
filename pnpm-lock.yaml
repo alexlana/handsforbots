@@ -226,6 +226,12 @@ importers:
         specifier: workspace:^
         version: link:../core
 
+  packages/transport-http:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+
   packages/transport-rasa:
     devDependencies:
       '@handsforbots/core':
