@@ -23,6 +23,12 @@ importers:
 
   packages/core: {}
 
+  packages/menu:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+
   packages/react:
     devDependencies:
       '@handsforbots/core':

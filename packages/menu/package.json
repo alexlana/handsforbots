@@ -1,0 +1,32 @@
+{
+  "name": "@handsforbots/menu",
+  "version": "2.0.0-alpha.0",
+  "description": "Direct commands (no LLM) for Hands for Bots: slash, patterns and fuzzy phrases.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^"
+  }
+}

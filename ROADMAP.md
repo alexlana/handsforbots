@@ -251,7 +251,8 @@ Todo sinal `trigger` passa pelo router nesta ordem:
 |---------|---------|-------|
 | Explícito | `/pedidos março`, botão, quick reply, paleta (Ctrl+K) | Zero ambiguidade |
 | Padrão / gramática | Regex ou gramática por idioma: "mostrar pedidos de {mês}" | Determinístico |
-| Semântico local (opcional) | Embeddings pequenos no navegador, com limiar de confiança | Probabilístico; abaixo do limiar vai ao LLM |
+| Fuzzy léxico | Frases curtas por idioma, tolerando erros de digitação e de transcrição ("porximo" → "próximo"). Evolução do Fuse.js usado no GUIDed da v1 | Determinístico, com score; frases longas vão ao LLM |
+| Semântico local (opcional) | Embeddings pequenos no navegador, para paráfrases ("me mostra o que falta pagar"), com limiar de confiança | Probabilístico; abaixo do limiar vai ao LLM |
 
 Um comando do menu sempre aciona uma **ação do registro**. A mesma ação pode ser chamada pelo LLM (tool call), por um agente do navegador (WebMCP) ou pelo usuário (menu): **uma ação, três gatilhos**.
 
