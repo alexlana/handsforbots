@@ -22,4 +22,4 @@ v2 is a rewrite: there is no compatibility layer. Configuration moves from `new 
 | `BroadcastChannel` tab sync | `tabSync()` |
 | `quick_start`, `presentation`, `disclaimer` | Plugin lists; `widget({ greeting, disclaimer })` |
 | `core.*` events | `on('turn.status' \| 'signal' \| 'stimulus' \| 'action.invoked' …)` and interceptors |
-| In-browser Vosk (WASM) | Not ported yet (roadmap) |
+| In-browser Vosk (WASM) | `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser') })` |

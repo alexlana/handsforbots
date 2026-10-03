@@ -22,4 +22,4 @@ A v2 é uma reescrita: não há camada de compatibilidade. A configuração sai 
 | Sincronização entre abas por `BroadcastChannel` | `tabSync()` |
 | `quick_start`, `presentation`, `disclaimer` | Listas de plugins; `widget({ greeting, disclaimer })` |
 | Eventos `core.*` | `on('turn.status' \| 'signal' \| 'stimulus' \| 'action.invoked' …)` e interceptadores |
-| Vosk no navegador (WASM) | Ainda não portado (roadmap) |
+| Vosk no navegador (WASM) | `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser') })` |

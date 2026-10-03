@@ -121,6 +121,7 @@ Inside both `<CopilotKitProvider>` and `<H4BProvider>`: `useCopilotKitBridge({ a
 | `httpSTT({ url, headers?, parse?, silenceMs? })`, `httpTTS({ url })` | Your backend proxies any cloud provider (keys stay server-side); simple voice activity detection for hands-free |
 | `websocketSTT({ url, sampleRate?, onOpen?, parse, finish? })` | Streams 16-bit PCM; `url` can be a function that fetches a short-lived token |
 | `voskSTT({ url })` | Self-hosted Vosk server |
+| `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser'), grammar? })` | Offline, in the browser (WebAssembly); the model downloads once, then no audio leaves the device. `preload()` warms it up |
 
 Service: `listen()`, `stop()`, `toggle()`, `setMode()`, `setOutput()`, `speak()`, `cancelSpeech()`, `getState()` (`listening`, `speaking`, `partial`, `lastInput`, `error`…), `subscribe()`.
 

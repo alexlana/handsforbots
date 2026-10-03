@@ -110,3 +110,24 @@ export function detectEndOfSpeech(
     void context.close()
   }
 }
+
+/** Streams microphone audio as Float32 frames at the AudioContext rate (for in-browser recognizers). */
+export async function captureFloat(
+  stream: MediaStream,
+  onFrame: (frame: Float32Array, sampleRate: number) => void,
+): Promise<() => Promise<void>> {
+  const context = new AudioContext()
+  const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }))
+  await context.audioWorklet.addModule(url)
+  URL.revokeObjectURL(url)
+  const source = context.createMediaStreamSource(stream)
+  const node = new AudioWorkletNode(context, 'h4b-pcm')
+  node.port.onmessage = (event: MessageEvent<Float32Array>) => onFrame(event.data, context.sampleRate)
+  source.connect(node)
+  return async () => {
+    node.port.onmessage = null
+    source.disconnect()
+    node.disconnect()
+    await context.close()
+  }
+}
