@@ -1,0 +1,45 @@
+{
+  "name": "@handsforbots/copilotkit",
+  "version": "2.0.0-alpha.0",
+  "description": "CopilotKit bridge for Hands for Bots: actions as frontend tools, context, and voice/menu/sensor input through the CopilotKit agent.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@copilotkit/react-core": ">=1.77",
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/react": "workspace:^",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@copilotkit/react-core": "^1.77.0",
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/react": "workspace:^",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.1.0",
+    "jsdom": "^27.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "dependencies": {
+    "@handsforbots/transport-agui": "workspace:^"
+  }
+}
