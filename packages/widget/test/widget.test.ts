@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createH4B, type Transport, type TurnRequest } from '@handsforbots/core'
+import { createH4B, textOf, type Transport, type TurnRequest } from '@handsforbots/core'
 import { menu } from '@handsforbots/menu'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderMarkdown, widget, type H4BChatElement } from '../src/index.js'
@@ -275,5 +275,32 @@ describe('<h4b-chat> rich parts are stable', () => {
     expect(created).toHaveBeenCalledOnce()
     expect(bubble.querySelectorAll('section')).toHaveLength(1)
     expect(bubble.querySelector('.text')!.textContent).toBe('um dois')
+  })
+})
+
+
+describe('<h4b-chat> queued messages', () => {
+  it('shows messages sent during a running turn right away, dimmed', async () => {
+    let release!: () => void
+    const transport: any = {
+      name: 'slow',
+      async *run() {
+        await new Promise<void>((r) => (release = r))
+        yield { type: 'message.delta', messageId: `m${Math.random()}`, delta: 'ok' }
+      },
+    }
+    const { h4b, $, $$ } = await mount({ startOpen: true }, transport)
+    type($('#chat_input'), 'primeira')
+    await tick(5)
+    type($('#chat_input'), 'segunda')
+    await tick(5)
+    expect($$('.msg.queued').map((e) => e.textContent)).toEqual(['segunda'])
+    release()
+    await tick(10)
+    release()
+    await h4b.when('turn.status', (s) => s.phase === 'done' && textOf(s.signal!.parts) === 'segunda')
+    await tick()
+    expect($$('.msg.queued')).toHaveLength(0)
+    expect($$('.msg.user').map((e) => e.textContent)).toEqual(['primeira', 'segunda'])
   })
 })

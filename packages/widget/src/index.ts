@@ -1,4 +1,4 @@
-import { definePlugin, textOf, type H4B, type MediaPart, type Message, type TurnStatus } from '@handsforbots/core'
+import { definePlugin, textOf, type H4B, type MediaPart, type Message, type Signal, type TurnStatus } from '@handsforbots/core'
 import { stringsFor, type Strings } from './i18n.js'
 import { escapeHtml, renderMarkdown } from './markdown.js'
 import { PALETTES, STYLES } from './styles.js'
@@ -355,10 +355,30 @@ export class H4BChatElement extends BaseElement {
         this.rendered.delete(id)
       }
     }
+    this.renderQueued(snapshot.queued)
     this.initialRender = false
     this.renderStatus(snapshot.turn)
     this.renderChips()
     this.scrollToEnd()
+  }
+
+  /** Messages the user sent while a turn is running: shown at once, dimmed, until processed. */
+  private renderQueued(queued: Signal[]) {
+    const ids = new Set(queued.map((s) => s.id))
+    for (const element of [...this.els.log.querySelectorAll<HTMLElement>('.msg.queued')]) {
+      if (!ids.has(element.dataset.signal!)) element.remove()
+    }
+    for (const signal of queued) {
+      if (this.els.log.querySelector(`.msg.queued[data-signal="${signal.id}"]`)) continue
+      const text = textOf(signal.parts)
+      if (!text) continue
+      const element = document.createElement('div')
+      element.className = 'msg user queued'
+      element.dataset.signal = signal.id
+      element.setAttribute('part', 'message user queued')
+      element.textContent = `${signal.modality === 'transcript' ? '🎤 ' : ''}${text}`
+      this.els.log.insertBefore(element, this.els.typing.nextSibling)
+    }
   }
 
   private createMessageElement(message: Message): HTMLElement | undefined {

@@ -113,6 +113,7 @@ header button:hover { background: rgba(255,255,255,.15); }
 .msg img { display: block; max-width: 100%; border-radius: 10px; margin-top: 4px; }
 .msg.streaming::after { content: '▍'; animation: blink 1s steps(2) infinite; opacity: .6; }
 .msg.pending { display: none; }
+.msg.queued { opacity: .55; }
 .msg.rich { max-width: 100%; }
 .gallery { margin: 6px 0 0; }
 .gallery figcaption { font-weight: 600; margin-bottom: 6px; }

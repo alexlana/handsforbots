@@ -52,6 +52,8 @@ export type H4BSnapshot = {
   context: Signal[]
   busy: boolean
   turn?: TurnStatus
+  /** Triggers waiting for the running turn (UIs can show them right away). */
+  queued: Signal[]
 }
 
 type RoundState = {
@@ -337,6 +339,7 @@ export class H4B {
       context: [...this.contextSignals.values()],
       busy: this.running,
       turn: this.turn,
+      queued: this.queue.flatMap((job) => (job.kind === 'signal' ? [job.signal] : [])),
     }
     return this.snapshotCache
   }
@@ -508,6 +511,7 @@ export class H4B {
 
   private enqueue(job: Job) {
     this.queue.push(job)
+    this.invalidate()
     void this.drain()
   }
 
@@ -518,6 +522,7 @@ export class H4B {
     try {
       while (this.queue.length > 0) {
         const job = this.queue.shift()!
+        this.invalidate()
         if (job.kind === 'signal') await this.runTurn(job.signal)
         else if (job.kind === 'push') await this.runPush(job)
         else await this.runActionJob(job)

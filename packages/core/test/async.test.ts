@@ -184,3 +184,27 @@ describe('runAction', () => {
     expect(statuses).toEqual(['acting:agent', 'done:agent', 'acting:direct', 'error:direct'])
   })
 })
+
+describe('queued triggers', () => {
+  it('are visible in the snapshot until their turn starts', async () => {
+    let release!: () => void
+    const h4b = createH4B()
+    h4b.provide('transport', {
+      name: 'slow',
+      async *run() {
+        await new Promise<void>((r) => (release = r))
+        yield { type: 'message.delta', messageId: 'a', delta: 'ok' } satisfies Stimulus
+      },
+    })
+    const first = h4b.ask('primeira')
+    await sleep(5)
+    const second = h4b.send('segunda')
+    expect(h4b.getSnapshot().queued.map((s) => s.id)).toEqual([second.id])
+    release()
+    await first
+    await sleep(5)
+    release()
+    await h4b.when('turn.status', (s) => s.phase === 'done' && s.signal?.id === second.id)
+    expect(h4b.getSnapshot().queued).toEqual([])
+  })
+})
