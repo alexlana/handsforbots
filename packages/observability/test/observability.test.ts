@@ -18,7 +18,7 @@ describe('observability plugin', () => {
       actions: [{ name: 'ping', description: 'Ping', handler: () => 'pong' }],
     }).start()
     h4b.provide('transport', transport)
-    await h4b.ask('meu cpf é 123')
+    await h4b.ask('meu segredo é zebra-quantica')
     await h4b.runAction('ping', {}, { origin: 'agent' })
 
     const obs = h4b.get('observability')!
@@ -27,7 +27,7 @@ describe('observability plugin', () => {
       expect.arrayContaining(['turn.started', 'route.transport.start', 'stimulus.message.end', 'route.transport.end', 'turn.done', 'signal.text', 'action.invoked', 'route.agent.start']),
     )
     expect(names).not.toContain('stimulus.message.delta')
-    expect(JSON.stringify(obs.getTimeline())).not.toContain('123')
+    expect(JSON.stringify(obs.getTimeline())).not.toContain('zebra-quantica')
     const phases = obs.getMetrics().filter((m) => m.name.includes('phase'))
     expect(phases.length).toBeGreaterThan(0)
   })
