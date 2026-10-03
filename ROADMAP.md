@@ -376,7 +376,26 @@ Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com sub
 
 ---
 
-## 3. Fases
+## 3. Estado da implementação (branch `v2`, 2026-10-02)
+
+| Fase | Entregue | Pendente |
+|------|----------|----------|
+| 0 | Decisões registradas neste documento; kernel próprio com semântica Cordis (0.3); protótipo AG-UI + menu + WebMCP no exemplo | ADRs formais |
+| 1 | Monorepo TS (pnpm, TS 7, vitest); `core` (plugins, Sinal/Estímulo, router, ações, interceptadores, `ask`/`push`/`runAction`, storage); `transport-agui` (SSE próprio, sem `@ag-ui/client`); `react` | `testkit` (suíte de conformidade) |
+| 2 | `voice` (Web Speech, HTTP, WebSocket, Vosk remoto; push-to-talk, mãos-livres, saída segue entrada, barge-in); `keyboard` (Alt+M, Esc, Mod+K) | Vosk WASM; provedor de nuvem de referência; acessibilidade como componente reutilizável |
+| 3 | `menu` (explícito, padrão, fuzzy léxico); histórico com tool call sintética; `copilotkit` (modo A) | Renderizador de estados como componente da lib; telemetria de latência por rota; validar a ponte contra um runtime CopilotKit real |
+| 4 | `expose-webmcp` | `render-mcp-apps`, `input-camera`, `input-files`, `input-gui`, `sensor-*`, transporte `realtime` |
+| 5 | — | Transportes Rasa / UniversalLLM / turn-based / AI SDK; `bridge-assistant-ui`; widget, GUIDed, tab-sync, storage-local na v2; migrar exemplo Rasa; remover a v1; docs |
+
+Exemplo funcional da v2: [examples/react-agui](./examples/react-agui/README.md) (validado em Chrome headless: rota do assistente, comandos diretos, confirmação, voz simulada, Alt+M e WebMCP). Os exemplos da v1 seguem intactos até a migração.
+
+Aprendizados que ajustaram o plano:
+
+- `@ag-ui/client` traz zod, protobuf e rxjs (o bundle do exemplo caiu de 539 kB para 257 kB com um cliente SSE próprio). O `HttpAgent` continua aceito via `agent`.
+- O CopilotKit 1.77 já registra frontend tools no WebMCP (`webmcp: true`). A ponte desliga isso para o H4B ser a única fonte, com as mesmas políticas para todas as origens.
+- O "comando no front" da v1 era o Fuse.js do GUIDed (fuzzy léxico, `threshold: 0.8`, sem tratar "nenhum resultado"). Virou o matcher fuzzy do `menu`, com limiar seguro.
+
+## 4. Fases
 
 Os prazos assumem uma equipe pequena. Cada fase só termina quando o critério de saída é cumprido.
 
@@ -454,7 +473,7 @@ Seguir o [handsforbots-roadmap](./handsforbots/Libs/SemanticEventObservability/d
 
 ---
 
-## 4. Priorização
+## 5. Priorização
 
 ```text
 P0 — sem isto não há v2
@@ -484,7 +503,7 @@ P3 — reavaliar com demanda
 
 ---
 
-## 5. O que não fazer
+## 6. O que não fazer
 
 1. **Reduzir o H4B a uma janela de chat.** O widget é só uma superfície de conversa opcional; o produto é a colaboração na GUI.
 2. **Depender de um fornecedor no core.** AG-UI e CopilotKit são prioridade, não acoplamento.
@@ -495,7 +514,7 @@ P3 — reavaliar com demanda
 
 ---
 
-## 6. Métricas de sucesso
+## 7. Métricas de sucesso
 
 | Indicador | Meta |
 |-----------|------|
@@ -509,7 +528,7 @@ P3 — reavaliar com demanda
 
 ---
 
-## 7. Decisões em aberto
+## 8. Decisões em aberto
 
 | # | Pergunta | Opções / recomendação |
 |---|----------|----------------------|
@@ -527,5 +546,6 @@ P3 — reavaliar com demanda
 | Data | Alteração |
 |------|-----------|
 | 2026-07-02 | Documento inicial — roadmap 3–6 meses (runtime headless) |
+| 2026-10-02 | Seção 3: estado da implementação na branch `v2` |
 | 2026-10-02 | Seção 2.4: modelo síncrono/assíncrono (notificações, interceptadores, serviços, API aguardável, push) |
 | 2026-10-02 | Reescrita v2: camada multimodal e de ação; tudo é plugin; AG-UI/CopilotKit como adapters substituíveis; menu; modalidades teclado/voz; mapa v1 → v2; sem compatibilidade com a v1 |
