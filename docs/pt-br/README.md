@@ -7,47 +7,49 @@
 
 </div>
 
-<div align="center">
+O **Hands for Bots** dá mãos aos assistentes: uma camada headless, baseada em plugins, entre as pessoas, a sua interface e qualquer agente.
 
-![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social)
+- **Qualquer entrada vira um sinal**: teclado, voz (do navegador ou na nuvem), fotos, quadros de vídeo, arquivos, sensores, eventos da interface.
+- **Qualquer backend responde com mensagens e/ou estímulos para a UI**: AG-UI, CopilotKit, Rasa, sua própria API HTTP, LLMs compatíveis com OpenAI.
+- **As ações da sua interface são declaradas uma vez** e ficam disponíveis para o assistente do app (tool calls), para o usuário como comandos instantâneos (sem passar pelo LLM, mas no histórico) e para agentes do navegador (WebMCP), sob as mesmas regras de validação, confirmação e origem.
 
-[![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)](https://www.javascript.com) &nbsp; [![MIT License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge&color=%23750014)](../../LICENSE.md) &nbsp; [![GitHub Repo](https://img.shields.io/badge/github-%23323330.svg?style=for-the-badge&logo=github&logoColor=%23FFFFFF)](https://github.com/alexlana/handsforbots)
+Não é uma janela de chat. Use o widget pronto `<h4b-chat>`, seus próprios componentes (há bindings para React) ou o chat do CopilotKit, e mantenha a colaboração na própria página: tours guiados, destaques, filtros, galerias.
 
-[![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/)
+```ts
+import { createH4B } from '@handsforbots/core'
+import { agui } from '@handsforbots/transport-agui'
+import { voice, webSpeechSTT, webSpeechTTS } from '@handsforbots/voice'
+import { menu } from '@handsforbots/menu'
+import { widget } from '@handsforbots/widget'
 
-</div>
+const h4b = createH4B({
+  plugins: [
+    agui({ url: '/api/agent' }),
+    voice({ stt: webSpeechSTT(), tts: webSpeechTTS(), language: 'pt-BR' }),
+    menu({ language: 'pt-br', commands: [{ action: 'filter_orders', label: 'Pedidos atrasados', slash: 'atrasados', args: { status: 'late' } }] }),
+    widget({ botName: 'Assistente', language: 'pt-br' }),
+  ],
+  actions: [{ name: 'filter_orders', description: 'Filtra pedidos por status', handler: ({ status }) => tabela.filtrar(status) }],
+})
+await h4b.start()
+```
 
-Por enquanto, a **Hands for Bots** é uma biblioteca de UI conversacional híbrida para navegadores. Isso quer dizer que inputs e outputs gráficos, sonoros e outros podem estar presentes. Ela dá aos chatbots / assistentes a habilidade de interagir com a GUI e outras interfaces de usuário através da chamada de funções e receber entradas de diferentes UIs. 
+## Documentação
 
-Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um alto nível de flexibilidade, modularidade e extensibilidade para construir o front-end de chatbots. Gatilhos de eventos e ouvintes conectam o núcleo aos plugins. Para chamar funções externas, devemos chamar a função diretamente, isso não depende da arquitetura interna.
-
-**Importante:** esta biblioteca não dá aos assistentes a habilidade de "ver" a tela e fazer coisas no seu computador.
-
-## Sumário
-
-- [Começar](./getstarted.md)
+- [Primeiros passos](./getting-started.md)
+- [Conceitos](./concepts.md): sinais, turnos, estímulos, rotas, síncrono/assíncrono
+- [Plugins](./plugins.md): todos os pacotes e opções
+- [Escrevendo plugins](./writing-plugins.md)
+- [Segurança](./security.md)
 - [Desenvolvimento](./development.md)
-- [Core](./core.md)
-  - [Backend](./core/backend.md)
-	- [RASA](./core/backend/rasa.md)
-	- [OpenAI](./core/backend/openai.md)
-  - [Input](./core/input.md)
-	- [Texto](./core/input/text.md)
-	- [Voz](./core/input/voice.md)
-	- [Poke](./core/input/poke.md)
-  - [Output](./core/output.md)
-	- [Bots Commands](./core/output/botscommands.md)
-	- [Texto](./core/output/text.md)
-	- [Voz](./core/output/voice.md)
-- [Plugins](./plugins.md)
-  - [GUIDed](./plugins/guided.md)
-- [Eventos](./events.md)
+- [Migrando da v1](./migrating-from-v1.md)
+- [Roadmap](../../ROADMAP.md) (arquitetura, decisões, estado)
 
-## Agradecimento
+## Exemplos
 
-Grato pelos autores [destas bibliotecas e frameworks de terceiros](./NOTICE.md)
+- [`examples/react-agui`](../../examples/react-agui/README.md): painel em React em que o assistente trabalha na interface via AG-UI, com comandos diretos, voz, atalhos de teclado e WebMCP. Roda com um agente simulado: `pnpm install && pnpm --filter @handsforbots/example-react-agui dev`.
+- [`examples/vite`](../../examples/README.md): Rasa + widget `<h4b-chat>` + tours guiados + observabilidade (Docker).
 
-## Roadmap
+## Agradecimentos
 
-Há a intenção de melhorar a qualidade do código da Hands for Bots e desenvolver puglins de captura de gestos, assim como recursos prontos para uso para aplicações de realidade virtual e conversacionais, talvez até mesmo em tecnologias vestíveis. Isso está longe, mas vamos buscar.
-
+Aos autores [destes projetos de terceiros](./NOTICE.md).

@@ -1,5 +1,7 @@
 # Hands for Bots roadmap (adapter consumer)
 
+> **Note (v2):** this roadmap was written for the v1 integration (`core.input`, `core.calling_backend`…). In v2 the integration is the [`@handsforbots/observability`](../../observability/src/index.ts) plugin; see [handsforbots-adapter.md](./handsforbots-adapter.md) for the current event model. Items that still apply (traceparent, gen_ai spans, feedback per turn, Langfuse) carry over with the v2 names.
+
 Metrics, phases, and integration work specific to **Hands for Bots** as a consumer of [Semantic Event Observability](./roadmap.md).
 
 > **Library metrics (`sevo_*`):** [metrics-roadmap.md](./metrics-roadmap.md)  

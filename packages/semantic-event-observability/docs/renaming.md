@@ -42,19 +42,11 @@ export const PACKAGE_SCOPE = '@your-org' // optional
 
 ## 5. Hands for Bots import path
 
-While embedded in this monorepo:
+Hands for Bots consumes the library through its plugin `@handsforbots/observability`, which imports `createObservability` from the package name. After a rename, only that import changes:
 
 ```javascript
-import { attachHandsForBotsObservability } from './Libs/SemanticEventObservability/adapters/handsforbots.js'
+import { createObservability } from '@your-org/your-new-name'
 ```
-
-After npm publish:
-
-```javascript
-import { attachHandsForBotsObservability } from '@your-org/your-new-name/adapters/handsforbots'
-```
-
-The adapter API stays stable; only the import path changes.
 
 ## 6. Alias strategy for npm
 

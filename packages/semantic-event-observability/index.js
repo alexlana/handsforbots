@@ -26,13 +26,5 @@ export { isErrorEvent } from './core/isErrorEvent.js'
 
 export { instrumentEventBus, createInstrumentedBus } from './adapters/genericEventBus.js'
 export { instrumentChannel } from './adapters/instrumentChannel.js'
-export {
-	attachHandsForBotsObservability,
-	getHandsForBotsState,
-	HFB_TURN_START_EVENTS,
-	HFB_TURN_END_EVENTS,
-	HFB_PHASE_MODEL,
-	HFB_SEMANTIC_EVENTS,
-} from './adapters/handsforbots.js'
 
 export { BUILTIN_EXPORTERS, createExporters, initExporters } from './exporters/index.js'

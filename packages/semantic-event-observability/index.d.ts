@@ -269,22 +269,6 @@ export function instrumentChannel(
 	channel: { postMessage: (data: unknown, transfer?: unknown[]) => void },
 	options?: { eventName?: string; type?: string },
 ): typeof channel
-export function attachHandsForBotsObservability(
-	bot: {
-		eventEmitter: EventBus
-		observability?: Observability
-		bc?: unknown
-		options?: { environment?: string }
-		orchestrator?: unknown
-		redirectInput?: unknown
-	},
-	options?: Record<string, unknown>,
-): Observability | null
-export function getHandsForBotsState(bot: unknown): Record<string, unknown>
-export const HFB_TURN_START_EVENTS: string[]
-export const HFB_TURN_END_EVENTS: string[]
-export const HFB_PHASE_MODEL: PhaseModel
-export const HFB_SEMANTIC_EVENTS: string[]
 export const BUILTIN_EXPORTERS: Record<string, (config?: Record<string, unknown>) => Exporter>
 export function createExporters(
 	requested?: string[],

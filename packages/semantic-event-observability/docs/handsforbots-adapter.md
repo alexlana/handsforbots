@@ -1,109 +1,59 @@
 # Hands for Bots adapter
 
-File: [`adapters/handsforbots.js`](../adapters/handsforbots.js)
-
-Plugin wrapper: [`handsforbots/Plugins/Output/Observability/Observability.js`](../../../Plugins/Output/Observability/Observability.js)
+Hands for Bots v2 integrates through the plugin [`@handsforbots/observability`](../../observability/src/index.ts). The v1 adapter (`adapters/handsforbots.js`, which instrumented the v1 `eventEmitter`) was removed together with v1.
 
 ## Scope
 
-The adapter instruments **semantic flow** on the Hands for Bots event bus (`sevo_*` via the lib). It does **not** monitor whether the application or its backends are up.
+The plugin instruments the **semantic flow** of the v2 kernel. It does **not** monitor whether the application or its backends are up.
 
 | Covered | Not covered (use another stack) |
 |---------|--------------------------------|
-| Turn latency (`core.input` → `core.output_ready`) | Uptime / synthetic HTTP probes |
-| Backend phase timing (`calling_backend` → `backend_responded`) | Rasa or LLM `/health` endpoints |
-| Orchestrator state (`queueDepth`, `callingBackend`) | Kubernetes liveness/readiness |
-| Telemetry export health (`sevo_exporter_errors_total`) | “Site down” alerting |
+| Turn latency (`turn.started` → `turn.done` / `turn.error` / `turn.aborted`) | Uptime / synthetic HTTP probes |
+| Phase per route: `transport`, `direct` (menu), `capture`, `agent` (WebMCP), `push` | Backend `/health` endpoints |
+| Actions by origin (`action.invoked` / `action.failed`, origin `user` / `assistant` / `agent`) | Kubernetes liveness/readiness |
+| Signals by modality (`signal.text`, `signal.transcript`, `signal.image`…), without content by default | "Site down" alerting |
+| Stimuli (`stimulus.ui.effect`, `stimulus.action.call`, `stimulus.error`…), token deltas excluded | |
+| Telemetry export health (`sevo_exporter_errors_total`) | |
 
-See [architecture.md](./architecture.md#scope) and the [Observability plugin docs](../../../docs/en-us/plugins/observability.md#scope).
+## Usage
 
-## Integration model
+```ts
+import { createH4B } from '@handsforbots/core'
+import { observability } from '@handsforbots/observability'
 
-Observability is enabled by adding the **Observability output plugin** — not via `Bot` constructor options.
-
-```javascript
-bot_settings.plugins.push({
-  type: 'output',
-  plugin: 'Observability',
-  environment: 'production',
-  sampleRate: 0.2,
-  maxEventsPerMinute: 120,
-  exporters: ['memory', 'devPanel', 'faro', 'otel', 'langfuse', 'langsmith'],
-  exporterConfig: {
-    langfuse: { project: 'handsforbots' },
-    langsmith: { projectName: 'handsforbots' },
-  },
+const h4b = createH4B({
+  plugins: [
+    observability({
+      environment: 'production',
+      sampleRate: 0.2,
+      maxEventsPerMinute: 120,
+      exporters: ['memory', 'faro', 'otel', 'langfuse', 'langsmith'],
+      exporterConfig: {
+        langfuse: { project: 'handsforbots' },
+        langsmith: { projectName: 'handsforbots' },
+      },
+      // includeContent: true, // only if your privacy policy allows logging message text
+    }),
+  ],
 })
 ```
 
-Set `enabled: false` on the plugin entry to skip instrumentation.
+All `createObservability` options are accepted. The instance is available as a service: `h4b.get('observability')`.
 
-## What it instruments
+### Trace propagation to the backend
 
-- `bot.eventEmitter` — all `core.*` and plugin events
-- `bot.bc` (`BroadcastChannel`) — cross-tab messages (default on)
+Pass trace headers to HTTP-based transports so a turn is one trace from the browser to the LLM:
 
-## Turn model
-
-| Event | Role |
-|-------|------|
-| `core.input` | Turn start |
-| `core.output_ready` | Turn end |
-
-## Phase model
-
-| Phase | Start | End |
-|-------|-------|-----|
-| `backend` | `core.calling_backend` | `core.backend_responded` |
-
-Render time is computed automatically after the last phase ends until `core.output_ready`.
-
-Preset: `HFB_PHASE_MODEL` in [`adapters/handsforbots.js`](../adapters/handsforbots.js).
-
-## Runtime state
-
-Each semantic event may include:
-
-```javascript
-{
-  queueDepth: bot.orchestrator.queue.length,
-  callingBackend: bot.orchestrator.calling_backend,
-  redirectInput: bot.redirectInput,
-}
+```ts
+agui({ url: '/api/agent', headers: () => h4b.get('observability')?.getTraceHeaders() ?? {} })
 ```
 
-## Access from other plugins
+## Turn and phase model
 
-```javascript
-bot.observability?.record('plugin.custom_action', { action: 'open_gallery' })
-bot.observability?.recordMetric('gallery.open', 1, { plugin: 'ImageGallery' })
-bot.observability?.startPhase('gallery.load')
-bot.observability?.endPhase('gallery.load')
-```
+| Kernel event | Semantic event |
+|--------------|----------------|
+| first `turn.status` of a turn | `turn.started` |
+| `turn.status` `acting` with route R | `route.R.start` |
+| `turn.status` `done` / `error` / `aborted` | `route.R.end`, then `turn.done` / `turn.error` / `turn.aborted` |
 
-## Dev panel
-
-```javascript
-localStorage.setItem('semantic-event-observability:debug', 'true')
-location.reload()
-```
-
-Or pass `exporterConfig: { devPanel: { enabled: true } }` in the plugin options.
-
-## Roadmaps
-
-| Document | Scope |
-|----------|-------|
-| [roadmap.md](./roadmap.md) | Library vision, abstractions, development phases |
-| [metrics-roadmap.md](./metrics-roadmap.md) | `sevo_*` metrics checklist |
-| [handsforbots-roadmap.md](./handsforbots-roadmap.md) | HfB adapter, `hfb_*` metrics, backend integration |
-
-## Direct adapter (advanced)
-
-For non-plugin setups or tests:
-
-```javascript
-import { attachHandsForBotsObservability } from './Libs/SemanticEventObservability/adapters/handsforbots.js'
-
-attachHandsForBotsObservability(bot, { exporters: ['memory'] })
-```
+Exports: `H4B_TURN_START_EVENTS`, `H4B_TURN_END_EVENTS`, `H4B_PHASES` from `@handsforbots/observability`.

@@ -9,47 +9,55 @@
 
 <div align="center">
 
-![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Conversational User Interface](https://img.shields.io/badge/🗣-Conversational_UI-purple?style=social) &nbsp; ![Front-end](https://img.shields.io/badge/📺-Front_end-purple?style=social)
+![Hands for Bots](https://img.shields.io/badge/[•__•]-Hands_for_Bots-purple?style=social) &nbsp; ![Collaborative GUI](https://img.shields.io/badge/🖐-Collaborative_GUI-purple?style=social) &nbsp; ![Multimodal](https://img.shields.io/badge/🎙-Multimodal-purple?style=social)
 
-[![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E)](https://www.javascript.com) &nbsp; [![MIT License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge&color=%23750014)](./LICENSE.md) &nbsp; [![GitHub Repo](https://img.shields.io/badge/github-%23323330.svg?style=for-the-badge&logo=github&logoColor=%23FFFFFF)](https://github.com/alexlana/handsforbots)
-
-[![GitHub contributors](https://img.shields.io/github/contributors/alexlana/handsforbots)](https://GitHub.com/alexlana/handsforbots/graphs/contributors/)
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org) &nbsp; [![MIT License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge&color=%23750014)](./LICENSE.md) &nbsp; [![GitHub Repo](https://img.shields.io/badge/github-%23323330.svg?style=for-the-badge&logo=github&logoColor=%23FFFFFF)](https://github.com/alexlana/handsforbots)
 
 </div>
 
-For now the **Hands for Bots** is a hybrid conversational UI library for browsers. This means that graphic, sound and other inputs and outputs can be present. It gives to chatbots / assistants the hability to interact with GUI and other user interfaces through functions calling, and receive inputs from diferent UIs.
+**Hands for Bots** gives assistants hands: a headless, plugin-based layer between people, your GUI and any agent.
 
-Hands for Bots uses a modular archtecture based on plugins to grant a high level of flexibility, modularity and extensibility to build chatbot's front end. Event triggers and listeners connects the core to plugins. To call external functions, we should call the function directly, this not depends on the internal architecture.
+- **Any input becomes a signal**: keyboard, voice (browser or cloud), photos, video frames, files, sensors, GUI events.
+- **Any backend answers with messages and/or stimuli for the UI**: AG-UI, CopilotKit, Rasa, your own HTTP API, OpenAI-compatible LLMs.
+- **Your GUI's actions are declared once** and become available to the in-app assistant (tool calls), to the user as instant commands (no LLM round trip, still in history) and to browser agents (WebMCP), under the same validation, confirmation and origin rules.
 
-**Important:** this library don't give to assistants the hability to "view" the screen and do things in your computer.
+It is not a chat window. Use the ready-made `<h4b-chat>` widget, your own components (React bindings included) or CopilotKit's chat, and keep the collaboration on the page itself: guided tours, highlights, filters, galleries.
 
-## Table of contents
+```ts
+import { createH4B } from '@handsforbots/core'
+import { agui } from '@handsforbots/transport-agui'
+import { voice, webSpeechSTT, webSpeechTTS } from '@handsforbots/voice'
+import { menu } from '@handsforbots/menu'
+import { widget } from '@handsforbots/widget'
 
-- [Get started](./docs/en-us/getstarted.md)
+const h4b = createH4B({
+  plugins: [
+    agui({ url: '/api/agent' }),
+    voice({ stt: webSpeechSTT(), tts: webSpeechTTS(), language: 'en-US' }),
+    menu({ commands: [{ action: 'filter_orders', label: 'Late orders', slash: 'late', args: { status: 'late' } }] }),
+    widget({ botName: 'Assistant' }),
+  ],
+  actions: [{ name: 'filter_orders', description: 'Filters orders by status', handler: ({ status }) => table.filter(status) }],
+})
+await h4b.start()
+```
+
+## Documentation
+
+- [Getting started](./docs/en-us/getting-started.md)
+- [Concepts](./docs/en-us/concepts.md): signals, turns, stimuli, routes, sync/async
+- [Plugins](./docs/en-us/plugins.md): every package and its options
+- [Writing plugins](./docs/en-us/writing-plugins.md)
+- [Security](./docs/en-us/security.md)
 - [Development](./docs/en-us/development.md)
-- [Core](./docs/en-us/core.md)
-  - [Backend](./docs/en-us/core/backend.md)
-	- [RASA](./docs/en-us/core/backend/rasa.md)
-	- [OpenAI](./docs/en-us/core/backend/openai.md)
-  - [Input](./docs/en-us/core/input.md)
-	- [Text](./docs/en-us/core/input/text.md)
-	- [Voice](./docs/en-us/core/input/voice.md)
-	- [Poke](./docs/en-us/core/input/poke.md)
-  - [Output](./docs/en-us/core/output.md)
-	- [Bots Commands](./docs/en-us/core/output/botscommands.md)
-	- [Text](./docs/en-us/core/output/text.md)
-	- [Voice](./docs/en-us/core/output/voice.md)
-- [Plugins](./docs/en-us/plugins.md)
-  - [GUIDed](./docs/en-us/plugins/guided.md)
-- [Events](./docs/en-us/events.md)
+- [Migrating from v1](./docs/en-us/migrating-from-v1.md)
+- [Roadmap](./ROADMAP.md) (architecture, decisions, status; Portuguese)
 
+## Examples
 
+- [`examples/react-agui`](./examples/react-agui/README.md): React dashboard where the assistant works on the GUI through AG-UI, with direct commands, voice, keyboard shortcuts and WebMCP. Runs with a built-in mock agent: `pnpm install && pnpm --filter @handsforbots/example-react-agui dev`.
+- [`examples/vite`](./examples/README.md): Rasa + `<h4b-chat>` widget + guided tours + observability (Docker).
 
 ## Acknowledgment
 
-Grateful for the authors of [these third-party libraries and frameworks](./NOTICE.md)
-
-## Roadmap
-
-There is an intention to improve the quality of the Hands for Bots' code and develop gesture capture plugins, as well as ready-to-use features for virtual reality and conversational applications, perhaps even in wearable technologies. That's a long way off, but let's get it.
-
+Grateful for the authors of [these third-party projects](./NOTICE.md).

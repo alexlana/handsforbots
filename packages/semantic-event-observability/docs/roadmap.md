@@ -74,7 +74,7 @@ flowchart TB
 | Uptime / “app is up” | — | Infra, synthetics, backend `/health` endpoints |
 | Telemetry pipeline health | `sevo_exporter_errors_total`, policy drops | Collector uptime (LGTM / Alloy deploy) |
 
-> **Scope detail:** [architecture.md](./architecture.md#scope) · Hands for Bots plugin: [observability.md](../../../docs/en-us/plugins/observability.md#scope)
+> **Scope detail:** [architecture.md](./architecture.md#scope) · Hands for Bots plugin: [handsforbots-adapter.md](./handsforbots-adapter.md#scope)
 
 ---
 
