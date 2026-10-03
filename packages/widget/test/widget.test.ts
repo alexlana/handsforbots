@@ -62,7 +62,7 @@ describe('<h4b-chat>', () => {
     await tick()
     const bubbles = $$('.msg')
     expect(bubbles[0]!.textContent).toBe('<i>oi</i>')
-    expect(bubbles[1]!.innerHTML).toBe('<p><strong>Olá</strong> &lt;b&gt;x&lt;/b&gt;</p>')
+    expect(bubbles[1]!.querySelector('.text')!.innerHTML).toBe('<p><strong>Olá</strong> &lt;b&gt;x&lt;/b&gt;</p>')
   })
 
   it('opens and closes from the launcher, remembering the choice', async () => {
@@ -151,7 +151,7 @@ describe('<h4b-chat>', () => {
     const root = document.querySelector('h4b-chat')!.shadowRoot!
     await h4b.runAction('ping', {}, { origin: 'agent' })
     expect(root.querySelector('.action')!.textContent).toContain('ping')
-    expect(root.querySelector('.action')!.textContent).toContain('browser agent')
+    expect(root.querySelector('.action')!.textContent).toContain('external agent')
 
     void h4b.ask('oi')
     await vi.advanceTimersByTimeAsync(10)
@@ -253,5 +253,27 @@ describe('<h4b-chat> rich content', () => {
     expect(bubble.querySelector('figcaption')!.textContent).toBe('Fotos')
     expect([...bubble.querySelectorAll('.gallery img')].map((i) => i.getAttribute('src'))).toEqual(['https://x.test/1.jpg'])
     expect(bubble.querySelector('strong')!.textContent).toBe('R$ 10')
+  })
+})
+
+
+describe('<h4b-chat> rich parts are stable', () => {
+  it('keeps rendered components while the text of the same message keeps changing', async () => {
+    const created = vi.fn(() => document.createElement('section'))
+    const transport = scripted(() => [
+      { type: 'message.start', messageId: 'a' },
+      { type: 'ui.render', messageId: 'a', component: 'app', props: {} },
+      { type: 'message.delta', messageId: 'a', delta: 'um ' },
+      { type: 'message.delta', messageId: 'a', delta: 'dois' },
+      { type: 'message.end', messageId: 'a' },
+    ])
+    const h4b = createH4B({ plugins: [widget({ startOpen: true, renderers: { app: created } })] })
+    h4b.provide('transport', transport)
+    await h4b.start()
+    await h4b.ask('x')
+    const bubble = document.querySelector('h4b-chat')!.shadowRoot!.querySelector('.msg.assistant')!
+    expect(created).toHaveBeenCalledOnce()
+    expect(bubble.querySelectorAll('section')).toHaveLength(1)
+    expect(bubble.querySelector('.text')!.textContent).toBe('um dois')
   })
 })

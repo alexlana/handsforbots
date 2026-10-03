@@ -22,6 +22,7 @@ No API key or Docker needed: a deterministic **mock AG-UI agent** ([agent/mockAg
 | chip **⚡ Pedidos atrasados** | ⚡ direct | Same, from a button |
 | `onde eu exporto?` | assistant | Agent calls `highlight` and the button pulses |
 | `cancele o pedido 1043` | assistant | Destructive action → confirmation dialog |
+| `mostre um resumo em gráfico` | assistant | An MCP App renders in a sandboxed iframe; its button filters the table through `tools/call` |
 
 ## Voice and keyboard
 

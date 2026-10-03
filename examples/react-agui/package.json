@@ -12,6 +12,7 @@
     "@handsforbots/core": "workspace:^",
     "@handsforbots/expose-webmcp": "workspace:^",
     "@handsforbots/keyboard": "workspace:^",
+    "@handsforbots/mcp-apps": "workspace:^",
     "@handsforbots/menu": "workspace:^",
     "@handsforbots/react": "workspace:^",
     "@handsforbots/transport-agui": "workspace:^",

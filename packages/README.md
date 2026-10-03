@@ -17,6 +17,7 @@
 | [`@handsforbots/inputs`](./inputs) | Camera (photos, video frames), files, GUI events (Poke successor), sensors |
 | [`@handsforbots/guided`](./guided) | Guided tours, highlights, `show_section`, `image_gallery` |
 | [`@handsforbots/expose-webmcp`](./expose-webmcp) | Publishes actions to browser agents through WebMCP |
+| [`@handsforbots/mcp-apps`](./mcp-apps) | Hosts MCP Apps (`ui://`) in sandboxed iframes, bridging their tool calls to actions |
 | [`@handsforbots/storage-local`](./storage-local) | Conversation persistence with inactivity timeout |
 | [`@handsforbots/tab-sync`](./tab-sync) | Conversation sync across tabs |
 | [`@handsforbots/observability`](./observability) | Turns, routes, actions and signals as semantic telemetry |

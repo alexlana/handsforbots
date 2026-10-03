@@ -133,6 +133,7 @@ export class H4BChatElement extends BaseElement {
     camera: HTMLElement
   }
   private rendered = new Map<string, { message: Message; element: HTMLElement }>()
+  private renderedParts = new WeakSet<object>()
   private revealQueue: HTMLElement[] = []
   private revealTimer?: ReturnType<typeof setTimeout>
   private lastReveal = 0
@@ -392,32 +393,57 @@ export class H4BChatElement extends BaseElement {
     element.hidden = false
     if (message.role === 'user') {
       element.textContent = `${message.modality === 'transcript' ? '🎤 ' : ''}${text}`
-    } else {
-      element.innerHTML = text ? renderMarkdown(text) : ''
-      element.classList.toggle('streaming', !!message.streaming)
-      element.classList.toggle('rich', rich.length > 0)
-      for (const part of rich) {
-        const { component, props } = (part as { value: { component: string; props?: unknown } }).value
+      for (const image of images) element.append(this.imageElement(image))
+      return
+    }
+    // Text is re-rendered on every update; rich parts (images, components such as
+    // MCP App iframes) are created once, so they keep their state while text streams.
+    const textElement = this.region(element, 'text')
+    textElement.innerHTML = text ? renderMarkdown(text) : ''
+    textElement.hidden = !text
+    element.classList.toggle('streaming', !!message.streaming)
+    element.classList.toggle('rich', rich.length > 0)
+    const media = this.region(element, 'media')
+    for (const part of message.parts) {
+      if (this.renderedParts.has(part)) continue
+      if (part.type === 'image') {
+        this.renderedParts.add(part)
+        media.append(this.imageElement(part as MediaPart))
+      } else if (part.type === 'data' && part.name === 'ui') {
+        this.renderedParts.add(part)
+        const { component, props } = part.value as { component: string; props?: unknown }
         const renderer = this.options.renderers?.[component] ?? RENDERERS[component]
         if (!renderer || !this.h4b) continue
         try {
-          element.append(renderer(props ?? {}, { h4b: this.h4b }))
+          media.append(renderer(props ?? {}, { h4b: this.h4b }))
         } catch (error) {
           this.h4b.emit('error', { error, source: `widget:renderer:${component}` })
         }
       }
     }
-    for (const image of images) {
-      const img = document.createElement('img')
-      img.alt = image.name ?? ''
-      img.src =
-        image.source.kind === 'url'
-          ? image.source.url
-          : image.source.kind === 'base64'
-            ? `data:${image.mimeType};base64,${image.source.data}`
-            : URL.createObjectURL(image.source.blob)
-      element.append(img)
+  }
+
+  private region(element: HTMLElement, name: 'text' | 'media'): HTMLElement {
+    let region = [...element.children].find((child) => child.classList.contains(name)) as HTMLElement | undefined
+    if (!region) {
+      region = document.createElement('div')
+      region.className = name
+      if (name === 'text') element.prepend(region)
+      else element.append(region)
     }
+    return region
+  }
+
+  private imageElement(image: MediaPart): HTMLImageElement {
+    const img = document.createElement('img')
+    img.alt = image.name ?? ''
+    img.src =
+      image.source.kind === 'url'
+        ? image.source.url
+        : image.source.kind === 'base64'
+          ? `data:${image.mimeType};base64,${image.source.data}`
+          : URL.createObjectURL(image.source.blob)
+    return img
   }
 
   /**

@@ -32,6 +32,9 @@ importers:
       '@handsforbots/keyboard':
         specifier: workspace:^
         version: link:../../packages/keyboard
+      '@handsforbots/mcp-apps':
+        specifier: workspace:^
+        version: link:../../packages/mcp-apps
       '@handsforbots/menu':
         specifier: workspace:^
         version: link:../../packages/menu
@@ -169,6 +172,15 @@ importers:
       '@handsforbots/voice':
         specifier: workspace:^
         version: link:../voice
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
+
+  packages/mcp-apps:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
       jsdom:
         specifier: ^27.0.0
         version: 27.4.0

@@ -9,6 +9,7 @@ import {
   useStore,
   useTurn,
 } from '@handsforbots/react'
+import { mountMcpApp, type McpAppProps } from '@handsforbots/mcp-apps'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { ORDERS, STATUS_LABEL, type Order, type OrderStatus } from './orders'
 
@@ -243,7 +244,7 @@ function AssistantPanel() {
 const ROUTE_LABEL: Record<string, string> = {
   direct: '⚡ ação direta',
   transport: '🤖 assistente executou',
-  agent: '🌐 agente do navegador executou',
+  agent: '🌐 agente externo executou',
 }
 
 function WebMCPBadge() {
@@ -324,9 +325,31 @@ function MessageView({ message }: { message: Message }) {
     )
   }
   const text = textOf(message)
-  if (!text) return null
+  const apps = message.parts.flatMap((p) =>
+    p.type === 'data' && p.name === 'ui' && (p.value as any)?.component === 'mcp-app' ? [(p.value as any).props as McpAppProps] : [],
+  )
+  if (!text && !apps.length) return null
   const spoken = message.role === 'user' && message.modality === 'transcript'
-  return <div className={`bubble ${message.role}`}>{spoken ? `🎤 ${text}` : text}</div>
+  return (
+    <div className={`bubble ${message.role}${apps.length ? ' wide' : ''}`}>
+      {spoken ? `🎤 ${text}` : text}
+      {apps.map((props, i) => (
+        <McpApp key={i} {...props} />
+      ))}
+    </div>
+  )
+}
+
+/** MCP App (ui:// resource) in a sandboxed iframe; it may call filter_orders. */
+function McpApp(props: McpAppProps) {
+  const h4b = useH4B()
+  const host = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const iframe = mountMcpApp(h4b, props, { allowTools: ['filter_orders'] })
+    host.current?.append(iframe)
+    return () => iframe.remove()
+  }, [h4b, props.html])
+  return <div className="mcp-app" ref={host} />
 }
 
 /**

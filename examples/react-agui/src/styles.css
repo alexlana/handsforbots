@@ -197,6 +197,17 @@ tbody tr.selected {
   background: var(--accent-soft);
 }
 
+.bubble.wide {
+  max-width: 100%;
+  width: 100%;
+}
+
+.mcp-app {
+  margin-top: 8px;
+  background: var(--panel);
+  border-radius: 10px;
+}
+
 .action-card {
   align-self: flex-start;
   font-size: 13px;

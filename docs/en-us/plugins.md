@@ -19,6 +19,7 @@ Every package exports a plugin factory: call it with options and pass it to `cre
 | [`inputs`](#inputs) | `camera`, `files`, `gui`, `sensors` | `camera`, `files`, `sensors` |
 | [`guided`](#guided) | `guided` | `guided` |
 | [`expose-webmcp`](#expose-webmcp) | `webmcp` | `webmcp` |
+| [`mcp-apps`](#mcp-apps) | `mountMcpApp`, `mcpAppRenderer` | — |
 | [`storage-local`](#storage-local) | `storageLocal` | `storage` |
 | [`tab-sync`](#tab-sync) | `tabSync` | — |
 | [`observability`](#observability) | `observability` | `observability` |
@@ -141,6 +142,15 @@ Service: `listen()`, `stop()`, `toggle()`, `setMode()`, `setOutput()`, `speak()`
 ## expose-webmcp
 
 `webmcp({ include?: 'explicit' | 'all', prefix?, modelContext? })`. Publishes actions to browser agents through `document.modelContext` (Chrome origin trial). By default only actions with `exposeTo` including `'agent'`. Calls go through the kernel: validation, interceptors, confirmation, and a visible trace in history (route `agent`).
+
+## mcp-apps
+
+Renders [MCP Apps](https://modelcontextprotocol.io) (`ui://` resources, `text/html;profile=mcp-app`) that your backend, acting as MCP client, sends as `ui.render` with component `mcp-app` and props `{ html, toolName?, input?, result?, csp? }`. The app runs in a sandboxed iframe (`allow-scripts`, opaque origin) with a restrictive CSP; H4B is its host: `ui/initialize`, tool input/result after `initialized`, `tools/call` mapped to H4B actions in `allowTools` (origin `agent`, recorded in history), `ui/message` as user input, `ui/open-link` (http/https only), `ui/update-model-context` as a context signal, `size-changed`.
+
+```ts
+widget({ renderers: { 'mcp-app': mcpAppRenderer({ allowTools: ['filter_orders'] }) } })
+// or in your own UI: element.append(mountMcpApp(h4b, props, { allowTools }))
+```
 
 ## storage-local
 
