@@ -41,3 +41,27 @@ describe('observability plugin', () => {
     expect(typeof obs.getTraceHeaders()).toBe('object')
   })
 })
+
+describe('perceived latency', () => {
+  it('records time to first visible response and turn duration per route', async () => {
+    const h4b = await createH4B({
+      plugins: [observability()],
+      actions: [{ name: 'go', description: 'Go', handler: () => 1, describeResult: () => 'feito' }],
+    }).start()
+    h4b.provide('transport', {
+      name: 'slow',
+      async *run() {
+        await new Promise((r) => setTimeout(r, 40))
+        yield { type: 'message.delta', messageId: 'a', delta: 'oi' }
+      },
+    })
+    h4b.addMatcher({ name: 'm', match: (s) => ((s.parts[0] as any).text === '/go' ? { action: 'go' } : null) })
+    await h4b.ask('olá')
+    await h4b.ask('/go')
+    const metrics = h4b.get('observability')!.getMetrics().filter((m) => m.name === 'h4b_first_response_ms')
+    const byRoute = Object.fromEntries(metrics.map((m) => [m.labels?.route, m.value]))
+    expect(byRoute.transport).toBeGreaterThanOrEqual(35)
+    expect(byRoute.direct).toBeLessThan(35)
+    expect(h4b.get('observability')!.getMetrics().some((m) => m.name === 'h4b_turn_duration_ms' && m.labels?.route === 'direct')).toBe(true)
+  })
+})

@@ -166,4 +166,4 @@ For plugin and transport authors: `scriptedTransport`, `reply`, `eventually`, `w
 
 ## observability
 
-`observability({ includeContent?: false, ...createObservabilityOptions })`. Turns, per-route phases, actions, signals and stimuli as semantic events for Grafana (Faro/OTel), Langfuse and LangSmith. See [`packages/semantic-event-observability`](../../packages/semantic-event-observability/README.md) and [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md).
+`observability({ includeContent?: false, ...createObservabilityOptions })`. Turns, per-route phases, actions, signals and stimuli as semantic events, plus perceived latency per route (`h4b_first_response_ms`, `h4b_turn_duration_ms`) to tune direct commands against LLM answers, for Grafana (Faro/OTel), Langfuse and LangSmith. See [`packages/semantic-event-observability`](../../packages/semantic-event-observability/README.md) and [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md).

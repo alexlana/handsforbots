@@ -166,4 +166,4 @@ Para quem escreve plugins e transportes: `scriptedTransport`, `reply`, `eventual
 
 ## observability
 
-`observability({ includeContent?: false, ...opçõesDoCreateObservability })`. Turnos, fases por rota, ações, sinais e estímulos como eventos semânticos para Grafana (Faro/OTel), Langfuse e LangSmith. Veja [`packages/semantic-event-observability`](../../packages/semantic-event-observability/README.md) e [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md).
+`observability({ includeContent?: false, ...opçõesDoCreateObservability })`. Turnos, fases por rota, ações, sinais e estímulos como eventos semânticos, além da latência percebida por rota (`h4b_first_response_ms`, `h4b_turn_duration_ms`) para calibrar comandos diretos frente às respostas do LLM, para Grafana (Faro/OTel), Langfuse e LangSmith. Veja [`packages/semantic-event-observability`](../../packages/semantic-event-observability/README.md) e [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md).

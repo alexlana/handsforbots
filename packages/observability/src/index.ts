@@ -64,11 +64,16 @@ function attach(
   })
   const record = (name: string, payload: Record<string, unknown> = {}) => bus.trigger(name, [payload])
   const openTurns = new Map<string, Route | undefined>()
+  // Perceived latency: from the user's input to the first thing they can see, per route.
+  const timing = new Map<string, { start: number; route?: Route; firstSeen?: boolean }>()
   const offs: (() => void)[] = []
+  const VISIBLE = new Set(['message.delta', 'message.part', 'ui.render', 'ui.effect', 'action.call', 'action.result', 'audio'])
 
   offs.push(
     on('turn.status', (status) => {
       const labels = { turnId: status.turnId, route: status.route ?? 'pending' }
+      if (!timing.has(status.turnId)) timing.set(status.turnId, { start: status.signal?.timestamp ?? status.at })
+      if (status.route) timing.get(status.turnId)!.route = status.route
       if (!openTurns.has(status.turnId)) {
         openTurns.set(status.turnId, undefined)
         record('turn.started', { ...labels, modality: status.signal?.modality, source: status.signal?.source })
@@ -82,6 +87,9 @@ function attach(
         if (route) record(`route.${route}.end`, labels)
         openTurns.delete(status.turnId)
         record(`turn.${status.phase}`, { ...labels, ...(status.error ? { error: status.error } : {}) })
+        const t = timing.get(status.turnId)
+        timing.delete(status.turnId)
+        if (t) obs.recordMetric('h4b_turn_duration_ms', status.at - t.start, { route: status.route ?? 'none', phase: status.phase })
       }
     }),
     on('signal', (signal) =>
@@ -99,6 +107,13 @@ function attach(
       }),
     ),
     on('stimulus', ({ turnId, stimulus }) => {
+      const t = timing.get(turnId)
+      if (t && !t.firstSeen && VISIBLE.has(stimulus.type)) {
+        t.firstSeen = true
+        const ms = Date.now() - t.start
+        obs.recordMetric('h4b_first_response_ms', ms, { route: t.route ?? 'none' })
+        record('turn.first_response', { turnId, route: t.route ?? 'none', ms })
+      }
       // Token deltas are too chatty; everything else is a meaningful event.
       if (stimulus.type === 'message.delta' || stimulus.type === 'message.start') return
       record(`stimulus.${stimulus.type}`, {

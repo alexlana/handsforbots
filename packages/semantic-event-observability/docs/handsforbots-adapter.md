@@ -13,6 +13,7 @@ The plugin instruments the **semantic flow** of the v2 kernel. It does **not** m
 | Actions by origin (`action.invoked` / `action.failed`, origin `user` / `assistant` / `agent`) | Kubernetes liveness/readiness |
 | Signals by modality (`signal.text`, `signal.transcript`, `signal.image`…), without content by default | "Site down" alerting |
 | Stimuli (`stimulus.ui.effect`, `stimulus.action.call`, `stimulus.error`…), token deltas excluded | |
+| Perceived latency: `h4b_first_response_ms` (input → first visible response) and `h4b_turn_duration_ms`, labelled by route | |
 | Telemetry export health (`sevo_exporter_errors_total`) | |
 
 ## Usage
