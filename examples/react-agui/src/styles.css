@@ -192,6 +192,10 @@ tbody tr.selected {
   color: white;
 }
 
+.bubble.queued {
+  opacity: 0.55;
+}
+
 .bubble.assistant {
   align-self: flex-start;
   background: var(--accent-soft);

@@ -4,6 +4,7 @@ import {
   useBusy,
   useContextSignal,
   useH4B,
+  useH4BState,
   useMessages,
   useStimulus,
   useStore,
@@ -182,6 +183,7 @@ function OrderRow({ order, selected, onSelect }: { order: Order; selected: boole
 function AssistantPanel() {
   const h4b = useH4B()
   const messages = useMessages()
+  const queued = useH4BState((s) => s.queued)
   const busy = useBusy()
   const status = useSettledStatus(useTurn())
   const [draft, setDraft] = useState('')
@@ -210,6 +212,11 @@ function AssistantPanel() {
         )}
         {messages.map((m) => (
           <MessageView key={m.id} message={m} />
+        ))}
+        {queued.map((signal) => (
+          <div key={signal.id} className="bubble user queued">
+            {textOf(signal.parts)}
+          </div>
         ))}
         <div ref={end} />
       </div>
