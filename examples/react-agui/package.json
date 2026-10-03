@@ -10,9 +10,11 @@
   },
   "dependencies": {
     "@handsforbots/core": "workspace:^",
+    "@handsforbots/keyboard": "workspace:^",
     "@handsforbots/menu": "workspace:^",
     "@handsforbots/react": "workspace:^",
     "@handsforbots/transport-agui": "workspace:^",
+    "@handsforbots/voice": "workspace:^",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

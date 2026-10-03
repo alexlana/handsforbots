@@ -99,7 +99,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   }
 
   let sttIndex = 0
-  let session: SttSession | undefined
+  /** The live recognition session; older sessions may still flush a final result. */
+  type Active = { session?: SttSession; stopping: boolean; killTimer?: ReturnType<typeof setTimeout> }
+  let active: Active | undefined
   let wantListening = false
   let pausedForSpeech = false
   let speechController: AbortController | undefined
@@ -113,18 +115,23 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       wantListening = false
       return
     }
+    const entry: Active = { stopping: false }
+    active = entry
+    const isCurrent = () => active === entry
     set({ listening: true, error: undefined, stt: provider.name, partial: '' })
     let failed: SpeechError | undefined
     try {
-      session = await provider.listen(
+      entry.session = await provider.listen(
         { language, continuous: state.mode === 'hands-free' },
         {
           onPartial(text) {
+            if (!isCurrent() || entry.stopping) return
             set({ partial: text })
             if (bargeIn && state.speaking && text.length >= bargeInChars) service.cancelSpeech()
           },
           onFinal(text, meta) {
-            set({ partial: '' })
+            // A stopped session may still deliver the last utterance: keep it.
+            if (isCurrent()) set({ partial: '' })
             if (state.speaking && bargeIn) service.cancelSpeech()
             ctx.signal({
               modality: 'transcript',
@@ -135,10 +142,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           },
           onError(error) {
             failed = error
-            if (error.code !== 'no-speech') set({ error })
+            if (isCurrent() && error.code !== 'no-speech') set({ error })
           },
           onEnd() {
-            session = undefined
+            clearTimeout(entry.killTimer)
+            if (!isCurrent()) return
+            active = undefined
             set({ listening: false, partial: '' })
             if (failed?.recoverable && sttIndex < sttProviders.length - 1) {
               sttIndex++
@@ -148,7 +157,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
             if (failed?.code === 'not-allowed') wantListening = false
             // Browsers end recognition after silence; hands-free keeps going.
             if (wantListening && state.mode === 'hands-free' && !pausedForSpeech) {
-              restartTimer = setTimeout(() => wantListening && !session && void startSession(), 250)
+              restartTimer = setTimeout(() => wantListening && !active && void startSession(), 250)
             } else if (state.mode === 'push-to-talk') {
               wantListening = false
             }
@@ -157,7 +166,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       )
     } catch (error) {
       const speechError = error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message)
-      session = undefined
+      if (isCurrent()) active = undefined
       set({ listening: false, error: speechError })
       if (speechError.recoverable && sttIndex < sttProviders.length - 1) {
         sttIndex++
@@ -174,7 +183,14 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       return () => listeners.delete(listener)
     },
     async listen() {
-      if (session || state.listening) return
+      if (active && !active.stopping) return
+      if (active) {
+        // Pressed again while the previous session was still flushing.
+        const previous = active
+        active = undefined
+        clearTimeout(previous.killTimer)
+        previous.session?.abort()
+      }
       wantListening = true
       // Talking while the bot speaks is a barge-in.
       if (state.speaking) service.cancelSpeech()
@@ -183,7 +199,18 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     stop() {
       wantListening = false
       clearTimeout(restartTimer)
-      session?.stop()
+      const entry = active
+      // The mic turns off for the user right away; the provider flushes in the background.
+      set({ listening: false, partial: '' })
+      if (!entry || entry.stopping) return
+      entry.stopping = true
+      entry.session?.stop()
+      entry.killTimer = setTimeout(() => {
+        if (active === entry) {
+          entry.session?.abort()
+          active = undefined
+        }
+      }, 3000)
     },
     async toggle() {
       if (state.listening || wantListening) service.stop()
@@ -208,9 +235,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         if (controller.signal.aborted) return
         set({ speaking: true, tts: provider.name })
         // Without barge-in the mic would hear the bot: pause recognition while speaking.
-        if (!bargeIn && session) {
+        if (!bargeIn && active?.session) {
           pausedForSpeech = true
-          session.abort()
+          active.session.abort()
         }
         try {
           await provider.speak(text, { language, voice: options.voiceName, signal: controller.signal })
@@ -259,7 +286,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   ctx.onDispose(() => {
     wantListening = false
     clearTimeout(restartTimer)
-    session?.abort()
+    active?.session?.abort()
     service.cancelSpeech()
     listeners.clear()
   })

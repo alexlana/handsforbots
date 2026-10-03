@@ -13,7 +13,7 @@ import {
 } from '../src/index.js'
 
 /** STT whose sessions the test drives by hand. */
-function fakeSTT(name = 'fake', options: { supported?: boolean; failWith?: SpeechError } = {}) {
+function fakeSTT(name = 'fake', options: { supported?: boolean; failWith?: SpeechError; lazyStop?: boolean } = {}) {
   const sessions: { handlers: SttHandlers; continuous: boolean; stop: ReturnType<typeof vi.fn>; abort: ReturnType<typeof vi.fn> }[] = []
   const provider: SpeechToText = {
     name,
@@ -24,7 +24,7 @@ function fakeSTT(name = 'fake', options: { supported?: boolean; failWith?: Speec
       const session = {
         handlers,
         continuous: listenOptions.continuous,
-        stop: vi.fn(() => handlers.onEnd()),
+        stop: vi.fn(() => !options.lazyStop && handlers.onEnd()),
         abort: vi.fn(() => handlers.onEnd()),
       }
       sessions.push(session)
@@ -169,6 +169,44 @@ describe('listening modes', () => {
     await v.toggle()
     expect(stt.last().stop).toHaveBeenCalled()
     expect(v.getState().listening).toBe(false)
+  })
+})
+
+describe('push-to-talk release', () => {
+  it('turns the mic off immediately and still uses the final transcript that arrives later', async () => {
+    const stt = fakeSTT('slow', { lazyStop: true })
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    await v.listen()
+    v.stop()
+    expect(v.getState().listening).toBe(false)
+    stt.last().handlers.onFinal('chegou depois')
+    stt.last().handlers.onEnd()
+    await tick(5)
+    expect(h4b.messages[0]).toMatchObject({ role: 'user', modality: 'transcript' })
+  })
+
+  it('pressing again while flushing starts a fresh session; late events of the old one are ignored', async () => {
+    const stt = fakeSTT('slow', { lazyStop: true })
+    const { voice: v } = await setup({ stt: stt.provider })
+    await v.listen()
+    const first = stt.last()
+    v.stop()
+    await v.listen()
+    expect(first.abort).toHaveBeenCalled()
+    expect(stt.sessions).toHaveLength(2)
+    first.handlers.onPartial?.('velho')
+    first.handlers.onEnd()
+    expect(v.getState()).toMatchObject({ listening: true, partial: '' })
+  })
+
+  it('aborts a session whose provider never ends after stop', async () => {
+    vi.useFakeTimers()
+    const stt = fakeSTT('stuck', { lazyStop: true })
+    const { voice: v } = await setup({ stt: stt.provider })
+    await v.listen()
+    v.stop()
+    await vi.advanceTimersByTimeAsync(3100)
+    expect(stt.last().abort).toHaveBeenCalled()
   })
 })
 

@@ -6,6 +6,7 @@ import {
   useH4B,
   useMessages,
   useStimulus,
+  useStore,
   useTurn,
 } from '@handsforbots/react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
@@ -210,6 +211,7 @@ function AssistantPanel() {
           </button>
         ))}
       </div>
+      <VoiceControls />
       <form onSubmit={submit} className="composer">
         <input
           value={draft}
@@ -229,6 +231,64 @@ function AssistantPanel() {
   )
 }
 
+/** Microphone and speech: push-to-talk (hold), hands-free (toggle), output preference. */
+function VoiceControls() {
+  const voice = useH4B().get('voice')
+  const state = useStore(voice)
+  if (!voice || !state) return null
+  if (!state.supported.stt && !state.supported.tts) {
+    return <div className="voice muted">Voz indisponível neste navegador — use o teclado.</div>
+  }
+  const pushToTalk = state.mode === 'push-to-talk'
+  const micProps = pushToTalk
+    ? {
+        onPointerDown: () => void voice.listen(),
+        onPointerUp: () => voice.stop(),
+        onPointerLeave: () => state.listening && voice.stop(),
+      }
+    : { onClick: () => void voice.toggle() }
+
+  return (
+    <div className="voice">
+      {state.supported.stt && (
+        <button
+          type="button"
+          className={`mic ${state.listening ? 'on' : ''}`}
+          aria-pressed={state.listening}
+          title={pushToTalk ? 'Segure para falar (ou Alt+M)' : 'Ligar/desligar microfone (ou Alt+M)'}
+          {...micProps}
+        >
+          {state.listening ? '🎙️ ouvindo' : pushToTalk ? '🎤 segure para falar' : '🎤 mãos-livres'}
+        </button>
+      )}
+      <select
+        aria-label="Modo de voz"
+        value={state.mode}
+        onChange={(e) => voice.setMode(e.target.value as typeof state.mode)}
+      >
+        <option value="push-to-talk">Apertar para falar</option>
+        <option value="hands-free">Mãos-livres</option>
+      </select>
+      <select
+        aria-label="Saída"
+        value={state.output}
+        onChange={(e) => voice.setOutput(e.target.value as typeof state.output)}
+      >
+        <option value="auto">Responder como perguntei</option>
+        <option value="voice">Sempre falar</option>
+        <option value="text">Só texto</option>
+      </select>
+      {state.speaking && (
+        <button type="button" onClick={() => voice.cancelSpeech()}>
+          🔊 parar fala (Esc)
+        </button>
+      )}
+      {state.partial && <div className="partial">“{state.partial}”</div>}
+      {state.error && state.error.code !== 'aborted' && <div className="voice-error">Voz: {state.error.message}</div>}
+    </div>
+  )
+}
+
 function MessageView({ message }: { message: Message }) {
   if (message.role === 'tool') {
     return (
@@ -240,7 +300,8 @@ function MessageView({ message }: { message: Message }) {
   }
   const text = textOf(message)
   if (!text) return null
-  return <div className={`bubble ${message.role}`}>{text}</div>
+  const spoken = message.role === 'user' && message.modality === 'transcript'
+  return <div className={`bubble ${message.role}`}>{spoken ? `🎤 ${text}` : text}</div>
 }
 
 /**

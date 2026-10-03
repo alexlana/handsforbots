@@ -23,6 +23,25 @@ No API key or Docker needed: a deterministic **mock AG-UI agent** ([agent/mockAg
 | `onde eu exporto?` | assistant | Agent calls `highlight` and the button pulses |
 | `cancele o pedido 1043` | assistant | Destructive action → confirmation dialog |
 
+## Voice and keyboard
+
+- **🎤 button**: hold to talk (push-to-talk) or toggle (hands-free). Same with **Alt+M** on the keyboard.
+- **Output follows input**: spoken questions get spoken answers; typed ones stay silent. Change it in the "Saída" selector.
+- **Barge-in**: start talking (or press **Esc**) while the bot speaks to interrupt it. Esc also cancels a running turn.
+- Uses the browser's Web Speech API. To use a cloud provider instead (or as a fallback), change only `main.tsx`:
+
+```ts
+voice({
+  stt: [
+    websocketSTT({ url: async () => `wss://stt.example.com?token=${await getToken()}`, parse }), // streaming cloud
+    httpSTT({ url: '/api/stt' }), // your backend proxies Whisper/Google/Azure (no keys in the browser)
+    webSpeechSTT(), // browser fallback
+  ],
+  tts: [httpTTS({ url: '/api/tts' }), webSpeechTTS()],
+  language: 'pt-BR',
+})
+```
+
 ## What it shows
 
 - `useAction` registers GUI actions; the same actions serve the assistant (tool calls) and the menu (direct commands).

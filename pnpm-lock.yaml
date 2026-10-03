@@ -26,6 +26,9 @@ importers:
       '@handsforbots/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@handsforbots/keyboard':
+        specifier: workspace:^
+        version: link:../../packages/keyboard
       '@handsforbots/menu':
         specifier: workspace:^
         version: link:../../packages/menu
@@ -35,6 +38,9 @@ importers:
       '@handsforbots/transport-agui':
         specifier: workspace:^
         version: link:../../packages/transport-agui
+      '@handsforbots/voice':
+        specifier: workspace:^
+        version: link:../../packages/voice
       react:
         specifier: ^19.3.0
         version: 19.3.0

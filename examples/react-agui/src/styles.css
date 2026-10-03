@@ -229,6 +229,46 @@ tbody tr.selected {
   border-radius: 99px;
 }
 
+.voice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 0 16px 8px;
+  font-size: 13px;
+}
+
+.voice select,
+.voice button {
+  font-size: 13px;
+}
+
+.voice.muted,
+.partial {
+  color: var(--muted);
+}
+
+.partial {
+  flex-basis: 100%;
+  font-style: italic;
+}
+
+.voice-error {
+  flex-basis: 100%;
+  color: var(--late);
+}
+
+.mic {
+  touch-action: none;
+  user-select: none;
+}
+
+.mic.on {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 .composer {
   display: flex;
   gap: 8px;
