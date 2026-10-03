@@ -1,115 +1,58 @@
-import Bot from "./handsforbots/Bot.js";
-import { maybeInitObservabilityStack } from "./observability-stack.js";
+import { createH4B } from '@handsforbots/core'
+import { keyboard } from '@handsforbots/keyboard'
+import { observability } from '@handsforbots/observability'
+import { storageLocal } from '@handsforbots/storage-local'
+import { tabSync } from '@handsforbots/tab-sync'
+import { rasa } from '@handsforbots/transport-rasa'
+import { voice, webSpeechSTT, webSpeechTTS } from '@handsforbots/voice'
+import { widget } from '@handsforbots/widget'
+import { maybeInitObservabilityStack } from './observability-stack.js'
 
-const stack = await maybeInitObservabilityStack();
-const stackEnabled = Boolean(stack);
+const stack = await maybeInitObservabilityStack()
+const stackEnabled = Boolean(stack)
 
-/**
- * Chatbot
- */
-let bot_settings = {
-  engine: "rasa",
-  language: "pt-br",
-  engine_endpoint: "http://localhost/rasa/webhooks/rest/webhook",
+const h4b = createH4B({
+  plugins: [
+    // Rasa REST channel behind nginx (see ../nginx). The H4B thread id is the Rasa sender.
+    rasa({ url: 'http://localhost/rasa/webhooks/rest/webhook' }),
 
-  core: [],
-  plugins: [],
-};
+    widget({
+      layout: 'floating',
+      startOpen: true,
+      language: 'pt-br',
+      color: 'blue',
+      botName: 'GUI Assistant',
+      botJob: 'Assistant',
+      avatar: './img/bot.png',
+      title: 'Talk to me!',
+    }),
 
-let text_input_config = {
-  plugin: "Text",
-  type: "input",
+    // Browser speech; swap or chain cloud providers (httpSTT, websocketSTT, voskSTT) here.
+    voice({ stt: webSpeechSTT(), tts: webSpeechTTS({ voice: 'Luciana' }), language: 'pt-BR' }),
+    keyboard(), // hold Alt+M to talk, Esc to interrupt
 
-  start_open: true,
-  color: "blue",
-  no_css: false,
-  container: "#chatbot",
-  bot_name: "GUI Assistant",
-  bot_job: "Assistant",
-  bot_avatar: "./img/bot.png",
-  title: "Talk to me!",
-  autofocus: false,
-};
-bot_settings.core.push(text_input_config);
+    storageLocal({ ttlMinutes: 30 }), // conversation survives navigation, as in v1
+    tabSync(), // and stays in sync across tabs
 
-let text_output_config = {
-  plugin: "Text",
-  type: "output",
-};
-bot_settings.core.push(text_output_config);
+    observability({
+      environment: stackEnabled ? 'development-lgtm' : 'development',
+      sampleRate: 1,
+      exporters: stackEnabled
+        ? ['memory', 'console', 'devPanel', 'faro', 'otel', 'webVitals']
+        : ['memory', 'console', 'devPanel'],
+      exporterConfig: {
+        console: { level: 'debug' },
+        devPanel: { enabled: false },
+        faro: stack?.faro ? { client: stack.faro } : {},
+        otel: stack ? { getTracer: stack.getTracer, getMeter: stack.getMeter, traceApi: stack.traceApi } : {},
+        webVitals: stackEnabled ? { vitals: stack?.webVitals, labels: { environment: 'development-lgtm' } } : {},
+      },
+    }),
+  ],
+})
 
-let VTT_ui_config = {
-  plugin: "Voice",
-  type: "input",
-  prioritize_speech: false,
-};
-bot_settings.core.push(VTT_ui_config);
+await h4b.start()
 
-let voice_ui_config = {
-  plugin: "Voice",
-  type: "output",
-  name: "Luciana", // pt-BR
-};
-bot_settings.core.push(voice_ui_config);
-
-let bots_commands_config = {
-  plugin: "BotsCommands",
-  type: "output",
-};
-bot_settings.core.push(bots_commands_config);
-
-let poke_config = {
-  plugin: "Poke",
-  type: "input",
-};
-bot_settings.core.push(poke_config);
-
-let observability_config = {
-  plugin: "Observability",
-  type: "output",
-  environment: stackEnabled ? "development-lgtm" : "development",
-  sampleRate: 1,
-  exporters: stackEnabled
-    ? ["memory", "console", "devPanel", "faro", "otel", "webVitals"]
-    : ["memory", "console", "devPanel"],
-  exporterConfig: {
-    console: { level: "debug" },
-    devPanel: { enabled: false },
-    faro: stack?.faro ? { client: stack.faro } : {},
-    otel: stack ? { getTracer: stack.getTracer, getMeter: stack.getMeter, traceApi: stack.traceApi } : {},
-    webVitals: stackEnabled
-      ? { vitals: stack?.webVitals, labels: { environment: "development-lgtm" } }
-      : {},
-  },
-};
-bot_settings.plugins.push(observability_config);
-
-  // let hex_presentation_settings = {
-  //   plugin: 'HexPresentation',
-  //   type: 'output',
-  //   root: '../../../../content/portfolio/',
-  //   gallery_list: [
-  //     'afrolatinas',
-  //     'cena',
-  //     'dogatwork',
-  //     'mapaecologico',
-  //     'origo',
-  //     'powerfi',
-  //     'saptravelheroes',
-  //     'skyhub',
-  //     'snowland',
-  //     'tabata',
-  //     'ubec'
-  //   ]
-  // }
-  // bot_settings.plugins.push( hex_presentation_settings )
-
-
-
-
-const bot = new Bot(bot_settings);
-
-if (bot.history.length == 0) {
-  // bot.input( 'poke', 'Obliviate' );
-  // bot.input( 'poke', '__startbot__' );
-}
+// Poke (v1): the page can start turns or add context at any time, e.g.
+//   h4b.signal({ modality: 'gui-event', source: 'page', parts: [{ type: 'text', text: '/greet' }] })
+if (import.meta.env.DEV) window.h4b = h4b

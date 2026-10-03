@@ -27,7 +27,7 @@ export function createLangfuseExporter(config = {}) {
 				moduleSpecifier: '@langfuse/tracing',
 			})
 
-			startObservation = resolved?.module?.startObservation || config.startObservation
+			startObservation = config.startObservation || resolved?.module?.startObservation
 			if (typeof startObservation !== 'function') return
 
 			this.available = true

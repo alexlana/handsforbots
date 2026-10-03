@@ -12,7 +12,7 @@ Checklist and automated smoke test for bundled dashboards targeting **`sevo_*`**
 ## Automated smoke test
 
 ```bash
-cd handsforbots/Libs/SemanticEventObservability
+cd packages/semantic-event-observability
 npm test -- test/grafana-dashboard.test.js
 ```
 

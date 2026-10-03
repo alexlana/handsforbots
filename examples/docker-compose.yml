@@ -41,13 +41,14 @@ services:
     container_name: t4b-vite
     environment:
       - VITE_HMR_CLIENT_PORT=80
+      - H4B_PACKAGES=/usr/src/packages
     env_file:
       - path: .env.observability
         required: false
     volumes:
       - ./vite/src:/usr/src/app/src
       - ./vite/static/img:/usr/src/app/static/img
-      - ../handsforbots:/usr/src/app/src/handsforbots
+      - ../packages:/usr/src/packages # Hands for Bots v2 sources
     networks: ["t4bnet"]
     # links:
     #   - rasa

@@ -27,7 +27,7 @@ export function createLangsmithExporter(config = {}) {
 				moduleSpecifier: 'langsmith',
 			})
 
-			RunTree = resolved?.module?.RunTree || config.RunTree
+			RunTree = config.RunTree || resolved?.module?.RunTree
 			if (typeof RunTree !== 'function') return
 
 			projectName = config.projectName || context.identity.slug

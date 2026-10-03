@@ -8,7 +8,9 @@ Runnable demos for the library. All commands below assume you are in this direct
 |---------|------|-----|
 | [react-agui](./react-agui/README.md) | React dashboard where the assistant acts on the GUI via AG-UI, plus direct menu commands | `pnpm --filter @handsforbots/example-react-agui dev` (from the repo root) |
 
-The sections below cover the **v1** examples (Rasa + Docker), kept until they are migrated to v2.
+The sections below cover the **Rasa + Docker** example. It runs on v2 too (`vite/src/Init.js`, `vite/src/guided-init.js`): Rasa transport, `<h4b-chat>` widget, voice, keyboard, local storage, tab sync, guided tours and observability.
+
+> **Upgrading an existing checkout:** rebuild the Vite image (`docker compose up --build`) because `vite.config.js` changed, and update the Rasa model once (`docker exec t4b-bot rasa train` then `docker compose restart rasa`) because `utter_please_explain` now asks the page for its guided tour through `custom.h4b` instead of v1 action tags. Only a response changed, so Rasa just repackages the model.
 
 ## Prerequisites
 
@@ -94,7 +96,8 @@ examples/
 ├── docker-compose.yml                 ← basic stack
 ├── docker-compose.observability.yml   ← LGTM only (optional)
 ├── .env.observability.example         ← copy to .env.observability to enable export
-├── vite/                              ← front-end demo (Init.js)
+├── react-agui/                        ← v2 React + AG-UI demo (pnpm)
+├── vite/                              ← Rasa demo on v2 (Init.js, guided-init.js)
 ├── rasa/                              ← demo assistant
 ├── nginx/                             ← reverse proxy config
 └── observability/grafana/             ← provisioning config (dashboard JSON lives in the lib)

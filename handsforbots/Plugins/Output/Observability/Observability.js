@@ -1,4 +1,4 @@
-import { attachHandsForBotsObservability } from '../../../Libs/SemanticEventObservability/adapters/handsforbots.js'
+import { attachHandsForBotsObservability } from '../../../../packages/semantic-event-observability/adapters/handsforbots.js'
 
 /**
  * Output plugin — passive observability for the event bus.

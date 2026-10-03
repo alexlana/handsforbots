@@ -100,10 +100,20 @@ export class H4BChatElement extends BaseElement {
     this.strings = stringsFor(options.language ?? document.documentElement.lang, options.strings)
     this.build()
     this.cleanups.push(h4b.subscribe(() => this.render()))
-    const voice = h4b.get('voice' as never) as VoiceLike | undefined
-    if (voice) this.cleanups.push(voice.subscribe(() => this.renderVoice()))
+    // Voice may be installed after the widget (plugin order) or removed at runtime.
+    let unsubscribeVoice: (() => void) | undefined
+    const watchVoice = () => {
+      unsubscribeVoice?.()
+      unsubscribeVoice = this.voice()?.subscribe(() => this.renderVoice())
+      this.renderVoice()
+    }
+    watchVoice()
+    this.cleanups.push(
+      () => unsubscribeVoice?.(),
+      h4b.on('service.provided', ({ key }) => key === ('voice' as never) && watchVoice()),
+      h4b.on('service.removed', ({ key }) => key === ('voice' as never) && watchVoice()),
+    )
     this.render()
-    this.renderVoice()
     this.greet()
   }
 

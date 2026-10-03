@@ -80,7 +80,7 @@ probe_success{stack="handsforbots-example"}
 histogram_quantile(0.95, sum(rate(probe_duration_seconds_bucket[5m])) by (le, service))
 ```
 
-Scope boundaries: [library architecture — scope](../handsforbots/Libs/SemanticEventObservability/docs/architecture.md#scope).
+Scope boundaries: [library architecture — scope](../packages/semantic-event-observability/docs/architecture.md#scope).
 
 ## Example frontend / RUM
 
@@ -154,7 +154,7 @@ This dashboard filters **`semantic-event-observability` only** — data appears 
 
 Prometheus panels for `sevo_*` metrics populate when the lib exports via OTel Metrics API and the LGTM stack is running. Run `npm install` in `examples/vite` after pulling (adds `@opentelemetry/sdk-metrics`).
 
-Roadmaps: [lib metrics](../../handsforbots/Libs/SemanticEventObservability/docs/metrics-roadmap.md) · [Hands for Bots](../../handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md).
+Roadmaps: [lib metrics](../packages/semantic-event-observability/docs/metrics-roadmap.md) · [Hands for Bots](../packages/semantic-event-observability/docs/handsforbots-roadmap.md).
 
 ## Local dev without Docker for the bot
 
@@ -173,7 +173,7 @@ Provisioned automatically when LGTM starts (`docker-compose.observability.yml`):
 
 | Dashboard | Source | Role |
 |-----------|--------|------|
-| **Semantic Event Observability** (home) | `handsforbots/Libs/SemanticEventObservability/grafana/semantic-event-observability.lgtm.json` | `sevo_*` turns, traces, semantic logs |
+| **Semantic Event Observability** (home) | `packages/semantic-event-observability/grafana/semantic-event-observability.lgtm.json` | `sevo_*` turns, traces, semantic logs |
 | **Example frontend** | `examples/observability/grafana/example-frontend.lgtm.json` | Web Vitals, Faro errors, fetch traces |
 | **Example uptime** | `examples/observability/grafana/example-uptime.lgtm.json` | Blackbox probes for chat, Rasa, backends |
 
@@ -211,6 +211,6 @@ location.reload()
 ## Faro / Langfuse / LangSmith
 
 This example stack uses **OpenTelemetry → otel-lgtm** for traces and **Faro → Alloy → Loki** for semantic event logs.  
-Other backends are documented in [`SemanticEventObservability/docs/exporters.md`](../handsforbots/Libs/SemanticEventObservability/docs/exporters.md).
+Other backends are documented in [`SemanticEventObservability/docs/exporters.md`](../packages/semantic-event-observability/docs/exporters.md).
 
 See also [README.md](./README.md) for the full examples layout.

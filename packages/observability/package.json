@@ -1,0 +1,35 @@
+{
+  "name": "@handsforbots/observability",
+  "version": "2.0.0-alpha.0",
+  "description": "Semantic observability for Hands for Bots v2: turns, routes, actions and signals as logs, metrics and traces (Grafana, OTel, Langfuse, LangSmith).",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "dependencies": {
+    "@handsforbots/semantic-event-observability": "workspace:^"
+  }
+}

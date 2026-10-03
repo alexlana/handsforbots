@@ -11,7 +11,7 @@ Este documento substitui o roadmap de julho/2026. Ele redefine o posicionamento 
 
 - [README](./README.md) — visão geral da v1
 - [docs-dev](./docs-dev/README.md) — fluxo interno da v1 (Bot, Core, Plugins, Libs)
-- [Observability roadmap (HfB)](./handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md) — métricas e traces
+- [Observability roadmap (HfB)](./packages/semantic-event-observability/docs/handsforbots-roadmap.md) — métricas e traces
 
 ---
 
@@ -469,7 +469,7 @@ Os prazos assumem uma equipe pequena. Cada fase só termina quando o critério d
 
 ### Em paralelo — Observabilidade (baixa intensidade)
 
-Seguir o [handsforbots-roadmap](./handsforbots/Libs/SemanticEventObservability/docs/handsforbots-roadmap.md) apenas no que a v2 precisa: `traceparent` no transporte, spans por turno e por rota (`direct` / `transport`), métricas de voz. Langfuse e o resto só com demanda.
+Seguir o [handsforbots-roadmap](./packages/semantic-event-observability/docs/handsforbots-roadmap.md) apenas no que a v2 precisa: `traceparent` no transporte, spans por turno e por rota (`direct` / `transport`), métricas de voz. Langfuse e o resto só com demanda.
 
 ---
 

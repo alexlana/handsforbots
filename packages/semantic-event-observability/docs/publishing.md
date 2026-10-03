@@ -1,6 +1,6 @@
 # Publishing to npm
 
-The package lives at `handsforbots/Libs/SemanticEventObservability/` and is named **`@handsforbots/semantic-event-observability`**.
+The package lives at `packages/semantic-event-observability/` and is named **`@handsforbots/semantic-event-observability`**.
 
 ## Single source of truth
 
@@ -16,7 +16,7 @@ The package lives at `handsforbots/Libs/SemanticEventObservability/` and is name
 ## Pre-publish checklist
 
 ```bash
-cd handsforbots/Libs/SemanticEventObservability
+cd packages/semantic-event-observability
 npm test
 npm pack --dry-run   # verify files list
 ```

@@ -182,8 +182,9 @@ describe('<h4b-chat>', () => {
       cancelSpeech: vi.fn(),
     }
     const h4b = createH4B({ plugins: [widget({ startOpen: true })] })
-    h4b.provide('voice' as never, voice as never)
     await h4b.start()
+    // Provided after the widget mounted (e.g. plugin order): controls still appear.
+    h4b.provide('voice' as never, voice as never)
     const root = document.querySelector('h4b-chat')!.shadowRoot!
     const mic = root.querySelector('#speech_button') as HTMLButtonElement
     expect(mic.hidden).toBe(false)
