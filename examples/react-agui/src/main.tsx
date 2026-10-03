@@ -1,4 +1,5 @@
 import { createH4B } from '@handsforbots/core'
+import { webmcp } from '@handsforbots/expose-webmcp'
 import { keyboard } from '@handsforbots/keyboard'
 import { menu } from '@handsforbots/menu'
 import { H4BProvider } from '@handsforbots/react'
@@ -17,6 +18,7 @@ const h4b = createH4B({
     // Browser speech here; swap or chain cloud providers (httpSTT, websocketSTT, voskSTT) without touching the UI.
     voice({ stt: webSpeechSTT(), tts: webSpeechTTS(), language: 'pt-BR' }),
     keyboard(), // hold Alt+M to talk, Esc to interrupt
+    webmcp(), // browser agents (Chrome WebMCP) get the actions marked exposeTo: ['agent']
   ],
 })
 

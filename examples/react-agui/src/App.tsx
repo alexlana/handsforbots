@@ -12,6 +12,9 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { ORDERS, STATUS_LABEL, type Order, type OrderStatus } from './orders'
 
+/** The in-app assistant, direct commands and browser agents (WebMCP) share the same actions. */
+const EVERYONE = ['assistant', 'user', 'agent'] as const
+
 type Filter = OrderStatus | 'all'
 type Target = 'export' | 'filter' | 'table'
 
@@ -21,6 +24,7 @@ export function App() {
       <header className="topbar">
         <strong>[•_•] Hands for Bots v2</strong>
         <span>React + AG-UI · exemplo</span>
+        <WebMCPBadge />
       </header>
       <OrdersPanel />
       <AssistantPanel />
@@ -60,6 +64,7 @@ function OrdersPanel() {
       return { status, count: orders.filter((o) => status === 'all' || o.status === status).length }
     },
     describeResult: (r) => `${r.count} pedido(s) — ${STATUS_LABEL[r.status].toLowerCase()}.`,
+    exposeTo: [...EVERYONE],
   })
 
   useAction({
@@ -74,13 +79,15 @@ function OrdersPanel() {
       return { found: true, id, customer: order.customer }
     },
     describeResult: (r) => (r.found ? `Pedido ${r.id} aberto.` : `Pedido ${r.id} não encontrado.`),
+    exposeTo: [...EVERYONE],
   })
 
   useAction({
     name: 'cancel_order',
     description: 'Cancela um pedido (irreversível)',
     parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
-    destructive: true,
+    destructive: true, // confirmation for every origin
+    exposeTo: [...EVERYONE],
     handler: ({ id }: { id: string }) => {
       if (!orders.some((o) => o.id === id)) throw new Error(`Pedido ${id} não existe`)
       setOrders((list) => list.map((o) => (o.id === id ? { ...o, status: 'cancelled' } : o)))
@@ -96,6 +103,8 @@ function OrdersPanel() {
       highlight(target)
       return { ok: true }
     },
+    readOnly: true,
+    exposeTo: [...EVERYONE],
   })
 
   // Backends can also drive the GUI with ui.effect stimuli (AG-UI CUSTOM "h4b.ui.effect").
@@ -231,6 +240,22 @@ function AssistantPanel() {
   )
 }
 
+const ROUTE_LABEL: Record<string, string> = {
+  direct: '⚡ ação direta',
+  transport: '🤖 assistente executou',
+  agent: '🌐 agente do navegador executou',
+}
+
+function WebMCPBadge() {
+  const state = useStore(useH4B().get('webmcp'))
+  if (!state) return null
+  return (
+    <span className="webmcp" title="Ações expostas a agentes do navegador via WebMCP">
+      WebMCP: {state.supported ? `${state.tools.length} ferramentas` : 'indisponível neste navegador'}
+    </span>
+  )
+}
+
 /** Microphone and speech: push-to-talk (hold), hands-free (toggle), output preference. */
 function VoiceControls() {
   const voice = useH4B().get('voice')
@@ -293,7 +318,7 @@ function MessageView({ message }: { message: Message }) {
   if (message.role === 'tool') {
     return (
       <div className={`action-card ${message.error ? 'failed' : ''}`}>
-        {message.route === 'direct' ? '⚡ ação direta' : '🤖 assistente executou'} <code>{message.name}</code>
+        {ROUTE_LABEL[message.route ?? 'transport'] ?? '🤖 assistente executou'} <code>{message.name}</code>
         {message.error ? ` — ${message.error}` : ''}
       </div>
     )

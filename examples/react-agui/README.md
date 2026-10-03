@@ -42,6 +42,10 @@ voice({
 })
 ```
 
+## Browser agents (WebMCP)
+
+The same actions are published to agents running in the browser through [WebMCP](https://github.com/webmachinelearning/webmcp) (`document.modelContext`, Chrome origin trial 149–156 or `chrome://flags/#enable-webmcp-testing`). The badge in the header shows how many tools are exposed. Only actions with `exposeTo: ['agent']` are published; destructive ones still ask the user, and every agent call shows up in the conversation as "🌐 agente do navegador".
+
 ## What it shows
 
 - `useAction` registers GUI actions; the same actions serve the assistant (tool calls) and the menu (direct commands).

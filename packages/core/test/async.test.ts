@@ -161,3 +161,26 @@ describe('push (stimuli outside a turn)', () => {
     expect(disconnect).toHaveBeenCalledOnce()
   })
 })
+
+describe('runAction', () => {
+  it('runs an action through the queue and records who asked for it', async () => {
+    const h4b = createH4B({
+      actions: [
+        { name: 'zoom', description: 'Zoom', handler: ({ level }: { level: number }) => level * 2 },
+        { name: 'boom', description: 'Fails', handler: () => { throw new Error('quebrou') } },
+      ],
+    })
+    const statuses: string[] = []
+    h4b.on('turn.status', (s) => void statuses.push(`${s.phase}:${s.route}`))
+
+    expect(await h4b.runAction('zoom', { level: 2 }, { origin: 'agent' })).toEqual({ result: 4 })
+    expect(await h4b.runAction('boom')).toEqual({ error: 'quebrou' })
+    expect(h4b.messages.map((m) => `${m.role}:${m.route}`)).toEqual([
+      'assistant:agent',
+      'tool:agent',
+      'assistant:direct',
+      'tool:direct',
+    ])
+    expect(statuses).toEqual(['acting:agent', 'done:agent', 'acting:direct', 'error:direct'])
+  })
+})

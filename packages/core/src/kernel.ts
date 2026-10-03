@@ -17,6 +17,7 @@ import { validate } from './standard-schema.js'
 import type {
   ActionDefinition,
   AssistantMessage,
+  Origin,
   CaptureHandler,
   Match,
   Matcher,
@@ -61,9 +62,12 @@ type RoundState = {
 }
 
 /** Work processed one at a time, in arrival order. */
+type ActionOutcome = { result?: unknown; error?: string }
+
 type Job =
   | { kind: 'signal'; signal: Signal }
   | { kind: 'push'; stimuli: Iterable<Stimulus> | AsyncIterable<Stimulus>; done: () => void }
+  | { kind: 'action'; name: string; args: unknown; origin: Origin; done: (outcome: ActionOutcome) => void }
 
 const FINAL_PHASES: TurnPhase[] = ['done', 'error', 'aborted']
 
@@ -415,6 +419,15 @@ export class H4B {
     return new Promise((resolve) => this.enqueue({ kind: 'push', stimuli, done: resolve }))
   }
 
+  /**
+   * Runs an action through the queue and records it in history, like a turn
+   * without a transport: for external agents (route `agent`) or host UI that
+   * wants a visible trace (route `direct`). Never throws: resolves the outcome.
+   */
+  runAction(name: string, args: unknown = {}, options: { origin?: Origin } = {}): Promise<ActionOutcome> {
+    return new Promise((done) => this.enqueue({ kind: 'action', name, args, origin: options.origin ?? 'user', done }))
+  }
+
   removeContext(key: string) {
     if (this.contextSignals.delete(key)) this.contextChanged()
   }
@@ -489,7 +502,8 @@ export class H4B {
       while (this.queue.length > 0) {
         const job = this.queue.shift()!
         if (job.kind === 'signal') await this.runTurn(job.signal)
-        else await this.runPush(job)
+        else if (job.kind === 'push') await this.runPush(job)
+        else await this.runActionJob(job)
       }
     } finally {
       this.running = false
@@ -570,6 +584,30 @@ export class H4B {
       if (this.controller === controller) this.controller = undefined
       await this.persist()
       job.done()
+    }
+  }
+
+  private async runActionJob(job: Extract<Job, { kind: 'action' }>) {
+    const turnId = createId('turn')
+    const controller = new AbortController()
+    this.controller = controller
+    const route: Route = job.origin === 'agent' ? 'agent' : 'direct'
+    const round: RoundState = { route, pending: [], resolved: new Set() }
+    const call: ToolCall = { id: createId('call'), name: job.name, args: job.args }
+    let outcome: ActionOutcome = {}
+    this.setStatus(turnId, 'acting', route)
+    try {
+      await this.deliver(turnId, { type: 'action.call', callId: call.id, name: call.name, args: call.args }, round)
+      this.closeStreaming(round)
+      outcome = await this.invokeAction(turnId, call, job.origin, controller.signal, round)
+      this.setStatus(turnId, outcome.error ? 'error' : 'done', route, undefined, outcome.error)
+    } catch (error) {
+      outcome = { error: (error as Error)?.message ?? String(error) }
+      this.setStatus(turnId, 'error', route, undefined, outcome.error)
+    } finally {
+      if (this.controller === controller) this.controller = undefined
+      await this.persist()
+      job.done(outcome)
     }
   }
 
@@ -663,11 +701,11 @@ export class H4B {
   private async invokeAction(
     turnId: string,
     call: ToolCall,
-    origin: 'user' | 'assistant',
+    origin: Origin,
     abortSignal: AbortSignal,
     round: RoundState,
-  ): Promise<{ result?: unknown; error?: string }> {
-    let outcome: { result?: unknown; error?: string }
+  ): Promise<ActionOutcome> {
+    let outcome: ActionOutcome
     try {
       const result = await this.actions.invoke(call.name, call.args, { origin, callId: call.id, signal: abortSignal })
       outcome = { result }

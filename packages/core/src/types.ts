@@ -65,7 +65,8 @@ export type SignalInput = Omit<Signal, 'id' | 'timestamp' | 'kind'> & {
 /* -------------------------------------------------------------------------- */
 
 /** How a turn was resolved: by a direct command (menu) or by a transport. */
-export type Route = 'direct' | 'transport' | 'capture' | 'push'
+/** How a turn was resolved. `agent`: an external agent (e.g. via WebMCP) ran an action. */
+export type Route = 'direct' | 'transport' | 'capture' | 'push' | 'agent'
 
 export type ToolCall = { id: string; name: string; args: unknown }
 
@@ -155,6 +156,8 @@ export type ActionDefinition<I = any, O = unknown> = {
   destructive?: boolean
   /** Origins allowed to call it. Default: all. */
   exposeTo?: Origin[]
+  /** Does not change anything (lets agents call it more freely). */
+  readOnly?: boolean
   /** Short sentence used when the action runs as a direct command. */
   describeResult?: (result: O, args: I) => string | undefined
 }

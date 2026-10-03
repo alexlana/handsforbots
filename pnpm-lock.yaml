@@ -26,6 +26,9 @@ importers:
       '@handsforbots/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@handsforbots/expose-webmcp':
+        specifier: workspace:^
+        version: link:../../packages/expose-webmcp
       '@handsforbots/keyboard':
         specifier: workspace:^
         version: link:../../packages/keyboard
@@ -68,6 +71,15 @@ importers:
         version: 8.3.2(@types/node@26.6.4)
 
   packages/core: {}
+
+  packages/expose-webmcp:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
 
   packages/keyboard:
     devDependencies:
