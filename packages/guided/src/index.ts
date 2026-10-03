@@ -1,4 +1,4 @@
-import { definePlugin, textOf, type PluginContext, type Signal } from '@handsforbots/core'
+import { definePlugin, textOf, type ActionDefinition, type PluginContext, type Signal } from '@handsforbots/core'
 import { fuzzyBest, type FuzzyEntry } from '@handsforbots/menu'
 
 export type GuideStep = {
@@ -21,6 +21,18 @@ export type GuidedOptions = {
   narrate?: boolean
   /** Extra navigation phrases (merged with the defaults). */
   vocabulary?: { next?: string[]; previous?: string[]; close?: string[] }
+  /**
+   * `show_section` action (successor of v1 ShowRelevantContent): elements
+   * carrying this attribute (e.g. 'data-section') can be scrolled to and
+   * highlighted by the assistant, the menu or agents.
+   */
+  sectionsAttribute?: string
+  /**
+   * `image_gallery` action (successor of v1 ImageGallery): shows the page's
+   * images marked with data-image-gallery-id (and texts marked with
+   * data-image-gallery-text-for) in the conversation. Default false.
+   */
+  gallery?: boolean
 }
 
 export type GuidedState = { active: boolean; tour?: string; step: number; total: number }
@@ -140,6 +152,9 @@ export const guided = definePlugin<GuidedOptions | undefined>({
       },
     })
 
+    if (options.sectionsAttribute) registerSections(ctx, service, options.sectionsAttribute)
+    if (options.gallery) registerGallery(ctx)
+
     if (options.autoStart && options.tours?.[options.autoStart]) {
       const start = () => ctx.app.messages.length === 0 && service.start(options.autoStart!)
       // Wait for history to be restored before deciding.
@@ -147,6 +162,99 @@ export const guided = definePlugin<GuidedOptions | undefined>({
     }
   },
 })
+
+/**
+ * Registers an action whose enum follows what is on the page: re-registered
+ * when matching elements appear or disappear.
+ */
+function dynamicAction(ctx: PluginContext, selector: string, build: (values: string[]) => ActionDefinition<any, any> | undefined) {
+  let unregister: (() => void) | undefined
+  let current = ''
+  const sync = () => {
+    const values = [...new Set([...document.querySelectorAll(selector)].map((el) => valueOf(el, selector)).filter(Boolean))] as string[]
+    const key = values.join('\u0000')
+    if (key === current) return
+    current = key
+    unregister?.()
+    const action = values.length ? build(values) : undefined
+    unregister = action ? ctx.registerAction(action) : undefined
+  }
+  sync()
+  if (typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver(() => sync())
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true })
+    ctx.onDispose(() => observer.disconnect())
+  }
+}
+
+const valueOf = (el: Element, selector: string) => el.getAttribute(selector.slice(1, -1)) ?? ''
+
+/** CSS.escape with a fallback for older engines. */
+const cssEscape = (value: string) =>
+  typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, '\\$&')
+
+function registerSections(ctx: PluginContext, service: GuidedService, attribute: string) {
+  dynamicAction(ctx, `[${attribute}]`, (sections) => ({
+    name: 'show_section',
+    description: `Scrolls to a section of the page and highlights it. Use it when the user asks about a part of the page. Sections: ${sections.join(', ')}.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        section: { type: 'string', enum: sections },
+        text: { type: 'string', description: 'Optional short explanation shown next to it' },
+      },
+      required: ['section'],
+    },
+    readOnly: true,
+    exposeTo: ['assistant', 'user', 'agent'],
+    handler: ({ section, text }: { section: string; text?: string }) => {
+      const selector = `[${attribute}="${cssEscape(section)}"]`
+      const element = document.querySelector(selector)
+      if (!element) throw new Error(`Section "${section}" is not on this page`)
+      element.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      if (text) service.highlight(selector, text)
+      else {
+        element.animate?.([{ outline: '3px solid #6b3fd4', outlineOffset: '4px' }, { outline: '3px solid transparent', outlineOffset: '4px' }], {
+          duration: 1600,
+          iterations: 2,
+        })
+      }
+      return { shown: section }
+    },
+  }))
+}
+
+function registerGallery(ctx: PluginContext) {
+  dynamicAction(ctx, '[data-image-gallery-id]', (topics) => ({
+    name: 'image_gallery',
+    description: `Shows images and texts from the page about a topic in the conversation. Topics: ${topics.join(', ')}.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        topics: { type: 'array', items: { type: 'string', enum: topics }, description: 'One or more topics' },
+        title: { type: 'string', description: 'Short title for the gallery' },
+      },
+      required: ['topics'],
+    },
+    readOnly: true,
+    exposeTo: ['assistant', 'user', 'agent'],
+    handler: ({ topics: chosen, title }: { topics: string[] | string; title?: string }, call) => {
+      const list = Array.isArray(chosen) ? chosen : String(chosen).split(',').map((t) => t.trim())
+      const images = list.flatMap((topic) =>
+        [...document.querySelectorAll<HTMLImageElement>(`[data-image-gallery-id="${cssEscape(topic)}"]`)].map((img) => ({
+          src: img.currentSrc || img.src || img.getAttribute('data-src') || '',
+          alt: img.alt,
+        })),
+      )
+      const texts = list.flatMap((topic) =>
+        [...document.querySelectorAll(`[data-image-gallery-text-for~="${cssEscape(topic)}"]`)].map((el) => el.textContent?.trim() ?? ''),
+      )
+      if (!images.length) throw new Error(`No images for ${list.join(', ')}`)
+      call.render?.('gallery', { title: title ?? list.join(', '), images, texts: texts.filter(Boolean) })
+      return { images: images.length, texts: texts.length }
+    },
+  }))
+}
 
 function createGuided(ctx: PluginContext, options: GuidedOptions): GuidedService {
   const lang = languageKey(options.language ?? document.documentElement.lang)

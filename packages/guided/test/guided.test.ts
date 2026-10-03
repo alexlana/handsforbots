@@ -95,3 +95,34 @@ describe('guided', () => {
     expect(service.getState()).toMatchObject({ active: true, tour: 'intro' })
   })
 })
+
+describe('page tools (v1 ShowRelevantContent and ImageGallery successors)', () => {
+  it('show_section follows the sections on the page', async () => {
+    document.body.innerHTML += '<section data-section="precos">Preços</section><section data-section="faq">FAQ</section>'
+    const { h4b, service } = await setup({ sectionsAttribute: 'data-section' })
+    expect(h4b.actions.describe('assistant').find((a) => a.name === 'show_section')!.parameters).toMatchObject({
+      properties: { section: { enum: ['precos', 'faq'] } },
+    })
+    expect((await h4b.runAction('show_section', { section: 'faq', text: 'Dúvidas aqui' })).result).toEqual({ shown: 'faq' })
+    expect(service.getState().active).toBe(true)
+    expect((await h4b.runAction('show_section', { section: 'nada' })).error).toBeDefined()
+    document.querySelector('[data-section="faq"]')!.remove()
+    await new Promise((r) => setTimeout(r, 0))
+    expect((h4b.actions.get('show_section')!.parameters as any).properties.section.enum).toEqual(['precos'])
+  })
+
+  it('image_gallery renders page images into the reply', async () => {
+    document.body.innerHTML += `
+      <img data-image-gallery-id="cozinha" src="https://x.test/c1.jpg" alt="Cozinha 1">
+      <img data-image-gallery-id="cozinha" src="https://x.test/c2.jpg">
+      <p data-image-gallery-text-for="cozinha sala">Projeto integrado.</p>`
+    const { h4b } = await setup({ gallery: true })
+    const outcome = await h4b.runAction('image_gallery', { topics: ['cozinha'], title: 'Cozinhas' }, { origin: 'assistant' })
+    expect(outcome.result).toEqual({ images: 2, texts: 1 })
+    const ui = h4b.messages.flatMap((m: any) => m.parts ?? []).find((p: any) => p.name === 'ui')
+    expect(ui.value).toEqual({
+      component: 'gallery',
+      props: { title: 'Cozinhas', images: [{ src: 'https://x.test/c1.jpg', alt: 'Cozinha 1' }, { src: 'https://x.test/c2.jpg', alt: '' }], texts: ['Projeto integrado.'] },
+    })
+  })
+})

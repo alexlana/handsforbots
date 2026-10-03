@@ -119,7 +119,12 @@ export type Stimulus =
   | { type: 'action.call'; callId: string; name: string; args: unknown; messageId?: string }
   /** A tool already executed by the backend; recorded for display and history. */
   | { type: 'action.result'; callId: string; name?: string; result: unknown }
-  | { type: 'ui.render'; slot?: string; component: string; props?: unknown }
+  /**
+   * Rich content. Without a slot (or slot 'message') it becomes part of the
+   * assistant message (`data` part named 'ui', kept in history); other slots are
+   * for the host to place elsewhere on the page.
+   */
+  | { type: 'ui.render'; slot?: string; component: string; props?: unknown; messageId?: string }
   | { type: 'ui.effect'; name: string; value?: unknown }
   | { type: 'state.snapshot'; state: unknown }
   | { type: 'state.patch'; patch: JsonPatchOperation[] }
@@ -166,6 +171,8 @@ export type ActionCallContext = {
   origin: Origin
   callId: string
   signal?: AbortSignal
+  /** Shows rich content (e.g. a gallery) in the reply that triggered the action. */
+  render?: (component: string, props?: unknown) => void
 }
 
 export type ActionDescriptor = {

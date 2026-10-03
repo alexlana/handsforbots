@@ -113,6 +113,12 @@ header button:hover { background: rgba(255,255,255,.15); }
 .msg img { display: block; max-width: 100%; border-radius: 10px; margin-top: 4px; }
 .msg.streaming::after { content: '▍'; animation: blink 1s steps(2) infinite; opacity: .6; }
 .msg.pending { display: none; }
+.msg.rich { max-width: 100%; }
+.gallery { margin: 6px 0 0; }
+.gallery figcaption { font-weight: 600; margin-bottom: 6px; }
+.gallery .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
+.gallery .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; margin: 0; border-radius: 8px; }
+.gallery p { margin: 6px 0 0; font-size: 14px; }
 .action { align-self: flex-start; font-size: 12px; color: var(--h4b-muted); border: 1px dashed var(--h4b-border); border-radius: 8px; padding: 3px 8px; }
 .action.failed { color: var(--h4b-danger); }
 .typing { align-self: flex-start; color: var(--h4b-muted); font-size: 20px; letter-spacing: 2px; }

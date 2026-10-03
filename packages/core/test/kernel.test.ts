@@ -437,3 +437,28 @@ describe('selective capture', () => {
     expect(captured).toEqual(['próximo'])
   })
 })
+
+describe('rich content', () => {
+  it('keeps ui.render in the assistant message and lets actions render into the reply', async () => {
+    const transport = scripted([
+      [
+        { type: 'ui.render', component: 'card', props: { id: 1 } },
+        { type: 'ui.render', slot: 'sidebar', component: 'map' },
+        { type: 'action.call', callId: 'c', name: 'gallery', args: {} },
+      ],
+      [],
+    ])
+    const h4b = await createH4B({
+      plugins: [transportPlugin(transport)],
+      actions: [{ name: 'gallery', description: 'G', handler: (_a, call) => (call.render?.('gallery', { images: ['a.png'] }), 'ok') }],
+    }).start()
+    const rendered: string[] = []
+    h4b.on('stimulus', ({ stimulus }) => void (stimulus.type === 'ui.render' && rendered.push(stimulus.component)))
+    h4b.send('x')
+    await idle(h4b)
+    const assistant = h4b.messages.filter((m) => m.role === 'assistant')
+    const ui = assistant.flatMap((m) => (m as any).parts.filter((p: any) => p.name === 'ui').map((p: any) => p.value.component))
+    expect(ui).toEqual(['card', 'gallery'])
+    expect(rendered).toEqual(['card', 'map', 'gallery'])
+  })
+})

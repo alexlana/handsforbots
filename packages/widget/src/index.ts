@@ -9,6 +9,51 @@ export { PALETTES } from './styles.js'
 
 export type QuickReply = { label: string; payload?: string }
 
+/** Renders rich content (`ui.render` / data part 'ui') inside a bot message. Return an element. */
+export type Renderer = (props: any, context: { h4b: H4B }) => HTMLElement
+
+export type GalleryProps = {
+  title?: string
+  images: (string | { src: string; alt?: string; caption?: string })[]
+  texts?: string[]
+}
+
+/** Built-in renderers. Override or add with `widget({ renderers })`. */
+export const RENDERERS: Record<string, Renderer> = {
+  gallery(props: GalleryProps) {
+    const root = document.createElement('figure')
+    root.className = 'gallery'
+    if (props.title) {
+      const title = document.createElement('figcaption')
+      title.textContent = props.title
+      root.append(title)
+    }
+    const grid = document.createElement('div')
+    grid.className = 'grid'
+    for (const image of props.images ?? []) {
+      const { src, alt, caption } = typeof image === 'string' ? { src: image, alt: '', caption: '' } : image
+      if (!/^(https?:|data:image\/|blob:|\/|\.\/|[\w-]+\/)/i.test(src)) continue
+      const link = document.createElement('a')
+      link.href = src
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      const img = document.createElement('img')
+      img.src = src
+      img.alt = alt ?? caption ?? ''
+      img.loading = 'lazy'
+      link.append(img)
+      grid.append(link)
+    }
+    root.append(grid)
+    for (const text of props.texts ?? []) {
+      const p = document.createElement('p')
+      p.innerHTML = renderMarkdown(text)
+      root.append(p)
+    }
+    return root
+  },
+}
+
 export type WidgetOptions = {
   /** Where the element is appended. Default: document.body. */
   container?: string | HTMLElement
@@ -35,6 +80,8 @@ export type WidgetOptions = {
   pace?: number
   /** Show cards for actions run by the assistant, the menu or agents. Default true. */
   showActions?: boolean
+  /** Components for rich content, by name (merged with the built-in `gallery`). */
+  renderers?: Record<string, Renderer>
   autofocus?: boolean
 }
 
@@ -337,7 +384,8 @@ export class H4BChatElement extends BaseElement {
     }
     const text = textOf(message)
     const images = message.parts.filter((p): p is MediaPart => p.type === 'image')
-    if (!text && images.length === 0) {
+    const rich = message.parts.filter((p) => p.type === 'data' && p.name === 'ui')
+    if (!text && images.length === 0 && rich.length === 0) {
       element.hidden = true // e.g. assistant message that only carries tool calls
       return
     }
@@ -345,8 +393,19 @@ export class H4BChatElement extends BaseElement {
     if (message.role === 'user') {
       element.textContent = `${message.modality === 'transcript' ? '🎤 ' : ''}${text}`
     } else {
-      element.innerHTML = renderMarkdown(text)
+      element.innerHTML = text ? renderMarkdown(text) : ''
       element.classList.toggle('streaming', !!message.streaming)
+      element.classList.toggle('rich', rich.length > 0)
+      for (const part of rich) {
+        const { component, props } = (part as { value: { component: string; props?: unknown } }).value
+        const renderer = this.options.renderers?.[component] ?? RENDERERS[component]
+        if (!renderer || !this.h4b) continue
+        try {
+          element.append(renderer(props ?? {}, { h4b: this.h4b }))
+        } catch (error) {
+          this.h4b.emit('error', { error, source: `widget:renderer:${component}` })
+        }
+      }
     }
     for (const image of images) {
       const img = document.createElement('img')

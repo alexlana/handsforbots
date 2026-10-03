@@ -235,3 +235,23 @@ describe('<h4b-chat> media', () => {
     expect((root.querySelector('.camera') as HTMLElement).hidden).toBe(true)
   })
 })
+
+describe('<h4b-chat> rich content', () => {
+  it('renders the built-in gallery and custom renderers, skipping unsafe URLs', async () => {
+    const transport = scripted(() => [
+      { type: 'message.delta', messageId: 'a', delta: 'Veja:' },
+      { type: 'ui.render', messageId: 'a', component: 'gallery', props: { title: 'Fotos', images: ['https://x.test/1.jpg', 'javascript:alert(1)'] } },
+      { type: 'ui.render', messageId: 'a', component: 'price', props: { value: 10 } },
+    ])
+    const h4b = createH4B({
+      plugins: [widget({ startOpen: true, renderers: { price: ({ value }) => Object.assign(document.createElement('strong'), { textContent: `R$ ${value}` }) } })],
+    })
+    h4b.provide('transport', transport)
+    await h4b.start()
+    await h4b.ask('fotos')
+    const bubble = document.querySelector('h4b-chat')!.shadowRoot!.querySelector('.msg.assistant')!
+    expect(bubble.querySelector('figcaption')!.textContent).toBe('Fotos')
+    expect([...bubble.querySelectorAll('.gallery img')].map((i) => i.getAttribute('src'))).toEqual(['https://x.test/1.jpg'])
+    expect(bubble.querySelector('strong')!.textContent).toBe('R$ 10')
+  })
+})

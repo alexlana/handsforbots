@@ -724,7 +724,12 @@ export class H4B {
   ): Promise<ActionOutcome> {
     let outcome: ActionOutcome
     try {
-      const result = await this.actions.invoke(call.name, call.args, { origin, callId: call.id, signal: abortSignal })
+      const result = await this.actions.invoke(call.name, call.args, {
+        origin,
+        callId: call.id,
+        signal: abortSignal,
+        render: (component, props) => this.applyStimulus(turnId, { type: 'ui.render', component, props }, round),
+      })
       outcome = { result }
     } catch (error) {
       outcome = { error: (error as Error)?.message ?? String(error) }
@@ -810,6 +815,13 @@ export class H4B {
             route: round.route,
             createdAt: Date.now(),
           })
+        }
+        break
+      case 'ui.render':
+        if (!stimulus.slot || stimulus.slot === 'message') {
+          const id = this.ensureAssistant(round, stimulus.messageId)
+          const part = { type: 'data' as const, name: 'ui', value: { component: stimulus.component, props: stimulus.props } }
+          conversation.update<AssistantMessage>(id, (m) => ({ ...m, parts: [...m.parts, part] }))
         }
         break
       case 'state.snapshot':
