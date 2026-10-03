@@ -380,7 +380,7 @@ Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com sub
 
 | Fase | Entregue | Pendente |
 |------|----------|----------|
-| 0 | Decisões registradas neste documento; kernel próprio com semântica Cordis (0.3) | ADRs formais |
+| 0 | Decisões registradas neste documento e em [ADRs](./docs/adr/README.md); kernel próprio com semântica Cordis (0.3) | — |
 | 1 | Monorepo TS (pnpm, TS 7, vitest); `core` (plugins, Sinal/Estímulo, router, ações, interceptadores, captura seletiva, `ask`/`push`/`runAction`, conteúdo rico); `transport-agui` (SSE próprio); `react`; `testkit` com suíte de conformidade de transportes | — |
 | 2 | `voice` (Web Speech, HTTP, WebSocket, Vosk remoto, Vosk WASM offline; push-to-talk, mãos-livres, saída segue entrada, barge-in); `keyboard` | Provedor de nuvem de referência (adapter genérico pronto) |
 | 3 | `menu` (explícito, padrão, fuzzy); `copilotkit` (modo A); estados unificados com duração mínima no `widget`; latência percebida por rota (`h4b_first_response_ms`) no `observability`; mensagens na fila visíveis | Validar a ponte contra um runtime CopilotKit real |
