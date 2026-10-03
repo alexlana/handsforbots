@@ -30,6 +30,19 @@ const echo: Transport = {
 
 const wait = (ms = 30) => new Promise((r) => setTimeout(r, ms))
 
+/** Polls until `check` passes (or rethrows its last failure after the deadline). */
+async function eventually(check: () => void, timeout = 3000) {
+  const deadline = Date.now() + timeout
+  for (;;) {
+    try {
+      return check()
+    } catch (error) {
+      if (Date.now() > deadline) throw error
+      await wait(10)
+    }
+  }
+}
+
 describe('tab-sync', () => {
   it('mirrors the conversation to other tabs', async () => {
     const createChannel = bus()
@@ -37,8 +50,7 @@ describe('tab-sync', () => {
     const tabB = await createH4B({ plugins: [tabSync({ createChannel, throttleMs: 0 })] }).start()
     tabA.provide('transport', echo)
     await tabA.ask('oi')
-    await wait()
-    expect(tabB.messages.map((m) => textOf(m as any))).toEqual(['oi', 'eco oi'])
+    await eventually(() => expect(tabB.messages.map((m) => textOf(m as any))).toEqual(['oi', 'eco oi']))
     expect(tabB.conversation.threadId).toBe(tabA.conversation.threadId)
   })
 
@@ -63,10 +75,11 @@ describe('tab-sync', () => {
     expect(tabB.messages.map((m) => textOf(m as any))).toEqual(['pergunta B'])
     release()
     await turnB
-    await wait(60)
     const expected = ['pergunta B', 'pergunta A', 'eco pergunta A', 'resposta B']
-    expect(tabA.messages.map((m) => textOf(m as any))).toEqual(expected)
-    expect(tabB.messages.map((m) => textOf(m as any))).toEqual(expected)
+    await eventually(() => {
+      expect(tabA.messages.map((m) => textOf(m as any))).toEqual(expected)
+      expect(tabB.messages.map((m) => textOf(m as any))).toEqual(expected)
+    })
   })
 
   it('adopts another thread (e.g. reset in another tab)', async () => {
@@ -78,9 +91,10 @@ describe('tab-sync', () => {
     await wait()
     await tabA.reset('new')
     await tabA.ask('de novo')
-    await wait()
-    expect(tabB.conversation.threadId).toBe('new')
-    expect(tabB.messages.map((m) => textOf(m as any))).toEqual(['de novo', 'eco de novo'])
+    await eventually(() => {
+      expect(tabB.conversation.threadId).toBe('new')
+      expect(tabB.messages.map((m) => textOf(m as any))).toEqual(['de novo', 'eco de novo'])
+    })
   })
 
   it('only syncs tabs on the same channel', async () => {

@@ -33,8 +33,11 @@ const transportPlugin = (transport: Transport) =>
     },
   })()
 
+/** Waits until the kernel is idle (generous deadline so slow CI machines don't flake). */
 async function idle(h4b: ReturnType<typeof createH4B>) {
-  for (let i = 0; i < 50 && h4b.busy; i++) await new Promise((r) => setTimeout(r, 1))
+  await new Promise((r) => setTimeout(r, 0))
+  const deadline = Date.now() + 5000
+  while (h4b.busy && Date.now() < deadline) await new Promise((r) => setTimeout(r, 2))
   await new Promise((r) => setTimeout(r, 0))
 }
 

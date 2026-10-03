@@ -29,7 +29,9 @@ function runner(events: BaseEvent[] | ((input: RunAgentInput) => BaseEvent[])): 
 }
 
 async function idle(h4b: ReturnType<typeof createH4B>) {
-  for (let i = 0; i < 200 && h4b.busy; i++) await new Promise((r) => setTimeout(r, 2))
+  await new Promise((r) => setTimeout(r, 0))
+  const deadline = Date.now() + 5000
+  while (h4b.busy && Date.now() < deadline) await new Promise((r) => setTimeout(r, 2))
 }
 
 describe('event mapper', () => {
