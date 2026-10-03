@@ -3,7 +3,16 @@ import { Conversation } from './conversation.js'
 import { EventBus } from './events.js'
 import { createId } from './id.js'
 import { API_VERSION, PluginContext, type Plugin } from './plugin.js'
-import type { Events, Services, TurnPhase, TurnStatus } from './registry.js'
+import type {
+  ActionInvocation,
+  Events,
+  Hooks,
+  Interceptor,
+  Services,
+  TurnPhase,
+  TurnResult,
+  TurnStatus,
+} from './registry.js'
 import { validate } from './standard-schema.js'
 import type {
   ActionDefinition,
@@ -24,7 +33,7 @@ import type {
 
 export type H4BOptions = {
   plugins?: Plugin<any>[]
-  /** Actions registered by the host at start. */
+  /** Actions registered by the host. */
   actions?: ActionDefinition<any, any>[]
   threadId?: string
   /** Minimum confidence for a direct-command match. Default 0.75. */
@@ -51,6 +60,13 @@ type RoundState = {
   error?: string
 }
 
+/** Work processed one at a time, in arrival order. */
+type Job =
+  | { kind: 'signal'; signal: Signal }
+  | { kind: 'push'; stimuli: Iterable<Stimulus> | AsyncIterable<Stimulus>; done: () => void }
+
+const FINAL_PHASES: TurnPhase[] = ['done', 'error', 'aborted']
+
 export function createH4B(options: H4BOptions = {}): H4B {
   return new H4B(options)
 }
@@ -62,15 +78,17 @@ export class H4B {
   private bus: EventBus<Events>
   private services = new Map<keyof Services, { service: unknown; by: string }>()
   private mounted = new Map<Plugin<any>, { ctx: PluginContext; inject: (keyof Services)[] }>()
+  private interceptors = new Map<keyof Hooks, { fn: Interceptor<any>; priority: number }[]>()
   private matchers: Matcher[] = []
   private captures: CaptureHandler[] = []
   private contextSignals = new Map<string, Signal>()
-  private queue: Signal[] = []
+  private queue: Job[] = []
   private running = false
   private controller?: AbortController
   private turn?: TurnStatus
   private snapshotCache?: H4BSnapshot
   private subscribers = new Set<() => void>()
+  private disconnectTransport?: () => void
   private started = false
   private stopping = false
 
@@ -78,7 +96,10 @@ export class H4B {
     const report = options.onError ?? ((error, source) => console.error(`[h4b] ${source}:`, error))
     this.bus = new EventBus<Events>((error, event) => report(error, `listener:${String(event)}`))
     this.bus.on('error', ({ error, source }) => report(error, source))
-    this.actions = new ActionRegistry(() => this.get('confirm'))
+    this.actions = new ActionRegistry(
+      () => this.get('confirm'),
+      (invocation) => this.runHooks('action.before', invocation),
+    )
     this.conversation = new Conversation(
       options.threadId,
       (messages) => {
@@ -90,6 +111,7 @@ export class H4B {
         this.invalidate()
       },
     )
+    for (const action of options.actions ?? []) this.actions.register(action)
   }
 
   /* ------------------------------------------------------------------------ */
@@ -99,7 +121,6 @@ export class H4B {
   async start(): Promise<this> {
     if (this.started) return this
     this.started = true
-    for (const action of this.options.actions ?? []) this.actions.register(action)
 
     let pending = [...(this.options.plugins ?? [])]
     while (pending.length > 0) {
@@ -193,7 +214,7 @@ export class H4B {
   }
 
   /* ------------------------------------------------------------------------ */
-  /* Services and events                                                      */
+  /* Services, events and interceptors                                        */
   /* ------------------------------------------------------------------------ */
 
   provide<K extends keyof Services>(key: K, service: Services[K], by = 'host'): () => void {
@@ -203,10 +224,12 @@ export class H4B {
     }
     const entry = { service, by }
     this.services.set(key, entry)
+    if (key === 'transport') this.connectTransport(service as Services['transport'])
     this.emit('service.provided', { key, by })
     return () => {
       if (this.services.get(key) !== entry) return
       this.services.delete(key)
+      if (key === 'transport') this.disconnectTransport?.()
       this.emit('service.removed', { key, by })
       if (this.stopping) return
       // Plugins that injected this service can't keep running without it.
@@ -220,16 +243,76 @@ export class H4B {
     return this.services.get(key)?.service as Services[K] | undefined
   }
 
-  on<K extends keyof Events>(event: K, listener: (payload: Events[K]) => void): () => void {
+  /** Notification listener: never blocks the flow; may be sync or async. */
+  on<K extends keyof Events>(event: K, listener: (payload: Events[K]) => unknown): () => void {
     return this.bus.on(event, listener)
   }
 
-  once<K extends keyof Events>(event: K, listener: (payload: Events[K]) => void): () => void {
+  once<K extends keyof Events>(event: K, listener: (payload: Events[K]) => unknown): () => void {
     return this.bus.once(event, listener)
   }
 
   emit<K extends keyof Events>(event: K, payload: Events[K]): void {
     this.bus.emit(event, payload)
+  }
+
+  /** Resolves with the next event payload that satisfies `predicate`. */
+  when<K extends keyof Events>(
+    event: K,
+    predicate: (payload: Events[K]) => boolean = () => true,
+    options: { signal?: AbortSignal; timeout?: number } = {},
+  ): Promise<Events[K]> {
+    return new Promise((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const cleanup = () => {
+        off()
+        if (timer) clearTimeout(timer)
+        options.signal?.removeEventListener('abort', onAbort)
+      }
+      const off = this.bus.on(event, (payload) => {
+        if (!predicate(payload)) return
+        cleanup()
+        resolve(payload)
+      })
+      const onAbort = () => {
+        cleanup()
+        reject(options.signal?.reason ?? new Error('Aborted'))
+      }
+      options.signal?.addEventListener('abort', onAbort, { once: true })
+      if (options.timeout !== undefined) {
+        timer = setTimeout(() => {
+          cleanup()
+          reject(new Error(`Timed out waiting for "${String(event)}"`))
+        }, options.timeout)
+      }
+    })
+  }
+
+  /**
+   * Registers an interceptor. Interceptors are awaited in priority order (lower
+   * first) and may be sync or async.
+   */
+  intercept<K extends keyof Hooks>(hook: K, interceptor: Interceptor<Hooks[K]>, priority = 0): () => void {
+    const entry = { fn: interceptor, priority }
+    const list = [...(this.interceptors.get(hook) ?? []), entry].sort((a, b) => a.priority - b.priority)
+    this.interceptors.set(hook, list)
+    return () => {
+      this.interceptors.set(hook, (this.interceptors.get(hook) ?? []).filter((e) => e !== entry))
+    }
+  }
+
+  private hasInterceptors(hook: keyof Hooks): boolean {
+    return (this.interceptors.get(hook)?.length ?? 0) > 0
+  }
+
+  private async runHooks<K extends keyof Hooks>(hook: K, value: Hooks[K]): Promise<Hooks[K] | null> {
+    let current = value
+    for (const { fn } of this.interceptors.get(hook) ?? []) {
+      const next = await fn(current)
+      if (next === null) return null
+      if (next !== undefined) current = next as Hooks[K]
+    }
+    return current
   }
 
   /* ------------------------------------------------------------------------ */
@@ -274,6 +357,11 @@ export class H4B {
   /* Signals                                                                  */
   /* ------------------------------------------------------------------------ */
 
+  /**
+   * Fire-and-forget entry point for any input. Triggers are queued and run as
+   * turns; context signals are kept for the next turns. Use `ask` to await the
+   * outcome.
+   */
   signal(input: SignalInput): Signal {
     const signal: Signal = {
       ...input,
@@ -283,11 +371,16 @@ export class H4B {
     }
     this.emit('signal', signal)
     if (signal.kind === 'context') {
-      this.contextSignals.set(signal.key ?? signal.source, signal)
-      this.contextChanged()
+      if (this.hasInterceptors('signal.before')) {
+        void this.runHooks('signal.before', signal).then(
+          (accepted) => accepted && this.storeContext(accepted),
+          (error) => this.emit('error', { error, source: 'hook:signal.before' }),
+        )
+      } else {
+        this.storeContext(signal)
+      }
     } else {
-      this.queue.push(signal)
-      void this.drain()
+      this.enqueue({ kind: 'signal', signal })
     }
     return signal
   }
@@ -295,6 +388,31 @@ export class H4B {
   /** Shortcut for a text trigger. */
   send(text: string, source = 'host'): Signal {
     return this.signal({ modality: 'text', parts: [{ type: 'text', text }], source })
+  }
+
+  /** Sends a trigger and resolves when its turn finishes. */
+  async ask(input: string | SignalInput, options: { signal?: AbortSignal; timeout?: number } = {}): Promise<TurnResult> {
+    const signalInput: SignalInput =
+      typeof input === 'string' ? { modality: 'text', parts: [{ type: 'text', text: input }], source: 'host' } : input
+    const id = signalInput.id ?? createId('sig')
+    const finished = this.when(
+      'turn.status',
+      (status) => status.signal?.id === id && FINAL_PHASES.includes(status.phase),
+      options,
+    )
+    this.signal({ ...signalInput, id, kind: 'trigger' })
+    const status = await finished
+    const start = this.messages.findIndex((m) => m.role === 'user' && m.signalId === id)
+    return { status, messages: start >= 0 ? this.messages.slice(start) : [] }
+  }
+
+  /**
+   * Delivers stimuli that arrive outside a request/response turn (server push,
+   * long-running jobs, proactive messages). They are queued with the turns, so
+   * ordering is preserved. Resolves when they have been applied.
+   */
+  push(stimuli: Iterable<Stimulus> | AsyncIterable<Stimulus>): Promise<void> {
+    return new Promise((resolve) => this.enqueue({ kind: 'push', stimuli, done: resolve }))
   }
 
   removeContext(key: string) {
@@ -305,9 +423,19 @@ export class H4B {
     return [...this.contextSignals.values()]
   }
 
+  private storeContext(signal: Signal) {
+    this.contextSignals.set(signal.key ?? signal.source, signal)
+    this.contextChanged()
+  }
+
   private contextChanged() {
     this.emit('context.changed', this.context)
     this.invalidate()
+  }
+
+  private connectTransport(transport: Services['transport']) {
+    if (!transport.connect) return
+    this.disconnectTransport = transport.connect((stimuli) => void this.push(stimuli))
   }
 
   /* ------------------------------------------------------------------------ */
@@ -330,7 +458,10 @@ export class H4B {
 
   /** Cancels the running turn (e.g. barge-in). */
   abort(options: { clearQueue?: boolean } = {}) {
-    if (options.clearQueue) this.queue = []
+    if (options.clearQueue) {
+      for (const job of this.queue) if (job.kind === 'push') job.done()
+      this.queue = []
+    }
     this.controller?.abort()
   }
 
@@ -345,56 +476,100 @@ export class H4B {
   /* Turns                                                                    */
   /* ------------------------------------------------------------------------ */
 
+  private enqueue(job: Job) {
+    this.queue.push(job)
+    void this.drain()
+  }
+
   private async drain() {
     if (this.running) return
     this.running = true
     this.invalidate()
     try {
-      while (this.queue.length > 0) await this.runTurn(this.queue.shift()!)
+      while (this.queue.length > 0) {
+        const job = this.queue.shift()!
+        if (job.kind === 'signal') await this.runTurn(job.signal)
+        else await this.runPush(job)
+      }
     } finally {
       this.running = false
       this.invalidate()
     }
   }
 
-  private setStatus(signal: Signal, turnId: string, phase: TurnPhase, route?: Route, error?: string) {
+  private setStatus(turnId: string, phase: TurnPhase, route?: Route, signal?: Signal, error?: string) {
     this.turn = { turnId, phase, route, signal, error, at: Date.now() }
     this.emit('turn.status', this.turn)
     this.invalidate()
   }
 
-  private async runTurn(signal: Signal) {
+  private async runTurn(incoming: Signal) {
     const turnId = createId('turn')
     const controller = new AbortController()
     this.controller = controller
     let route: Route | undefined
-    this.setStatus(signal, turnId, 'received')
+    let signal = incoming
+    this.setStatus(turnId, 'received', undefined, signal)
 
     try {
+      const accepted = await this.runHooks('signal.before', signal)
+      if (!accepted) {
+        this.setStatus(turnId, 'aborted', undefined, signal, 'Dropped by signal.before interceptor')
+        return
+      }
+      signal = { ...accepted, id: incoming.id }
+
       const capture = this.captures[this.captures.length - 1]
       const match = capture ? undefined : await this.findMatch(signal)
       route = capture ? 'capture' : match ? 'direct' : 'transport'
       this.appendUser(signal, route)
-      this.setStatus(signal, turnId, 'acting', route)
+      this.setStatus(turnId, 'acting', route, signal)
 
       if (capture) await capture(signal)
       else if (match) await this.runDirect(turnId, match, controller.signal)
       else await this.runTransport(turnId, controller.signal)
 
-      if (controller.signal.aborted) this.setStatus(signal, turnId, 'aborted', route)
-      else this.setStatus(signal, turnId, 'done', route)
+      this.setStatus(turnId, controller.signal.aborted ? 'aborted' : 'done', route, signal)
     } catch (error) {
       if (controller.signal.aborted) {
-        this.setStatus(signal, turnId, 'aborted', route)
+        this.setStatus(turnId, 'aborted', route, signal)
       } else {
         const message = (error as Error)?.message ?? String(error)
         this.emit('error', { error, source: `turn:${route ?? 'unknown'}` })
         this.emit('stimulus', { turnId, stimulus: { type: 'error', message } })
-        this.setStatus(signal, turnId, 'error', route, message)
+        this.setStatus(turnId, 'error', route, signal, message)
       }
     } finally {
       if (this.controller === controller) this.controller = undefined
       await this.persist()
+    }
+  }
+
+  private async runPush(job: Extract<Job, { kind: 'push' }>) {
+    const turnId = createId('turn')
+    const controller = new AbortController()
+    this.controller = controller
+    const round: RoundState = { route: 'push', pending: [], resolved: new Set() }
+    this.setStatus(turnId, 'acting', 'push')
+    try {
+      for await (const stimulus of job.stimuli) {
+        if (controller.signal.aborted) break
+        await this.deliver(turnId, stimulus, round)
+      }
+      this.closeStreaming(round)
+      // Pushed action calls run like assistant calls; results are recorded but no turn continues.
+      for (const call of round.pending.filter((c) => !round.resolved.has(c.id))) {
+        await this.invokeAction(turnId, call, 'assistant', controller.signal, round)
+      }
+      this.setStatus(turnId, controller.signal.aborted ? 'aborted' : 'done', 'push')
+    } catch (error) {
+      const message = (error as Error)?.message ?? String(error)
+      this.emit('error', { error, source: 'turn:push' })
+      this.setStatus(turnId, 'error', 'push', undefined, message)
+    } finally {
+      if (this.controller === controller) this.controller = undefined
+      await this.persist()
+      job.done()
     }
   }
 
@@ -420,6 +595,7 @@ export class H4B {
       parts: signal.parts,
       modality: signal.modality,
       source: signal.source,
+      signalId: signal.id,
       route,
       createdAt: signal.timestamp,
     })
@@ -430,7 +606,7 @@ export class H4B {
     const round: RoundState = { route: 'direct', pending: [], resolved: new Set() }
     const callId = createId('call')
     const args = match.args ?? {}
-    this.applyStimulus(turnId, { type: 'action.call', callId, name: match.action, args }, round)
+    await this.deliver(turnId, { type: 'action.call', callId, name: match.action, args }, round)
 
     const outcome = await this.invokeAction(turnId, { id: callId, name: match.action, args }, 'user', abortSignal, round)
     const action = this.actions.get(match.action)
@@ -439,9 +615,9 @@ export class H4B {
       : (match.reply?.(outcome.result) ?? action?.describeResult?.(outcome.result, args))
     if (reply) {
       const messageId = createId('msg')
-      this.applyStimulus(turnId, { type: 'message.start', messageId }, round)
-      this.applyStimulus(turnId, { type: 'message.delta', messageId, delta: reply }, round)
-      this.applyStimulus(turnId, { type: 'message.end', messageId }, round)
+      await this.deliver(turnId, { type: 'message.start', messageId }, round)
+      await this.deliver(turnId, { type: 'message.delta', messageId, delta: reply }, round)
+      await this.deliver(turnId, { type: 'message.end', messageId }, round)
     }
     this.closeStreaming(round)
     if (outcome.error) throw new ActionError(outcome.error, 'failed')
@@ -454,17 +630,19 @@ export class H4B {
 
     for (let roundIndex = 0; roundIndex <= maxRoundtrips; roundIndex++) {
       const round: RoundState = { route: 'transport', pending: [], resolved: new Set() }
-      const request: TurnRequest = {
+      const request = await this.runHooks('request.before', {
         threadId: this.conversation.threadId,
         turnId,
         messages: this.conversation.messages,
         context: this.context,
         actions: this.actions.describe('assistant'),
         state: this.conversation.state,
-      }
+      } satisfies TurnRequest)
+      if (!request) throw new Error('Request cancelled by request.before interceptor')
+
       for await (const stimulus of transport.run(request, abortSignal)) {
         if (abortSignal.aborted) break
-        this.applyStimulus(turnId, stimulus, round)
+        await this.deliver(turnId, stimulus, round)
       }
       this.closeStreaming(round)
       if (abortSignal.aborted) return
@@ -509,7 +687,12 @@ export class H4B {
     round.resolved.add(call.id)
     this.emit('stimulus', {
       turnId,
-      stimulus: { type: 'action.result', callId: call.id, name: call.name, result: outcome.error ? { error: outcome.error } : outcome.result },
+      stimulus: {
+        type: 'action.result',
+        callId: call.id,
+        name: call.name,
+        result: outcome.error ? { error: outcome.error } : outcome.result,
+      },
     })
     return outcome
   }
@@ -528,6 +711,12 @@ export class H4B {
     }
     round.lastAssistantId = id
     return id
+  }
+
+  /** Runs `stimulus.before` interceptors, then applies the stimulus. */
+  private async deliver(turnId: string, stimulus: Stimulus, round: RoundState) {
+    const accepted = this.hasInterceptors('stimulus.before') ? await this.runHooks('stimulus.before', stimulus) : stimulus
+    if (accepted) this.applyStimulus(turnId, accepted, round)
   }
 
   private applyStimulus(turnId: string, stimulus: Stimulus, round: RoundState) {
@@ -603,3 +792,4 @@ export class H4B {
     }
   }
 }
+

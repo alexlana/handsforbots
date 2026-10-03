@@ -65,7 +65,7 @@ export type SignalInput = Omit<Signal, 'id' | 'timestamp' | 'kind'> & {
 /* -------------------------------------------------------------------------- */
 
 /** How a turn was resolved: by a direct command (menu) or by a transport. */
-export type Route = 'direct' | 'transport' | 'capture'
+export type Route = 'direct' | 'transport' | 'capture' | 'push'
 
 export type ToolCall = { id: string; name: string; args: unknown }
 
@@ -75,6 +75,8 @@ export type UserMessage = {
   parts: Part[]
   modality: Modality
   source: string
+  /** Signal that produced this message. */
+  signalId?: string
   route?: Route
   createdAt: number
 }
@@ -207,7 +209,13 @@ export type TransportCapabilities = {
 export type Transport = {
   name: string
   capabilities?: TransportCapabilities
+  /** Request/response turn. A synchronous backend is a stream of one batch. */
   run(request: TurnRequest, signal: AbortSignal): AsyncIterable<Stimulus>
+  /**
+   * Optional push channel for stimuli the backend sends outside a turn
+   * (WebSocket, long jobs, proactive messages). Returns a disconnect function.
+   */
+  connect?(deliver: (stimuli: Iterable<Stimulus> | AsyncIterable<Stimulus>) => void): () => void
 }
 
 /* -------------------------------------------------------------------------- */

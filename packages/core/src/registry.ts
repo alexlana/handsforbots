@@ -1,11 +1,13 @@
 import type {
   Confirmer,
   Message,
+  Origin,
   Route,
   Signal,
   Stimulus,
   Storage,
   Transport,
+  TurnRequest,
 } from './types.js'
 
 /**
@@ -27,11 +29,38 @@ export type TurnStatus = {
   turnId: string
   phase: TurnPhase
   route?: Route
-  /** The trigger that started the turn. */
-  signal: Signal
+  /** The trigger that started the turn (absent for push turns). */
+  signal?: Signal
   error?: string
   at: number
 }
+
+export type TurnResult = {
+  status: TurnStatus
+  /** Messages added by this turn, starting with the user message. */
+  messages: Message[]
+}
+
+export type ActionInvocation = { name: string; args: unknown; origin: Origin; callId: string }
+
+/**
+ * Interception points. Interceptors run in priority order and are awaited, so
+ * they may be sync or async. Return a new value to replace it, nothing to keep
+ * it, or `null` to drop it (signals, stimuli) / cancel it (requests, actions).
+ * Packages extend it with declaration merging.
+ */
+export interface Hooks {
+  /** Before a signal is stored (context) or starts a turn (trigger). */
+  'signal.before': Signal
+  /** Before a turn request goes to the transport (e.g. redact PII). */
+  'request.before': TurnRequest
+  /** Before any action runs, whoever called it. */
+  'action.before': ActionInvocation
+  /** Before a stimulus reaches history and sinks. */
+  'stimulus.before': Stimulus
+}
+
+export type Interceptor<T> = (value: T) => T | null | undefined | void | Promise<T | null | undefined | void>
 
 /** Kernel events. Packages extend it with declaration merging, like `Services`. */
 export interface Events {

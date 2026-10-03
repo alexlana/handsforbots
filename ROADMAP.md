@@ -212,7 +212,28 @@ No H4B os plugins são **módulos ESM / pacotes npm compostos em código**, comp
 - `apiVersion` no plugin; o kernel recusa versões incompatíveis com erro claro.
 - Suíte de conformidade publicada (`@handsforbots/testkit`) para transportes, provedores de voz e plugins de exposição.
 
-### 2.4 Router: menu, captura e transporte
+### 2.4 Síncrono e assíncrono
+
+Na v1 tudo era evento, e não havia distinção entre "avisar que algo aconteceu" e "esperar alguém decidir". Na v2 são quatro mecanismos, e **todos aceitam funções síncronas ou assíncronas**:
+
+| Mecanismo | Para quê | O fluxo espera? | Exemplo |
+|-----------|----------|-----------------|---------|
+| **Notificação** (`on` / `emit`) | Observar: UI, telemetria, sincronizar abas | Não. Listener lento ou com erro não afeta o turno; rejeições vão para `onError` | `h4b.on('stimulus', render)` |
+| **Interceptador** (`intercept`) | Transformar ou vetar: filtrar PII, bloquear ação, descartar estímulo | Sim. Rodam em ordem de prioridade; retornar `null` descarta/cancela | `ctx.intercept('request.before', redact)` |
+| **Contrato de serviço** | Fazer o trabalho: transporte, ações, matchers, storage, confirmação | Sim, cada chamada é aguardada | `handler: async (args) => api.save(args)` |
+| **API aguardável do host** | Usar o H4B como chamada: "pergunte e me dê a resposta" | Sim | `const { messages } = await h4b.ask('…')` |
+
+Pontos de interceptação: `signal.before`, `request.before`, `action.before` (vale para qualquer origem: assistente, menu ou agente externo) e `stimulus.before`. Pacotes podem declarar novos.
+
+**Do lado do backend**, as três formas de resposta usam o mesmo stream de estímulos:
+
+- **Síncrono** (REST request/response, ex.: Rasa): o transporte devolve um stream de um lote só.
+- **Streaming** (SSE, AG-UI): o stream entrega estímulos conforme chegam.
+- **Fora de turno** (WebSocket, jobs longos, mensagens proativas): o transporte implementa `connect()` ou o host chama `h4b.push(stimuli)`. Os estímulos entram na mesma fila dos turnos, então a ordem é preservada.
+
+Turnos são processados um por vez, em ordem de chegada. `h4b.abort()` cancela o turno atual (barge-in), e todo transporte e ação recebe um `AbortSignal`.
+
+### 2.5 Router: menu, captura e transporte
 
 Todo sinal `trigger` passa pelo router nesta ordem:
 
@@ -220,7 +241,7 @@ Todo sinal `trigger` passa pelo router nesta ordem:
 2. **Captura**: um plugin pode pegar temporariamente a entrada (ex.: o GUIDed durante um tour). Substitui o `core.redirect_input` da v1, agora com prazo e liberação explícita.
 3. **Transporte**: o turno vai ao backend configurado.
 
-### 2.5 Menu: comandos sem LLM, dentro do histórico
+### 2.6 Menu: comandos sem LLM, dentro do histórico
 
 **Objetivo:** executar ações frequentes e previsíveis imediatamente ("mostrar pedidos de março", "/ajuda", botão de resposta rápida, item da paleta de comandos) sem passar pelo LLM, e manter tudo isso no histórico.
 
@@ -255,7 +276,7 @@ O risco é o usuário perceber o assistente às vezes instantâneo, às vezes le
 7. **Comentário do LLM em segundo plano (opcional, desligado por padrão):** após a ação direta, o LLM pode acrescentar um comentário sem bloquear a UI.
 8. **Medir.** Telemetria de latência percebida por rota (`direct` vs `transport`) para calibrar limiares e animações.
 
-### 2.6 Modalidades: teclado e microfone em pé de igualdade
+### 2.7 Modalidades: teclado e microfone em pé de igualdade
 
 Um **gerenciador de modalidades** (no kernel) decide como o usuário interage em cada momento e permite trocar a qualquer instante.
 
@@ -286,7 +307,7 @@ Um **gerenciador de modalidades** (no kernel) decide como o usuário interage em
 - **Chaves de nuvem nunca ficam no navegador:** o backend emite um token efêmero (`tokenUrl`).
 - Com um transporte `realtime` ativo, o áudio vai direto ao transporte; o gerenciador apenas coordena UI, barge-in e histórico (com transcrição).
 
-### 2.7 Outras entradas: foto, vídeo, sensores, GUI
+### 2.8 Outras entradas: foto, vídeo, sensores, GUI
 
 | Plugin | Sinal | Observações |
 |--------|-------|-------------|
@@ -297,7 +318,7 @@ Um **gerenciador de modalidades** (no kernel) decide como o usuário interage em
 
 Requisitos transversais: consentimento explícito por modalidade, indicador visível de captura ativa e um hook `beforeSend` para filtrar ou anonimizar dados antes do transporte.
 
-### 2.8 Ações e segurança
+### 2.9 Ações e segurança
 
 O registro de ações substitui o `BotsCommands` (que hoje executa `window[command.action]` a partir do texto do LLM).
 
@@ -307,7 +328,7 @@ O registro de ações substitui o `BotsCommands` (que hoje executa `window[comma
 - Ações do histórico **não** são reexecutadas no reload; o que precisa ser restaurado vira `state.patch`.
 - Limite de taxa e auditoria via telemetria.
 
-### 2.9 Adapters externos
+### 2.10 Adapters externos
 
 | Adapter | Papel | Prioridade |
 |---------|-------|------------|
@@ -325,7 +346,7 @@ O registro de ações substitui o `BotsCommands` (que hoje executa `window[comma
 - **A — CopilotKit é dono do chat e da conexão com o agente.** O H4B entra só com voz, menu, sensores, ações e WebMCP via `bridge-copilotkit`.
 - **B — o H4B é dono do transporte (AG-UI direto).** A UI é qualquer uma: do host, assistant-ui ou o widget do H4B.
 
-### 2.10 Onde cada recurso da v1 se encaixa
+### 2.11 Onde cada recurso da v1 se encaixa
 
 Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com substituto.
 
@@ -419,7 +440,7 @@ Os prazos assumem uma equipe pequena. Cada fase só termina quando o critério d
 
 | # | Entrega |
 |---|---------|
-| 5.1 | Migrar todos os itens da tabela 2.10 (GUIDed, widget, tab-sync, Rasa, UniversalLLM, turn-based) e remover `handsforbots/` (v1) |
+| 5.1 | Migrar todos os itens da tabela 2.11 (GUIDed, widget, tab-sync, Rasa, UniversalLLM, turn-based) e remover `handsforbots/` (v1) |
 | 5.2 | `transport-ai-sdk` e `bridge-assistant-ui` |
 | 5.3 | Exemplo Rasa rodando na v2 |
 | 5.4 | Documentação v2 (en-us / pt-br) substituindo `docs/` e `docs-dev/` |
@@ -482,7 +503,7 @@ P3 — reavaliar com demanda
 | Menu | Confirmação p95 < 100 ms; comando direto visível ao LLM no turno seguinte (teste automatizado) |
 | Overhead da lib | < 20 ms por turno, medido sem o tempo do backend |
 | Bundle | `core` < 15 kB gzip sem plugins |
-| Cobertura da v1 | 100% dos itens da tabela 2.10 com destino implementado ou aposentadoria documentada |
+| Cobertura da v1 | 100% dos itens da tabela 2.11 com destino implementado ou aposentadoria documentada |
 | Exposição | ≥ 1 ação executada por agente de navegador via WebMCP no exemplo oficial |
 
 ---
@@ -505,4 +526,5 @@ P3 — reavaliar com demanda
 | Data | Alteração |
 |------|-----------|
 | 2026-07-02 | Documento inicial — roadmap 3–6 meses (runtime headless) |
+| 2026-10-02 | Seção 2.4: modelo síncrono/assíncrono (notificações, interceptadores, serviços, API aguardável, push) |
 | 2026-10-02 | Reescrita v2: camada multimodal e de ação; tudo é plugin; AG-UI/CopilotKit como adapters substituíveis; menu; modalidades teclado/voz; mapa v1 → v2; sem compatibilidade com a v1 |

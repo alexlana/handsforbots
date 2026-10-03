@@ -1,3 +1,4 @@
+import type { ActionInvocation } from './registry.js'
 import { toJsonSchema, validate } from './standard-schema.js'
 import type {
   ActionCallContext,
@@ -25,7 +26,11 @@ export class ActionRegistry {
   private actions = new Map<string, ActionDefinition>()
   private onChange = new Set<() => void>()
 
-  constructor(private getConfirmer: () => Confirmer | undefined) {}
+  constructor(
+    private getConfirmer: () => Confirmer | undefined,
+    /** Runs the `action.before` interceptors; `null` cancels the call. */
+    private before: (invocation: ActionInvocation) => Promise<ActionInvocation | null> = async (i) => i,
+  ) {}
 
   register<I, O>(action: ActionDefinition<I, O>): () => void {
     if (!/^[a-zA-Z0-9_.-]{1,64}$/.test(action.name)) {
@@ -79,7 +84,10 @@ export class ActionRegistry {
       throw new ActionError(`Action "${name}" is not exposed to ${call.origin}`, 'forbidden')
     }
 
-    let parsed: unknown = args ?? {}
+    const invocation = await this.before({ name, args: args ?? {}, origin: call.origin, callId: call.callId })
+    if (!invocation) throw new ActionError(`Action "${name}" was cancelled`, 'declined')
+
+    let parsed: unknown = invocation.args
     if (action.input) {
       try {
         parsed = await validate(action.input, parsed)

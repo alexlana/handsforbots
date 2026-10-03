@@ -1,8 +1,10 @@
-export type Listener<T> = (payload: T) => void
+export type Listener<T> = (payload: T) => unknown
 
 /**
- * Minimal typed event bus. A failing listener never breaks the others: the
- * error is reported through `onError` instead.
+ * Minimal typed event bus for notifications. `emit` never waits: listeners
+ * may be sync or async, and a failing one (throw or rejection) never breaks
+ * the others — the error goes to `onError`. Use interceptors (hooks) when a
+ * plugin must transform or veto something and the flow has to wait for it.
  */
 export class EventBus<Events extends object> {
   private listeners = new Map<keyof Events, Set<Listener<any>>>()
@@ -32,7 +34,10 @@ export class EventBus<Events extends object> {
     if (!set) return
     for (const listener of [...set]) {
       try {
-        listener(payload)
+        const result = listener(payload)
+        if (result && typeof (result as Promise<unknown>).then === 'function') {
+          ;(result as Promise<unknown>).then(undefined, (error) => this.onError(error, event))
+        }
       } catch (error) {
         this.onError(error, event)
       }

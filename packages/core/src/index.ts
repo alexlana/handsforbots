@@ -13,6 +13,15 @@ export { EventBus, type Listener } from './events.js'
 export { createId } from './id.js'
 export { applyPatch } from './patch.js'
 export { toJsonSchema, validate, ValidationError, type StandardSchemaV1 } from './standard-schema.js'
-export type { Events, Services, TurnPhase, TurnStatus } from './registry.js'
+export type {
+  ActionInvocation,
+  Events,
+  Hooks,
+  Interceptor,
+  Services,
+  TurnPhase,
+  TurnResult,
+  TurnStatus,
+} from './registry.js'
 export * from './types.js'
 export { textOf } from './util.js'

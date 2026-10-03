@@ -1,6 +1,6 @@
 import type { H4B } from './kernel.js'
 import type { StandardSchemaV1 } from './standard-schema.js'
-import type { Events, Services } from './registry.js'
+import type { Events, Hooks, Interceptor, Services } from './registry.js'
 import type { ActionDefinition, CaptureHandler, Matcher, Signal, SignalInput } from './types.js'
 
 export const API_VERSION = 2
@@ -52,8 +52,14 @@ export class PluginContext {
     readonly name: string,
   ) {}
 
-  on<K extends keyof Events>(event: K, listener: (payload: Events[K]) => void): () => void {
+  /** Notification listener (sync or async); never blocks the flow. */
+  on<K extends keyof Events>(event: K, listener: (payload: Events[K]) => unknown): () => void {
     return this.track(this.app.on(event, listener))
+  }
+
+  /** Awaited interception point (sync or async) that can transform or veto. */
+  intercept<K extends keyof Hooks>(hook: K, interceptor: Interceptor<Hooks[K]>, priority?: number): () => void {
+    return this.track(this.app.intercept(hook, interceptor, priority))
   }
 
   emit<K extends keyof Events>(event: K, payload: Events[K]): void {
