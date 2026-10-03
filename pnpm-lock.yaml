@@ -151,6 +151,24 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
 
+  packages/storage-local:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
+
+  packages/tab-sync:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
+
   packages/transport-agui:
     dependencies:
       '@ag-ui/core':

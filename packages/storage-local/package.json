@@ -1,0 +1,33 @@
+{
+  "name": "@handsforbots/storage-local",
+  "version": "2.0.0-alpha.0",
+  "description": "Persists the Hands for Bots conversation in localStorage/sessionStorage with an inactivity timeout.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "jsdom": "^27.0.0"
+  }
+}
