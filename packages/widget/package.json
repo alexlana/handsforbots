@@ -1,0 +1,36 @@
+{
+  "name": "@handsforbots/widget",
+  "version": "2.0.0-alpha.0",
+  "description": "Ready-made conversation surface for Hands for Bots as a Web Component (<h4b-chat>): works in plain HTML, React, Vue\u2026",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/menu": "workspace:^",
+    "@handsforbots/voice": "workspace:^",
+    "jsdom": "^27.0.0"
+  },
+  "peerDependenciesMeta": {}
+}

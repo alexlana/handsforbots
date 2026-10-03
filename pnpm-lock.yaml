@@ -167,11 +167,32 @@ importers:
         specifier: workspace:^
         version: link:../core
 
+  packages/transport-rasa:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+
   packages/voice:
     devDependencies:
       '@handsforbots/core':
         specifier: workspace:^
         version: link:../core
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
+
+  packages/widget:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      '@handsforbots/menu':
+        specifier: workspace:^
+        version: link:../menu
+      '@handsforbots/voice':
+        specifier: workspace:^
+        version: link:../voice
       jsdom:
         specifier: ^27.0.0
         version: 27.4.0
