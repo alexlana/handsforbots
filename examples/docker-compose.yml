@@ -27,8 +27,6 @@
 #
 #   docker compose down
 
-version: "3.0"
-
 services:
   ######
   # WEB

@@ -10,7 +10,7 @@ Runnable demos for the library. All commands below assume you are in this direct
 
 The sections below cover the **Rasa + Docker** example. It runs on v2 too (`vite/src/Init.js`, `vite/src/guided-init.js`): Rasa transport, `<h4b-chat>` widget, voice, keyboard, local storage, tab sync, guided tours and observability.
 
-> **Upgrading an existing checkout:** rebuild the Vite image (`docker compose up --build`) because `vite.config.js` changed, and update the Rasa model once (`docker exec t4b-bot rasa train` then `docker compose restart rasa`) because `utter_please_explain` now asks the page for its guided tour through `custom.h4b` instead of v1 action tags. Only a response changed, so Rasa just repackages the model.
+> **Upgrading an existing checkout:** rebuild the Vite image (`docker compose up --build`) because `vite.config.js` changed. The committed model (`rasa/models/20261003-…`) already includes the v2 response that asks the page for its guided tour through `custom.h4b`; Rasa loads the newest model on start.
 
 ## Prerequisites
 
@@ -39,11 +39,10 @@ First build can take several minutes.
 The committed model under `rasa/models/` must match the Rasa version in `dockerfiles/rasa.Dockerfile` (currently **3.6.21**). If you see empty bot replies and logs show `UnsupportedModelVersionError`, retrain:
 
 ```bash
-# stack running (duckling must be up)
+# train in a dedicated container (training next to the running server can run out of memory)
+docker compose stop
+docker compose run --rm --no-deps --entrypoint rasa rasa train
 docker compose up -d
-
-docker exec t4b-bot rasa train
-docker compose restart rasa
 ```
 
 Training takes roughly 15–30 minutes (DIET + TED epochs). The newest `.tar.gz` in `rasa/models/` is loaded on restart. Remove old models if you want a clean directory.
