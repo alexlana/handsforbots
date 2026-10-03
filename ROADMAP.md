@@ -17,9 +17,9 @@ Este documento substitui o roadmap de julho/2026. Ele redefine o posicionamento 
 
 ## 1. Tese
 
-O H4B nasceu para dar "mãos" a bots: deixar um assistente agir na GUI e receber entradas de várias interfaces. Em 2026 essa ideia virou necessidade de mercado. Hoje existem assistentes dentro dos apps (CopilotKit, AI SDK, assistant-ui), agentes de navegador que operam sites (via WebMCP) e servidores que entregam UI aos clientes (MCP Apps).
+O H4B nunca foi pensado como janela de chat. Ele nasceu para dar "mãos" a bots: criar uma experiência de **trabalho colaborativo** entre pessoa e assistente sobre a própria GUI, e permitir que os chatbots da época respondessem com **mais do que texto** (agir na interface, guiar o usuário, mostrar conteúdo, falar). A janela de texto da v1 era só um dos canais.
 
-Um widget de chat, por outro lado, deixou de ser diferencial. Uma IA gera um em uma hora, e as libs acima já fazem isso bem.
+Em 2026 essa ideia virou necessidade de mercado. Hoje existem assistentes dentro dos apps (CopilotKit, AI SDK, assistant-ui), agentes de navegador que operam sites (via WebMCP) e servidores que entregam UI aos clientes (MCP Apps). O que mudou é que a conversa em si virou commodity: threads, composers e streaming de texto já estão bem resolvidos por essas libs. O espaço que continua aberto é justamente o original do H4B: a colaboração na GUI, as respostas ricas e as entradas além do teclado.
 
 **Posicionamento v2:**
 
@@ -464,7 +464,7 @@ P3 — reavaliar com demanda
 
 ## 5. O que não fazer
 
-1. **Construir mais um chat completo.** O widget existe para quem quer pronto, mas não é o produto.
+1. **Reduzir o H4B a uma janela de chat.** O widget é só uma superfície de conversa opcional; o produto é a colaboração na GUI.
 2. **Depender de um fornecedor no core.** AG-UI e CopilotKit são prioridade, não acoplamento.
 3. **Carregar plugins remotamente.** Configuração remota sim, código remoto não.
 4. **Tools via prompt como caminho principal.** Function calling nativo é o padrão; prompt é fallback.
