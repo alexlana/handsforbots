@@ -6,9 +6,11 @@
 | [`@handsforbots/transport-agui`](./transport-agui) | AG-UI transport (HTTP + SSE, or any AG-UI agent) |
 | [`@handsforbots/transport-rasa`](./transport-rasa) | Rasa REST channel; `custom.h4b` drives GUI actions |
 | [`@handsforbots/transport-http`](./transport-http) | Generic HTTP turns (sessions, SSE, tool calls) + `universalLLM` and `openAICompatible` presets |
+| [`@handsforbots/transport-ai-sdk`](./transport-ai-sdk) | Vercel AI SDK UI message stream (tested against real `streamText`) |
 | [`@handsforbots/widget`](./widget) | `<h4b-chat>` Web Component: layouts, themes, rich content, voice/attach/camera controls |
 | [`@handsforbots/react`](./react) | React bindings: provider, store hooks, `useAction`, `useContextSignal`, `useStore` |
 | [`@handsforbots/copilotkit`](./copilotkit) | CopilotKit bridge: actions as frontend tools, context, input through the CopilotKit agent |
+| [`@handsforbots/assistant-ui`](./assistant-ui) | assistant-ui runtime backed by H4B |
 | [`@handsforbots/menu`](./menu) | Direct commands without the LLM: slash, patterns, fuzzy phrases, suggestions |
 | [`@handsforbots/voice`](./voice) | Speech in and out with pluggable providers (browser, HTTP, WebSocket, Vosk), push-to-talk, hands-free, barge-in |
 | [`@handsforbots/keyboard`](./keyboard) | Shortcuts: hold-to-talk, interrupt, command palette |
@@ -18,6 +20,7 @@
 | [`@handsforbots/storage-local`](./storage-local) | Conversation persistence with inactivity timeout |
 | [`@handsforbots/tab-sync`](./tab-sync) | Conversation sync across tabs |
 | [`@handsforbots/observability`](./observability) | Turns, routes, actions and signals as semantic telemetry |
+| [`@handsforbots/testkit`](./testkit) | Test helpers and the transport conformance suite |
 | [`@handsforbots/semantic-event-observability`](./semantic-event-observability) | The underlying observability library (Grafana, OTel, Langfuse, LangSmith) |
 
 ```ts

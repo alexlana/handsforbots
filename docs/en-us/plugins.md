@@ -8,9 +8,11 @@ Every package exports a plugin factory: call it with options and pass it to `cre
 | [`transport-agui`](#transport-agui) | `agui` | `transport` |
 | [`transport-rasa`](#transport-rasa) | `rasa` | `transport` |
 | [`transport-http`](#transport-http) | `http`, `universalLLM`, `openAICompatible` | `transport` |
+| [`transport-ai-sdk`](#transport-ai-sdk) | `aiSdk` | `transport` |
 | [`widget`](#widget) | `widget` | — |
 | [`react`](#react) | hooks | — |
 | [`copilotkit`](#copilotkit) | `useCopilotKitBridge`, `<CopilotKitBridge>` | `transport` (optional) |
+| [`assistant-ui`](#assistant-ui) | `useH4BAssistantRuntime` | — |
 | [`menu`](#menu) | `menu` | `menu` |
 | [`voice`](#voice) | `voice` | `voice` |
 | [`keyboard`](#keyboard) | `keyboard` | — |
@@ -20,6 +22,7 @@ Every package exports a plugin factory: call it with options and pass it to `cre
 | [`storage-local`](#storage-local) | `storageLocal` | `storage` |
 | [`tab-sync`](#tab-sync) | `tabSync` | — |
 | [`observability`](#observability) | `observability` | `observability` |
+| [`testkit`](#testkit) | test helpers, `transportConformance` | — |
 
 ## core
 
@@ -62,6 +65,24 @@ responses:
 - `universalLLM({ url, provider?, model?, systemPrompt?, contextWindow?, parameters?, stream?, backendSession? })`: the v1 UniversalLLM request format, plus history, tools and context.
 - `openAICompatible({ baseUrl, model, systemPrompt?, apiKey?, stream?, temperature? })`: `/chat/completions` with native tools. A key in the browser is public: use it for local development (e.g. Ollama at `http://localhost:11434/v1`) or point `baseUrl` at your proxy.
 
+## transport-ai-sdk
+
+`aiSdk({ url, headers?, body?, fetch? })`: talks to a Vercel AI SDK route that returns `streamText(...).toUIMessageStreamResponse()`. The request mirrors `DefaultChatTransport` (`id`, `messages` as UIMessages, `trigger`) plus `tools` (H4B actions) and `context`; declare the tools without `execute` on the route so the client runs them:
+
+```ts
+export async function POST(req: Request) {
+  const { messages, tools, context } = await req.json()
+  return streamText({
+    model,
+    system: `Screen: ${JSON.stringify(context)}`,
+    messages: await convertToModelMessages(messages),
+    tools: Object.fromEntries(tools.map((t) => [t.name, tool({ description: t.description, inputSchema: jsonSchema(t.parameters) })])),
+  }).toUIMessageStreamResponse()
+}
+```
+
+Data parts `data-ui-effect`, `data-ui-render` and `data-state` become GUI effects, rich content and shared state.
+
 ## widget
 
 `widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, autofocus?, renderers? })`
@@ -75,6 +96,10 @@ A Web Component (`<h4b-chat>`, shadow DOM) usable in any page or framework: safe
 ## copilotkit
 
 Inside both `<CopilotKitProvider>` and `<H4BProvider>`: `useCopilotKitBridge({ agentId?, transport?, contextDescription? })`. H4B actions become CopilotKit frontend tools, context signals become agent context, and (unless `transport: false`) the CopilotKit agent is H4B's transport, so voice, menu fallbacks and sensors reach it and its answers can be spoken. Direct commands are mirrored into the agent history.
+
+## assistant-ui
+
+`useH4BAssistantRuntime()` returns an assistant-ui runtime backed by H4B: `<AssistantRuntimeProvider runtime={useH4BAssistantRuntime()}><Thread /></AssistantRuntimeProvider>`. assistant-ui renders the thread and composer; tool calls show with their results, rich content arrives as `data-h4b-ui` parts, cancel aborts the H4B turn. Any transport works behind it.
 
 ## menu
 
@@ -124,6 +149,10 @@ Service: `listen()`, `stop()`, `toggle()`, `setMode()`, `setOutput()`, `speak()`
 ## tab-sync
 
 `tabSync({ channel?, throttleMs? })`. Mirrors the conversation across tabs; histories of the same thread are merged by message id.
+
+## testkit
+
+For plugin and transport authors: `scriptedTransport`, `reply`, `eventually`, `waitForIdle` and `transportConformance(name, { create(scenario) })`, a Vitest suite (text answer, client action round trip, backend error, abort) that every transport in this repository passes.
 
 ## observability
 
