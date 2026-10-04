@@ -1,6 +1,6 @@
 ---
 name: handsforbots
-description: Integrate Hands for Bots v2 (H4B, @handsforbots/* packages) into a web app - create the kernel with createH4B, pick a transport (AG-UI, Rasa, HTTP/UniversalLLM, OpenAI-compatible, Vercel AI SDK, CopilotKit), declare GUI actions the assistant, the user and browser agents can trigger, send context signals, add the <h4b-chat> widget or React bindings, voice, menu, guided tours, storage and tab sync, and write plugins. Use whenever code imports @handsforbots/*, calls createH4B, h4b.actions.register, h4b.signal/ask/runAction/push, or the user mentions Hands for Bots, H4B or HfB. For the conversation history (h4b.messages, recording GUI decisions, timelines), also load handsforbots-history.
+description: Integrate Hands for Bots v2 (H4B, @handsforbots/* packages) into a web app - create the kernel with createH4B, pick a transport (AG-UI, Rasa, HTTP/UniversalLLM, OpenAI-compatible, Vercel AI SDK, CopilotKit), declare GUI actions the assistant, the user and browser agents can trigger, send context signals, add the <h4b-chat> widget or React/Vue bindings, voice, menu, guided tours, storage and tab sync, and write plugins. Use whenever code imports @handsforbots/*, calls createH4B, h4b.actions.register, h4b.signal/ask/runAction/push, or the user mentions Hands for Bots, H4B or HfB. For the conversation history (h4b.messages, recording GUI decisions, timelines), also load handsforbots-history.
 ---
 
 # Hands for Bots v2 — integration
@@ -54,7 +54,7 @@ Exactly one plugin may provide each service (`transport`, `storage`, `confirm`, 
 - `destructive: true` (or `confirm: 'always'`) needs a `confirm` service — **without one the call is refused**: `h4b.provide('confirm', async ({ description, origin }) => window.confirm(...))`.
 - `exposeTo: ['user']` / `['assistant', 'user']` / include `'agent'` only for actions safe for browser agents (WebMCP publishes only those). `readOnly: true` for actions that change nothing.
 - `handler(args, call)`: `call.origin`, `call.signal` (abort on barge-in), `call.render(component, props)` for rich content in the reply.
-- In React register with `useAction(definition)` so it lives while the component is mounted.
+- In React or Vue register with `useAction(definition)` so it lives while the component is mounted.
 
 ## Telling the assistant what is on screen
 
@@ -66,7 +66,7 @@ h4b.signal({ kind: 'context', key: 'orders.view', modality: 'gui-event', source:
 h4b.removeContext('orders.view')
 ```
 
-React: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`, `data-h4b-say`, `data-h4b-command`), route and selection tracking come from `gui()` in `@handsforbots/inputs`.
+React/Vue: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`, `data-h4b-say`, `data-h4b-command`), route and selection tracking come from `gui()` in `@handsforbots/inputs`.
 
 ## Host API cheat sheet
 
@@ -80,7 +80,7 @@ React: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`, `da
 | New conversation, clear storage | `await h4b.reset()` |
 | Observe | `h4b.on(event, fn)`, `await h4b.when(event, predicate, { timeout })` |
 | Transform or veto | `h4b.intercept('signal.before' | 'request.before' | 'action.before' | 'stimulus.before', fn)` |
-| Bind a UI | `h4b.subscribe(fn)` + `h4b.getSnapshot()`, or `@handsforbots/react` hooks |
+| Bind a UI | `h4b.subscribe(fn)` + `h4b.getSnapshot()`, or `@handsforbots/react` hooks / `@handsforbots/vue` composables |
 
 Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Details and pitfalls: `references/runtime.md`.
 
