@@ -2,18 +2,18 @@
  * ActionGuard — interception point between extracting an action from the bot
  * response and executing it.
  *
- * Actions are bot's commands (`[•{...}•]`, executed by the BotsCommands output)
- * and MCP tool calls (executed by MCPHelper). Before running any of them, the
- * executor asks the guard, which runs the configured policies in order.
+ * Actions are bot's commands (`[•{...}•]`, checked by the orchestrator before the
+ * output is stored in history and delivered) and MCP tool calls (checked by
+ * MCPHelper before executing). The guard runs the configured policies in order.
+ * Blocked commands are removed from the output, so history only keeps commands
+ * that were allowed, and a page reload replays exactly those.
  *
  * The mechanism lives in the lib; the rules (what to block, ask the user, rewrite)
  * live in the host project as policies. `loopDetector` is a built-in, opt-in policy.
  *
  * A policy is `async ( action, ctx ) => result`, where:
  *
- *  - action: { type: 'command'|'tool', name, params, turnId, replay }
- *            replay is true when BotsCommands re-runs commands from history after
- *            a page load; only policies with `runOnReplay = true` see those.
+ *  - action: { type: 'command'|'tool', name, params, turnId }
  *  - ctx:    { bot, turnActions } — turnActions are the actions already executed
  *            since the last user input (oldest first).
  *  - result: undefined | true | 'allow'           → continue to the next policy
@@ -87,12 +87,7 @@ export default class ActionGuard {
 	/**
 	 * Run the policies for an action.
 	 *
-	 * Replayed actions (history rebuild after a page load) only go through policies
-	 * flagged `runOnReplay` — deterministic ones like `loopDetector`, which then
-	 * reach the same decision as in the original turn. Interactive policies (ask
-	 * the user, check permissions) are not asked again.
-	 *
-	 * @param  {Object} action - { type, name, params, replay }
+	 * @param  {Object} action - { type, name, params }
 	 * @return {Promise<Object>} { allowed, action, reason, policy }
 	 */
 	async evaluate ( action ) {
@@ -102,7 +97,6 @@ export default class ActionGuard {
 			name: action.name,
 			params: action.params,
 			turnId: this.turnId,
-			replay: action.replay === true,
 		}
 
 		const ctx = {
@@ -110,11 +104,7 @@ export default class ActionGuard {
 			turnActions: this.turnActions.slice(),
 		}
 
-		const policies = current.replay
-			? this.policies.filter( p => p.runOnReplay === true )
-			: this.policies
-
-		for ( const policy of policies ) {
+		for ( const policy of this.policies ) {
 
 			let result
 			try {
@@ -164,11 +154,8 @@ export default class ActionGuard {
 			policy: policyName( policy ),
 		}
 
-		// a replayed block was already reported when the action first ran
-		if ( ! action.replay ) {
-			console.warn( `[⚠] Action "${action.name}" blocked by "${blocked.policy}": ${reason}` )
-			this.bot.eventEmitter.trigger( 'core.action_blocked', [blocked] )
-		}
+		console.warn( `[⚠] Action "${action.name}" blocked by "${blocked.policy}": ${reason}` )
+		this.bot.eventEmitter.trigger( 'core.action_blocked', [blocked] )
 
 		return blocked
 
@@ -230,7 +217,6 @@ export function loopDetector ( options = {} ) {
 	}
 
 	Object.defineProperty( policy, 'name', { value: 'loopDetector' } )
-	policy.runOnReplay = true
 
 	return policy
 

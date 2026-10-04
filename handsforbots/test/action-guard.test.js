@@ -63,20 +63,6 @@ test( 'async policies are awaited (ex.: ask the user)', async ()=>{
 	assert.equal( ( await guard.evaluate( cmd( 'Order.view' ) ) ).allowed, true )
 })
 
-test( 'replayed actions only run runOnReplay policies, silently', async ()=>{
-	const bot = fakeBot()
-	const blocked = []
-	bot.eventEmitter.on( 'core.action_blocked', ( b )=>{ blocked.push( b ) } )
-	let interactiveCalls = 0
-	const guard = new ActionGuard( bot, [ ()=>{ interactiveCalls++; return false }, loopDetector({ maxIdentical: 1 }) ] )
-
-	assert.equal( ( await guard.evaluate({ ...cmd( 'a' ), replay: true }) ).allowed, true )
-	assert.equal( interactiveCalls, 0 )
-	// the loop detector reaches the same decision as in the original turn
-	assert.equal( ( await guard.evaluate({ ...cmd( 'a' ), replay: true }) ).allowed, false )
-	assert.equal( blocked.length, 0 )
-})
-
 test( 'loopDetector blocks the 3rd identical action with defaults (window 4, max 2)', async ()=>{
 	const guard = new ActionGuard( fakeBot(), [ loopDetector() ] )
 	assert.equal( ( await guard.evaluate( cmd( 'Modal.open', { id: 1 } ) ) ).allowed, true )

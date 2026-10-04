@@ -20,6 +20,10 @@ export default class BotOrchestrator {
 		this.loadedUICount = 0
 		this.redirectInput = null
 
+		// Outputs waiting for action policies, delivered in order
+		this.outputChain = Promise.resolve()
+		this.pendingOutputs = 0
+
 		console.log('[✔︎] BotOrchestrator initialized.')
 	}
 
@@ -275,6 +279,61 @@ export default class BotOrchestrator {
 
 		payload = this.extractActions(payload)
 
+		// Without commands to check and nothing queued, deliver right away (same tick as before)
+		if (this.pendingOutputs == 0 && !payload.some(obj => obj.do != null)) {
+			this.deliverOutput(payload)
+			return
+		}
+
+		// Commands go through the action policies before the output is stored and delivered,
+		// so history only keeps allowed commands. Outputs keep their order.
+		this.pendingOutputs++
+		this.outputChain = this.outputChain
+			.then(() => this.guardCommands(payload))
+			.then(() => this.deliverOutput(payload))
+			.catch((error) => console.error('[✗] Error delivering output:', error))
+			.finally(() => { this.pendingOutputs-- })
+	}
+
+	/**
+	 * Run the action policies for the bot's commands of an output. Blocked commands are
+	 * removed (`obj.do = null`) and described in `obj.blocked_action`; the text is kept.
+	 * @param  array	payload	Payload with actions extracted
+	 * @return void
+	 */
+	async guardCommands(payload) {
+		for (const obj of payload) {
+			if (obj.do == null)
+				continue
+
+			let command
+			try {
+				command = JSON.parse(obj.do)
+			} catch (error) {
+				continue // invalid JSON: Bot's Commands reports it
+			}
+
+			const verdict = await this.bot.actionGuard.evaluate({
+				type: 'command',
+				name: command.action,
+				params: command.params
+			})
+
+			if (!verdict.allowed) {
+				obj.do = null
+				obj.blocked_action = { action: command.action, reason: verdict.reason, policy: verdict.policy }
+			} else if (verdict.action.params !== command.params) {
+				obj.do = JSON.stringify({ ...command, params: verdict.action.params })
+			}
+		}
+	}
+
+	/**
+	 * Store the output in history and send it to the output plugins.
+	 * @param  array	payload	Payload ready to deliver
+	 * @return void
+	 */
+	deliverOutput(payload) {
 		let plugins = []
 		for (var plugin in this.ui_outputs) {
 			plugins.push(plugin)

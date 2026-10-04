@@ -42,11 +42,12 @@ export default class BotsCommandsOutput {
 
 	/**
 	 * Output payload.
-	 * @param  Array	payload	Payload from bot to user.
-	 * @param  Boolean	replay	True when re-running commands from history.
+	 * Commands arrive here already checked by the action policies (see Libs/ActionGuard.js):
+	 * blocked ones were removed before the output was delivered and stored in history.
+	 * @param  Array payload Payload from bot to user.
 	 * @return Void
 	 */
-	async output ( payload, replay = false ) {
+	async output ( payload ) {
 
 		for ( const obj of payload ) {
 
@@ -67,21 +68,6 @@ export default class BotsCommandsOutput {
 				continue
 			}
 
-			/**
-			 * Action policies (loop detector, project rules) may block or rewrite the command.
-			 * The text of the message was already delivered by the other outputs.
-			 */
-			const verdict = await this.bot.actionGuard.evaluate({
-				type: 'command',
-				name: command.action,
-				params: command.params,
-				replay: replay,
-			})
-			if ( ! verdict.allowed ) {
-				continue
-			}
-			const params = verdict.action.params
-
 			let fn = this.bot.commands[ command.action ] || window[ command.action ];
 			if ( !fn ) {
 
@@ -97,7 +83,7 @@ export default class BotsCommandsOutput {
 				continue;
 			}
 
-			let ret = fn( params );
+			let ret = fn( command.params );
 
 			if ( ret && typeof ret.then === 'function' ) {
 				ret.then(( result )=>{
@@ -123,22 +109,16 @@ export default class BotsCommandsOutput {
 	}
 
 	/**
-	 * Trigger previous commands, in order. Each user input in the history starts a new
-	 * turn in the action guard, so replay-aware policies (loop detector) reach the same
-	 * decisions as when the commands first ran.
+	 * Trigger previous commands, in order. History only holds commands that the
+	 * action policies allowed, so they are not checked again.
 	 * @return	void
 	 */
 	async rebuildHistory () {
 
 		this.commands_history_loaded = true
 
-		const guard = this.bot.actionGuard
-		guard.newTurn()
-
 		for ( const entry of this.bot.history ) {
-			if ( entry[0] == 'input' ) {
-				guard.newTurn()
-			} else if ( entry[0] == 'output' ) {
+			if ( entry[0] == 'output' ) {
 				let output
 				try {
 					output = JSON.parse( entry[2] )
@@ -147,13 +127,11 @@ export default class BotsCommandsOutput {
 				}
 				for ( const item of output ) {
 					if ( item.do != undefined ) {
-						await this.output( [ item ], true )
+						await this.output( [ item ] )
 					}
 				}
 			}
 		}
-
-		guard.newTurn()
 
 	}
 

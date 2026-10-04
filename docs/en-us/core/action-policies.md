@@ -13,14 +13,15 @@
 
 Every action the bot asks to run goes through an interception point first:
 
-- **commands** `[•{"action": ...}•]`, executed by the [Bot's Commands](./output/botscommands.md) output;
+- **commands** `[•{"action": ...}•]`, checked by the orchestrator and executed by the [Bot's Commands](./output/botscommands.md) output;
 - **MCP tools**, executed by `MCPHelper` (see [MCP Tools](../plugins/mcp-tools.md)).
 
 Hands for Bots provides the **mechanism**; the **rules** (what to block, when to ask for confirmation, permissions) live in your project, as policies. A loop detector ships as an optional built-in policy.
 
 ```text
-backend response → extract command/tool → policies → execute
-                                              └─ blocked: drop the action, keep the text, emit core.action_blocked
+command: backend response → extract [•…•] → policies → store history → output plugins → execute
+tool:    backend response → extract tool    → policies → execute → feedback to the LLM
+                                                └─ blocked: drop the action, keep the text, emit core.action_blocked
 ```
 
 
@@ -76,7 +77,8 @@ async ( action, ctx ) => result
 
 - Policies run in order and may be async (e.g. ask the user).
 - A policy that throws **blocks** the action (fail-closed).
-- On page reload, the Bot's Commands output re-runs the commands from history (`action.replay === true`). Only policies flagged `runOnReplay = true`, like `loopDetector`, run on replay, reaching the same decision as in the original turn. Interactive policies (confirmation, permissions) are not asked again, and replay blocks do not emit `core.action_blocked`.
+- Commands are checked **before** the response is stored in history and delivered to the output plugins. A blocked command is removed from the payload (`do = null`, with the reason in `blocked_action`) and the text goes on as usual. So on page reload, the Bot's Commands output only replays commands that were allowed, without asking the policies again.
+- While an async policy decides (e.g. waiting for confirmation), that message and the following ones wait, keeping their order.
 
 
 ## Loop detector

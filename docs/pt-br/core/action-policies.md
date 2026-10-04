@@ -13,14 +13,15 @@
 
 Toda ação que o bot pede para executar passa por um ponto de interceptação antes de rodar:
 
-- **comandos** `[•{"action": ...}•]`, executados pelo plugin [Comandos de Bots](./output/botscommands.md);
+- **comandos** `[•{"action": ...}•]`, avaliados pelo orquestrador e executados pelo plugin [Comandos de Bots](./output/botscommands.md);
 - **tools MCP**, executadas pelo `MCPHelper` (ver [Ferramentas MCP](../plugins/mcp-tools.md)).
 
 O Hands for Bots fornece o **mecanismo**; as **regras** (o que bloquear, quando pedir confirmação, permissões) ficam no seu projeto, como políticas. O detector de loop vem pronto como política opcional.
 
 ```text
-resposta do backend → extrai comando/tool → políticas → executa
-                                                 └─ bloqueado: descarta a ação, mantém o texto, emite core.action_blocked
+comando: resposta do backend → extrai [•…•] → políticas → grava histórico → plugins de saída → executa
+tool:    resposta do backend → extrai tool    → políticas → executa → feedback ao LLM
+                                                   └─ bloqueado: descarta a ação, mantém o texto, emite core.action_blocked
 ```
 
 
@@ -76,7 +77,8 @@ async ( action, ctx ) => resultado
 
 - As políticas rodam em ordem e podem ser assíncronas (ex.: pedir confirmação ao usuário).
 - Política que lança exceção **bloqueia** a ação (fail-closed).
-- Ao recarregar a página, o plugin Comandos de Bots reexecuta os comandos do histórico (`action.replay === true`). Nesse replay só rodam políticas marcadas com `runOnReplay = true`, como o `loopDetector`, que chega à mesma decisão do turno original. Políticas interativas (confirmação, permissões) não são perguntadas de novo, e bloqueios no replay não disparam `core.action_blocked`.
+- Comandos são avaliados **antes** de a resposta ser gravada no histórico e entregue aos plugins de saída. O comando bloqueado sai do payload (`do = null`, com o motivo em `blocked_action`) e o texto segue normalmente. Por isso, ao recarregar a página, o plugin Comandos de Bots reexecuta só comandos que foram aceitos, sem perguntar às políticas de novo.
+- Enquanto uma política assíncrona decide (ex.: aguardando confirmação), a mensagem correspondente e as seguintes esperam, preservando a ordem.
 
 
 ## Detector de loop
