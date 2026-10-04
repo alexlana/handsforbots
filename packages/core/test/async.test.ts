@@ -183,6 +183,38 @@ describe('runAction', () => {
     ])
     expect(statuses).toEqual(['acting:agent', 'done:agent', 'acting:direct', 'error:direct'])
   })
+
+  it('waits for the running turn and reaches the next request even when hidden from the assistant', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const requests: TurnRequest[] = []
+    const h4b = createH4B({
+      actions: [{ name: 'record_decision', description: 'Record', exposeTo: ['user'], handler: (decision: unknown) => decision }],
+    })
+    h4b.provide('transport', {
+      name: 'gated',
+      async *run(request) {
+        requests.push(request)
+        await gate
+        yield { type: 'message.delta', messageId: `a-${request.turnId}`, delta: 'ok' } satisfies Stimulus
+      },
+    })
+
+    const turn = h4b.ask('primeira')
+    const recorded = h4b.runAction('record_decision', { plan: 'pro' })
+    expect(h4b.messages.some((m) => m.role === 'tool')).toBe(false)
+    release()
+    await turn
+    expect(await recorded).toEqual({ result: { plan: 'pro' } })
+    expect(h4b.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'assistant', 'tool'])
+
+    await h4b.ask('segunda')
+    const last = requests.at(-1)!
+    expect(last.actions.map((a) => a.name)).not.toContain('record_decision')
+    expect(last.messages.flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []) : []))).toEqual([
+      expect.objectContaining({ name: 'record_decision', args: { plan: 'pro' } }),
+    ])
+  })
 })
 
 describe('queued triggers', () => {

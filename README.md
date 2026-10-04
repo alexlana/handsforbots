@@ -48,6 +48,7 @@ await h4b.start()
 - [Concepts](./docs/en-us/concepts.md): signals, turns, stimuli, routes, sync/async
 - [Plugins](./docs/en-us/plugins.md): every package and its options
 - [Writing plugins](./docs/en-us/writing-plugins.md)
+- [History](./docs/en-us/history.md): reading it, recording GUI decisions, timelines
 - [Security](./docs/en-us/security.md)
 - [Development](./docs/en-us/development.md)
 - [Migrating from v1](./docs/en-us/migrating-from-v1.md)

@@ -40,6 +40,7 @@ await h4b.start()
 - [Conceitos](./concepts.md): sinais, turnos, estímulos, rotas, síncrono/assíncrono
 - [Plugins](./plugins.md): todos os pacotes e opções
 - [Escrevendo plugins](./writing-plugins.md)
+- [Histórico](./history.md): leitura, registro de decisões da interface, linha do tempo
 - [Segurança](./security.md)
 - [Desenvolvimento](./development.md)
 - [Migrando da v1](./migrating-from-v1.md)
