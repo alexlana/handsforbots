@@ -21,8 +21,24 @@
 
   - **Disparando Eventos:** Plugins ou seu aplicativo podem disparar eventos usando `this.bot.eventEmitter.trigger('nome_do_evento', [dado1, dado2, ...])`. 
     - Substitua `'nome_do_evento'` pelo nome específico do evento que você deseja disparar.
-    - Inclua quaisquer dados relevantes dentro da matriz como parâmetros a serem passados para os ouvintes de eventos.
+    - Inclua quaisquer dados relevantes dentro da matriz como parâmetros a serem passados para os ouvintes de eventos. **O segundo argumento precisa ser um array**: qualquer outro valor é descartado sem aviso e os ouvintes não recebem argumentos.
   - **Ouvindo Eventos:** Para responder a um evento específico, use `this.bot.eventEmitter.on('nome_do_evento', minhaFuncao)`. A `minhaFuncao` que você fornecer será executada quando o evento especificado for disparado, recebendo os dados passados do disparador. 
+
+
+  ## Regras para nomes de eventos
+
+
+  O emissor de eventos tem algumas regras fáceis de tropeçar:
+
+  - **Use sempre `prefixo.nome`.** A parte antes do ponto é o evento e a parte depois é um namespace, então `core.history_added` é o evento `core` no namespace `history_added`.
+
+  - **Só letras, números, `.`, `,`, `/` e espaços são mantidos.** Sublinhados e hífens são removidos, então `core.history_added` e `core.historyadded` são o mesmo evento, e `meu-app.pronto` vira `meuapp.pronto`.
+
+  - **Nunca dispare um nome sem ponto.** `trigger('meuapp')` executa os ouvintes de todos os eventos `meuapp.*`.
+
+  - **Disparar `a.b` sem ninguém ouvindo `a.b` lança** um `TypeError` se outro evento já usa o mesmo namespace `b` (por exemplo, disparar `meuapp.receiver` quando só `poke.receiver` tem ouvintes). Dê aos eventos do seu plugin um namespace próprio, ou garanta que alguém ouve antes de disparar.
+
+  - Nomes com vírgulas, barras ou espaços registram vários eventos de uma vez no `on()`.
 
 
   ## Eventos Principais
@@ -42,7 +58,7 @@
 
   - **`core.output_ready`:** Indica que a resposta do chatbot do mecanismo de backend está pronta e será enviada para os plugins de saída.
 
-  - **`core.history_added`:** Disparado sempre que o histórico de conversas é atualizado com uma nova entrada do usuário ou resposta do chatbot.
+  - **`core.history_added`:** Disparado sempre que um item entra no histórico da sessão: entradas do usuário, respostas do chatbot, feedback de ferramentas MCP ou itens que sua aplicação acrescenta com `bot.addToHistory()`. O evento não envia dados; leia `bot.history[bot.history.length - 1]`. Veja [Histórico da sessão](./history.md).
 
   - **`core.history_loaded`:** Emitido quando o histórico de conversas foi carregado do armazenamento (se habilitado) durante a inicialização do Hands for Bots.
 
@@ -52,7 +68,11 @@
 
   - **Evento Personalizado na Resposta do Backend:** O núcleo dispara um evento personalizado especificamente para o plugin que iniciou a solicitação ao backend. Isso permite o tratamento direcionado de respostas. O plugin é responsável por definir e ouvir este evento personalizado. 
 
-  - **`core.history_cleared`:** Emitido quando o histórico de conversas foi limpo, geralmente devido à expiração da sessão ou configurações de privacidade. 
+  - **`core.history_cleared`:** Emitido quando `bot.clearStorage()` é chamado. **Não é emitido quando a sessão expira**: a expiração zera o histórico sem aviso.
+
+  - **`core.history_renewed`:** Emitido quando a sessão é renovada com `bot.renewSession()` (por exemplo, via `core.renew_session`).
+
+  - **`core.other_window_input` / `core.other_window_output`:** Emitidos quando outra aba ou janela do mesmo site recebeu uma entrada ou produziu uma saída (via `BroadcastChannel`).
 
 
   ### Eventos Ouvidos pelo Núcleo

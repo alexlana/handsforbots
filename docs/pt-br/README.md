@@ -42,6 +42,8 @@ Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um a
 - [Plugins](./plugins.md)
   - [GUIDed](./plugins/guided.md)
 - [Eventos](./events.md)
+- [Histórico da sessão](./history.md)
+- [Skills para assistentes de código](../../skills/README.md)
 
 ## Agradecimento
 

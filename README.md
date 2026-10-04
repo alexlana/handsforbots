@@ -42,6 +42,8 @@ Hands for Bots uses a modular archtecture based on plugins to grant a high level
 - [Plugins](./docs/en-us/plugins.md)
   - [GUIDed](./docs/en-us/plugins/guided.md)
 - [Events](./docs/en-us/events.md)
+- [Session history](./docs/en-us/history.md)
+- [Agent skills for coding assistants](./skills/README.md)
 
 
 

@@ -26,12 +26,18 @@ Sistema modular para gerenciamento de sessões, histórico e storage do bot.
 **Solução**: Remover clearSession() dos métodos encrypt/decrypt - apenas gerar nova chave.
 
 ### ✅ **Problema 2: Histórico não sincronizava**
-**Causa**: SessionManager usava this.history.push() que não disparava o setter.
-**Solução**: Usar spread operator: `this.history = [...this.history, newItem]`
+**Causa**: SessionManager guardava uma cópia própria do histórico, separada de `bot.history`.
+**Solução**: O getter/setter `history` do SessionManager lê e escreve direto em `this.bot.history`. Por isso `this.history.push(item)` (usado hoje em `addToHistory`) altera o mesmo array que o restante da lib enxerga.
 
-### ✅ **Problema 3: RebuildHistory sobrescrevia histórico atual**
-**Causa**: rebuildHistory() sempre sobrescrevia, mesmo com mensagens recentes.
-**Solução**: Só sobrescrever se histórico atual estiver vazio.
+### ⚠️ **Problema 3: RebuildHistory sobrescreve o histórico em memória**
+`rebuildHistory()` substitui `bot.history` pelo conteúdo do storage sempre que encontra histórico salvo. E um `addToHistory()` chamado antes do `rebuildHistory()` grava sobre o histórico salvo. Quem usa a lib precisa esperar `core.history_loaded` antes de acrescentar itens (ver [docs/pt-br/history.md](../../docs/pt-br/history.md)).
+
+## Limitações conhecidas
+
+- **Gravações sobrepostas**: `encrypt()`/`decrypt()` substituem `cryptoWorker.onmessage` a cada chamada. Duas chamadas a `addToHistory()` em paralelo fazem a primeira promise nunca resolver, e o storage pode ficar sem o item mais recente.
+- **Expiração silenciosa**: `clearSession()` (chamado na expiração) não dispara `core.history_cleared`; só `bot.clearStorage()` dispara.
+- **Itens sem data nem id**: o item é `[type, plugin, payload, title]`.
+- **Várias abas**: cada aba grava sua cópia inteira de `bot.history`; a última gravação vence.
 
 ## Integração no Bot.js
 

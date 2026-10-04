@@ -21,8 +21,24 @@
 
   - **Triggering Events:** Plugins or your application can trigger events using `this.bot.eventEmitter.trigger('event_name', [data1, data2, ...])`. 
     - Replace `'event_name'` with the specific name of the event you want to trigger.
-    - Include any relevant data within the array as parameters to be passed to event listeners.
+    - Include any relevant data within the array as parameters to be passed to event listeners. **The second argument must be an array**: anything else is silently dropped and listeners receive no arguments.
   - **Listening for Events:**  To respond to a particular event, use `this.bot.eventEmitter.on('event_name', myFunction)`. The `myFunction` you provide will be executed when the specified event is triggered, receiving the data passed from the trigger. 
+
+
+  ## Event Naming Rules
+
+
+  The event emitter has a few rules that are easy to trip over:
+
+  - **Always use `prefix.name`.** The part before the dot is the event and the part after it is a namespace, so `core.history_added` is the event `core` in the namespace `history_added`.
+
+  - **Only letters, digits, `.`, `,`, `/` and spaces are kept.** Underscores and hyphens are removed, so `core.history_added` and `core.historyadded` are the same event, and `my-app.done` becomes `myapp.done`.
+
+  - **Never trigger a name without a dot.** `trigger('myapp')` runs the listeners of every `myapp.*` event.
+
+  - **Triggering `a.b` when nothing listens to `a.b` throws** a `TypeError` if another event already uses the same namespace `b` (for example, triggering `myapp.receiver` when only `poke.receiver` has listeners). Give your plugin events a namespace of their own, or make sure someone listens before you trigger.
+
+  - Names with commas, slashes or spaces register several events at once in `on()`.
 
 
   ## Core Events
@@ -42,7 +58,7 @@
 
   - **`core.output_ready`:** Indicates that the chatbot's response from the backend engine is ready and will be sent to output plugins.
 
-  - **`core.history_added`:**  Triggered whenever the conversation history is updated with a new user input or chatbot response.
+  - **`core.history_added`:**  Triggered whenever an item is added to the session history: user inputs, chatbot responses, MCP feedback, or items your application adds with `bot.addToHistory()`. The event carries no data; read `bot.history[bot.history.length - 1]`. See [Session history](./history.md).
 
   - **`core.history_loaded`:** Emitted when the conversation history has been loaded from storage (if enabled) during the initialization of Hands for Bots.
 
@@ -52,7 +68,11 @@
 
   - **Custom Event on Backend Response:** The core triggers a custom event specifically for the plugin that initiated the request to the backend. This allows for targeted handling of responses. The plugin is responsible for defining and listening for this custom event. 
 
-  - **`core.history_cleared`:** Emitted when the conversation history has been cleared, usually due to session expiration or privacy settings. 
+  - **`core.history_cleared`:** Emitted when `bot.clearStorage()` is called. **It is not emitted when the session expires**: expiration empties the history silently.
+
+  - **`core.history_renewed`:** Emitted when the session is renewed with `bot.renewSession()` (for example, through `core.renew_session`).
+
+  - **`core.other_window_input` / `core.other_window_output`:** Emitted when another tab or window of the same site received an input or produced an output (via `BroadcastChannel`).
 
 
   ### Events Listened for by the Core
