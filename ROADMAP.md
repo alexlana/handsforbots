@@ -62,7 +62,9 @@ flowchart TB
 | **API turn-based** (sessão + turno síncrono) | RASA, OpenAI, UniversalLLM (request/response) | Alto — falta backend plugin genérico |
 | **A2A** (agent-to-agent) | Inexistente | Baixo curto prazo; semear spec |
 | **Observabilidade** (traces, tokens, evals) | SemanticEventObservability parcial | Médio — itens P1/P3 pendentes |
-| **React composável** | Core vanilla JS, sem pacote headless | Alto |
+| **React composável** | Modo headless pronto; falta adapter React | Médio |
+| **Vue composável** | Adapter Vue (`useHandsForBots`, `useBotCommand`) + `examples/vue` | Baixo |
+| **Guardrails de ações** | Políticas de ação (`action_policies`) + `loopDetector`; timeouts de backend pendentes | Baixo |
 
 ---
 
@@ -74,12 +76,28 @@ flowchart TB
 
 | # | Entrega | Descrição |
 |---|---------|-----------|
-| 0.1 | **`@handsforbots/headless`** | Exportar `Bot` + `BotOrchestrator` sem exigir montagem de UI H4B; lifecycle controlável pelo host |
+| 0.1 | **`@handsforbots/headless`** ✅ | `createHeadlessBot()` — store com `subscribe`/`getState`, `send`, `registerCommand`, `destroy` ([docs](./docs/pt-br/headless.md)) |
+| 0.1b | **Adapter Vue** ✅ | `createHandsForBots()` + composables ([docs](./docs/pt-br/adapters/vue.md), [`examples/vue`](./examples/vue)) |
+| 0.1c | **Políticas de ação** ✅ | Hook antes de comandos e tools MCP, `loopDetector` opcional ([docs](./docs/pt-br/core/action-policies.md)) |
 | 0.2 | **Interface `TurnBackend`** | Contrato mínimo documentado: `sendTurn()`, `getSession()`, `supportsStreaming()` — qualquer backend turn-based implementa o port |
 | 0.3 | **Plugin `Backend/TurnBased`** | Backend genérico para APIs `bootstrap` → `initialize` → `messages` (turn síncrono); configurável por endpoint e mapeamento de fases |
 | 0.4 | **Exemplo `examples/react-bridge`** | Host React monta thread própria; H4B orquestra backend, MCP e eventos; prova o modelo embeddable |
 
 **Critério de sucesso:** um app React com design system próprio usa H4B só para orquestração/backend/MCP, sem “dois apps” visuais.
+
+#### Próximos exemplos — variedade de UI
+
+O exemplo Vue cobre o caso “carrinho”. Os próximos devem mostrar o bot agindo sobre **componentes de UI variados**, sem foco em e-commerce:
+
+| Exemplo | Componente | Comandos ilustrativos |
+|---------|------------|-----------------------|
+| Mapa | Mapa interativo (Leaflet/MapLibre) | `Map.focus`, `Map.addMarker`, `Map.route` |
+| Personagem | Avatar/personagem animado que reage à conversa | `Character.emote`, `Character.lookAt`, `Character.walkTo` |
+| Jogo simples | Jogo da velha, quiz ou forca jogado com o bot | `Game.move`, `Game.reveal`, `Game.reset` |
+| Ajuda com textos | Editor com sugestões aplicadas pelo bot | `Doc.highlight`, `Doc.suggest`, `Doc.replace` (com confirmação) |
+| Gráficos | Painel de dados que o bot filtra e explica | `Chart.filter`, `Chart.highlightSeries`, `Chart.switchType` |
+
+Cada exemplo deve rodar com backend mock (sem Docker) e exercitar pelo menos uma política de ação.
 
 ---
 
@@ -242,3 +260,4 @@ Indicadores mensuráveis:
 | Data | Alteração |
 |------|-----------|
 | 2026-07-02 | Documento inicial — roadmap 3–6 meses |
+| 2026-10-04 | Headless, adapter Vue e políticas de ação entregues; lista de exemplos com UI variada |
