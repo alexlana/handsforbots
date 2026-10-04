@@ -94,6 +94,15 @@ Um Web Component (`<h4b-chat>`, shadow DOM) que funciona em qualquer página ou 
 
 `<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definição)` (registrada enquanto o componente existe, sempre chama o handler mais recente), `useContextSignal(key, valor)`, `useH4BEvent(nome, listener)`, `useStimulus(listener)`, `useStore(serviço)` (para serviços com estado, como `voice`).
 
+## vue
+
+`app.use(h4bVue(h4b))` (ou `provideH4B(h4b)` num componente), `useH4B()`, `useH4BState(seletor)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definição)`, `useContextSignal(key, refOuGetter)`, `useH4BEvent(nome, listener)`, `useStimulus(listener)`, `useService(chave)` (acompanha o serviço sendo fornecido ou removido depois), `useStore(refOuGetter)`. O estado volta como shallow refs somente leitura que só disparam quando o valor selecionado muda; os registros acabam junto com o componente (ou `effectScope`).
+
+```ts
+const estadoDaVoz = useStore(useService('voice'))   // listening, speaking, partial…
+const mensagens = useMessages()
+```
+
 ## copilotkit
 
 Dentro de `<CopilotKitProvider>` e `<H4BProvider>`: `useCopilotKitBridge({ agentId?, transport?, contextDescription? })`. As ações do H4B viram frontend tools do CopilotKit, os sinais de contexto viram contexto do agente e (salvo `transport: false`) o agente do CopilotKit vira o transporte do H4B, então voz, fallbacks do menu e sensores chegam a ele e as respostas podem ser faladas. Comandos diretos são espelhados no histórico do agente.
@@ -123,11 +132,14 @@ Dentro de `<CopilotKitProvider>` e `<H4BProvider>`: `useCopilotKitBridge({ agent
 | `voskSTT({ url })` | Servidor Vosk próprio |
 | `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser'), grammar? })` | Offline, no navegador (WebAssembly); o modelo é baixado uma vez e depois nenhum áudio sai do dispositivo. `preload()` adianta o download |
 
-Serviço: `listen()`, `stop()`, `toggle()`, `setMode()`, `setOutput()`, `speak()`, `cancelSpeech()`, `getState()` (`listening`, `speaking`, `partial`, `lastInput`, `error`…), `subscribe()`.
+Serviço: `listen({ until? })`, `stop()`, `cancel()`, `toggle()`, `setMode()`, `setOutput()`, `speak()`, `cancelSpeech()`, `getState()` (`listening`, `speaking`, `partial`, `lastInput`, `error`…), `subscribe()`.
+
+- `stop()` encerra a escuta e ainda envia o que foi dito; `cancel()` encerra e descarta a fala (nada é enviado, nem uma transcrição final que o provedor entregue depois).
+- No push-to-talk a fala termina na primeira pausa por padrão (bom para clicar e falar). `listen({ until: 'stop' })` é segurar para falar: o reconhecimento continua entre pausas (reiniciando se o navegador encerrar a sessão), `partial` mostra tudo o que foi dito até ali e uma única mensagem sai no `stop()`. O botão de microfone do widget e o atalho `talk` do teclado usam esse modo.
 
 ## keyboard
 
-`keyboard({ talk?: 'Alt+KeyM', interrupt?: 'Escape', palette?: 'Mod+KeyK', target? })`. Segure `talk` para falar (alterna em mãos-livres), `interrupt` para a fala e cancela o turno atual, `palette` emite `keyboard.palette` para a sua paleta de comandos. `false` desliga um atalho.
+`keyboard({ talk?: 'Alt+KeyM', interrupt?: 'Escape', palette?: 'Mod+KeyK', target? })`. Segure `talk` para falar, enviado ao soltar (alterna em mãos-livres), `interrupt` para a fala e cancela o turno atual, `palette` emite `keyboard.palette` para a sua paleta de comandos. `false` desliga um atalho.
 
 ## inputs
 

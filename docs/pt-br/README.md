@@ -13,7 +13,7 @@ O **Hands for Bots** dá mãos aos assistentes: uma camada headless, baseada em 
 - **Qualquer backend responde com mensagens e/ou estímulos para a UI**: AG-UI, CopilotKit, Rasa, sua própria API HTTP, LLMs compatíveis com OpenAI.
 - **As ações da sua interface são declaradas uma vez** e ficam disponíveis para o assistente do app (tool calls), para o usuário como comandos instantâneos (sem passar pelo LLM, mas no histórico) e para agentes do navegador (WebMCP), sob as mesmas regras de validação, confirmação e origem.
 
-Não é uma janela de chat. Use o widget pronto `<h4b-chat>`, seus próprios componentes (há bindings para React) ou o chat do CopilotKit, e mantenha a colaboração na própria página: tours guiados, destaques, filtros, galerias.
+Não é uma janela de chat. Use o widget pronto `<h4b-chat>`, seus próprios componentes (há bindings para React e Vue) ou o chat do CopilotKit, e mantenha a colaboração na própria página: tours guiados, destaques, filtros, galerias.
 
 ```ts
 import { createH4B } from '@handsforbots/core'

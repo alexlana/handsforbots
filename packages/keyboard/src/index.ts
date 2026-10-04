@@ -73,7 +73,8 @@ export const keyboard = definePlugin<KeyboardOptions | undefined>({
           void voice.toggle()
         } else {
           holding = true
-          void voice.listen()
+          // Pauses don't end the utterance: it is sent when the key is released.
+          void voice.listen({ until: 'stop' })
         }
         return
       }

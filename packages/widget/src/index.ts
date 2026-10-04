@@ -687,7 +687,7 @@ export class H4BChatElement extends BaseElement {
       if (!voice || voice.getState().mode !== 'push-to-talk') return
       event.preventDefault()
       mic.setPointerCapture?.(event.pointerId)
-      void voice.listen()
+      void voice.listen({ until: 'stop' })
     })
     const release = () => {
       const voice = this.voice()
@@ -737,7 +737,7 @@ type VoiceLike = {
     output: 'auto' | 'voice' | 'text'
   }
   subscribe(listener: () => void): () => void
-  listen(): Promise<void>
+  listen(options?: { until?: 'silence' | 'stop' }): Promise<void>
   stop(): void
   toggle(): Promise<void>
   setOutput(output: 'auto' | 'voice' | 'text'): void

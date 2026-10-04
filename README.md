@@ -21,7 +21,7 @@
 - **Any backend answers with messages and/or stimuli for the UI**: AG-UI, CopilotKit, Rasa, your own HTTP API, OpenAI-compatible LLMs.
 - **Your GUI's actions are declared once** and become available to the in-app assistant (tool calls), to the user as instant commands (no LLM round trip, still in history) and to browser agents (WebMCP), under the same validation, confirmation and origin rules.
 
-It is not a chat window. Use the ready-made `<h4b-chat>` widget, your own components (React bindings included) or CopilotKit's chat, and keep the collaboration on the page itself: guided tours, highlights, filters, galleries.
+It is not a chat window. Use the ready-made `<h4b-chat>` widget, your own components (React and Vue bindings included) or CopilotKit's chat, and keep the collaboration on the page itself: guided tours, highlights, filters, galleries.
 
 ```ts
 import { createH4B } from '@handsforbots/core'

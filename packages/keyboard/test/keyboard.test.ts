@@ -8,8 +8,9 @@ function fakeVoice(mode: VoiceState['mode'] = 'push-to-talk', speaking = false) 
   return {
     getState: () => ({ mode, speaking }) as VoiceState,
     subscribe: () => () => {},
-    listen: vi.fn(async () => {}),
+    listen: vi.fn(async (_options?: { until?: 'silence' | 'stop' }) => {}),
     stop: vi.fn(),
+    cancel: vi.fn(),
     toggle: vi.fn(async () => {}),
     setMode: vi.fn(),
     setOutput: vi.fn(),
@@ -41,6 +42,7 @@ describe('keyboard', () => {
     press('keydown', { code: 'KeyM', key: 'µ', altKey: true })
     press('keydown', { code: 'KeyM', key: 'µ', altKey: true, repeat: true })
     expect(voice.listen).toHaveBeenCalledOnce()
+    expect(voice.listen).toHaveBeenCalledWith({ until: 'stop' })
     press('keyup', { code: 'KeyM', key: 'm' }) // Alt already released
     expect(voice.stop).toHaveBeenCalledOnce()
     await h4b.stop()
