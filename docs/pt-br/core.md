@@ -49,3 +49,12 @@
 
   - [Voz](./core/output/voice.md)
 
+
+  ## Políticas de Ação
+
+
+  Regras executadas antes de cada comando ou tool MCP: detector de loop, confirmação, permissões.
+
+
+  - [Políticas de Ação](./core/action-policies.md)
+

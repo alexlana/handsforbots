@@ -34,53 +34,75 @@ export default class BotsCommandsOutput {
 
 	/**
 	 * Output payload.
-	 * @param  Array payload Payload from bot to user.
+	 * @param  Array	payload	Payload from bot to user.
+	 * @param  Boolean	replay	True when re-running commands from history.
 	 * @return Void
 	 */
-	async output ( payload ) {
+	async output ( payload, replay = false ) {
 
-		payload.forEach(( obj )=>{
+		for ( const obj of payload ) {
 
-			if ( obj.do != null ) {
+			if ( obj.do == null ) {
+				continue
+			}
 
-				/**
-				 * A utilização do Bot's Commands depende de outros plugins (customizados) que vão
-				 * reproduzir a ação e da inclusão da `action tag` na resposta do bot. Essa tag pode 
-				 * ser gerada nos componentes de Backend ou outros.
-				 */
-				let command = JSON.parse( obj.do )
+			/**
+			 * A utilização do Bot's Commands depende de outros plugins (customizados) que vão
+			 * reproduzir a ação e da inclusão da `action tag` na resposta do bot. Essa tag pode 
+			 * ser gerada nos componentes de Backend ou outros.
+			 */
+			let command
+			try {
+				command = JSON.parse( obj.do )
+			} catch ( error ) {
+				console.warn( `Can not parse bot's command "${obj.do}".` )
+				continue
+			}
 
-				let fn = window[ command.action ];
-				if ( !fn ) {
+			/**
+			 * Action policies (loop detector, project rules) may block or rewrite the command.
+			 * The text of the message was already delivered by the other outputs.
+			 */
+			const verdict = await this.bot.actionGuard.evaluate({
+				type: 'command',
+				name: command.action,
+				params: command.params,
+				replay: replay,
+			})
+			if ( ! verdict.allowed ) {
+				continue
+			}
+			const params = verdict.action.params
 
-					const classMethod = command.action.split( '.' );
-					if (this.bot.outputs[ classMethod[0] ] && classMethod.length === 2) {
-						fn = this.bot.outputs[ classMethod[0] ][ classMethod[1] ];
-					}
+			let fn = window[ command.action ];
+			if ( !fn ) {
 
-				}
-
-				if (!fn) {
-					console.warn( `Can not find function "${command.action}".` );
-					return;
-				}
-
-				let ret = fn( command.params );
-
-				if ( ret ) {
-					ret.then(( result )=>{
-						response  = {
-							'to_do': obj.do,
-							'result': result
-						}
-						this.bot.eventEmitter.trigger( 'core.action_success', [response] )
-						// this.bot.backend.actionSuccess( obj.do, result )
-					})
+				const classMethod = command.action.split( '.' );
+				if (this.bot.outputs[ classMethod[0] ] && classMethod.length === 2) {
+					fn = this.bot.outputs[ classMethod[0] ][ classMethod[1] ];
 				}
 
 			}
 
-		})
+			if (!fn) {
+				console.warn( `Can not find function "${command.action}".` );
+				continue;
+			}
+
+			let ret = fn( params );
+
+			if ( ret && typeof ret.then === 'function' ) {
+				ret.then(( result )=>{
+					const response = {
+						'to_do': obj.do,
+						'result': result
+					}
+					this.bot.eventEmitter.trigger( 'core.action_success', [response] )
+					// this.bot.backend.actionSuccess( obj.do, result )
+				})
+			}
+
+		}
 
 	}
 
@@ -95,7 +117,7 @@ export default class BotsCommandsOutput {
 				const output = JSON.parse( this.bot.history[i][2] )
 				for ( var j in output ) {
 					if ( output[j].do != undefined ) {
-						this.output( [ output[j] ] )
+						this.output( [ output[j] ], true )
 					}
 				}
 			}

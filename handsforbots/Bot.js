@@ -20,6 +20,7 @@ import CryptoKeys from './Libs/CryptoKeys.js'
 import MCPHelper from './Libs/MCPHelper.js'
 import BotSessionAdapter from './Libs/BotSessionAdapter.js'
 import BotOrchestrator from './Core/BotOrchestrator.js'
+import ActionGuard from './Libs/ActionGuard.js'
 
 
 /**
@@ -148,6 +149,11 @@ export default class Bot {
 		 * Event emitter.
 		 */
 		this.eventEmitter = new EventEmitter()
+
+		/**
+		 * Action policies: run before every bot's command and MCP tool call.
+		 */
+		this.actionGuard = new ActionGuard( this, this.options.action_policies || [] )
 
 		/**
 		 * Initialize history array before SessionAdapter
@@ -504,6 +510,17 @@ export default class Bot {
 
 		this.quickStartText()
 		this.quickStartVoice()
+
+	}
+
+	/**
+	 * Register an action policy at runtime. See Libs/ActionGuard.js.
+	 * @param  Function policy
+	 * @return Function Function that removes the policy
+	 */
+	addActionPolicy ( policy ) {
+
+		return this.actionGuard.addPolicy( policy )
 
 	}
 

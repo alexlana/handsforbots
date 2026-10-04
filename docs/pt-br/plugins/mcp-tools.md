@@ -66,6 +66,7 @@ getMCPToolDefinition() {
             },
             required: ['query']
         },
+        allowRepeat: false, // true: o detector de loop não bloqueia chamadas repetidas desta tool
         execute: async (params) => {
             const mode = params.outputMode || this.outputMode
             return await this.executeTool(params.query, mode)

@@ -1,0 +1,17 @@
+{
+  "name": "@handsforbots/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hands for Bots — conversational runtime that talks and acts on the GUI.",
+  "type": "module",
+  "main": "./Bot.js",
+  "exports": {
+    ".": "./Bot.js",
+    "./action-guard": "./Libs/ActionGuard.js",
+    "./*": "./*"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "license": "SEE LICENSE IN ../LICENSE.md"
+}

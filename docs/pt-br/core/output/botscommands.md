@@ -51,6 +51,12 @@ Aqui estão algumas informações. [•{"action": "exibirGráfico", "params": ["
 ```
 
 
+## Políticas de Ação
+
+
+Antes de executar, cada comando passa pelas [políticas de ação](../action-policies.md) configuradas (ex.: detector de loop). Comando bloqueado é descartado; o texto da mensagem é mantido.
+
+
 ## Referência da API
 
 

@@ -51,6 +51,12 @@
   ```
 
 
+  ## Action Policies
+
+
+  Before running, each command goes through the configured [action policies](../action-policies.md) (e.g. loop detector). A blocked command is dropped; the message text is kept.
+
+
   ## API Reference
 
 

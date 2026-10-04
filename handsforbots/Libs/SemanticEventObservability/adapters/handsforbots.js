@@ -24,6 +24,7 @@ export const HFB_SEMANTIC_EVENTS = [
 	'core.ui_loaded',
 	'core.all_ui_loaded',
 	'core.action_success',
+	'core.action_blocked',
 	'core.redirect_input',
 	'mcp.tool_feedback_received',
 ]

@@ -72,6 +72,8 @@
 
   - **`core.action_success`:** Usado para comunicar a conclusão bem-sucedida de uma ação personalizada disparada por um comando de chatbot. Os plugins de saída que executam essas ações devem disparar este evento.
 
+  - **`core.action_blocked`:** Disparado quando uma [política de ação](./core/action-policies.md) bloqueia um comando ou tool MCP. Recebe `{ allowed: false, action, reason, policy }`.
+
 
   ## Exemplo: Tratando Eventos em um Plugin
 

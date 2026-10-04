@@ -49,3 +49,12 @@
   - [Text](./core/output/text.md)
 
   - [Voice](./core/output/voice.md)
+
+
+  ## Action Policies
+
+
+  Rules that run before every command or MCP tool call: loop detector, confirmation, permissions.
+
+
+  - [Action Policies](./core/action-policies.md)

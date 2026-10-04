@@ -512,6 +512,26 @@ Quando decidir usar uma ferramenta, sua resposta deve conter APENAS o bloco de c
 		const toolResults = []
 
 		for (const toolCall of toolCalls) {
+			// Action policies (loop detector, project rules) may block or rewrite the call
+			const verdict = await this.bot.actionGuard.evaluate({
+				type: 'tool',
+				name: toolCall.name,
+				params: toolCall.parameters
+			})
+			if (!verdict.allowed) {
+				toolResults.push({
+					tool: toolCall.name,
+					parameters: toolCall.parameters,
+					result: {
+						success: false,
+						blocked: true,
+						error: `Ferramenta ${toolCall.name} bloqueada: ${verdict.reason}`
+					}
+				})
+				continue
+			}
+			toolCall.parameters = verdict.action.params
+
 			try {
 				// Find the tool in registered tools
 				const tool = this.tools.find(t => t.name === toolCall.name)
