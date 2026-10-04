@@ -190,7 +190,7 @@ describe('<h4b-chat>', () => {
     expect(mic.hidden).toBe(false)
     mic.dispatchEvent(new Event('pointerdown'))
     await tick()
-    expect(voice.listen).toHaveBeenCalled()
+    expect(voice.listen).toHaveBeenCalledWith({ until: 'stop' })
     expect(root.querySelector('.partial')!.textContent).toBe('“mostra”')
     mic.dispatchEvent(new Event('pointerup'))
     expect(voice.stop).toHaveBeenCalled()

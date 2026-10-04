@@ -22,13 +22,25 @@ export type VoiceState = {
   error?: SpeechError
 }
 
+export type ListenOptions = {
+  /**
+   * When a push-to-talk utterance ends. `silence` (default): the first pause
+   * sends it. `stop`: keep listening across pauses and send everything said,
+   * as one message, when `stop()` is called (hold-to-talk). Hands-free mode
+   * ignores it.
+   */
+  until?: 'silence' | 'stop'
+}
+
 export type VoiceService = {
   getState(): VoiceState
   subscribe(listener: () => void): () => void
   /** Start listening (push-to-talk press, mic button, hands-free on). */
-  listen(): Promise<void>
-  /** Stop listening; the current utterance is still transcribed. */
+  listen(options?: ListenOptions): Promise<void>
+  /** Stop listening; the current utterance is still transcribed and sent. */
   stop(): void
+  /** Stop listening and discard the current utterance: nothing is sent. */
+  cancel(): void
   toggle(): Promise<void>
   setMode(mode: VoiceMode): void
   setOutput(output: OutputPreference): void
@@ -99,40 +111,78 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   }
 
   let sttIndex = 0
+  /** A hold-to-talk press: finals accumulate until release, then go out as one signal. */
+  type Held = { texts: string[]; confidence?: number; stt?: string; done: boolean }
   /** The live recognition session; older sessions may still flush a final result. */
-  type Active = { session?: SttSession; stopping: boolean; killTimer?: ReturnType<typeof setTimeout> }
+  type Active = {
+    session?: SttSession
+    stopping: boolean
+    discarded?: boolean
+    held?: Held
+    killTimer?: ReturnType<typeof setTimeout>
+  }
   let active: Active | undefined
+  /** The press in progress, while the user still holds. */
+  let holding: Held | undefined
   let wantListening = false
   let pausedForSpeech = false
   let speechController: AbortController | undefined
   let speechQueue: Promise<void> = Promise.resolve()
   let restartTimer: ReturnType<typeof setTimeout> | undefined
 
+  const heldText = (held: Held, partial?: string) => [...held.texts, partial].filter(Boolean).join(' ')
+
+  /** Ends a hold-to-talk press: sends what was said, once. */
+  const release = (held: Held, send = true) => {
+    if (holding === held) holding = undefined
+    if (held.done) return
+    held.done = true
+    const text = heldText(held)
+    if (!send || !text) return
+    ctx.signal({
+      modality: 'transcript',
+      parts: [{ type: 'text', text }],
+      source: 'voice',
+      meta: { confidence: held.confidence, stt: held.stt, language },
+    })
+  }
+
   const startSession = async (): Promise<void> => {
     const provider = sttProviders[sttIndex]
     if (!provider) {
       set({ error: new SpeechError('not-supported', 'No speech recognition available'), listening: false })
       wantListening = false
+      if (holding) release(holding)
       return
     }
-    const entry: Active = { stopping: false }
+    const entry: Active = { stopping: false, held: holding }
     active = entry
     const isCurrent = () => active === entry
-    set({ listening: true, error: undefined, stt: provider.name, partial: '' })
+    set({ listening: true, error: undefined, stt: provider.name, partial: entry.held ? heldText(entry.held) : '' })
     let failed: SpeechError | undefined
     try {
       entry.session = await provider.listen(
-        { language, continuous: state.mode === 'hands-free' },
+        { language, continuous: state.mode === 'hands-free' || !!entry.held },
         {
           onPartial(text) {
             if (!isCurrent() || entry.stopping) return
-            set({ partial: text })
+            set({ partial: entry.held ? heldText(entry.held, text) : text })
             if (bargeIn && state.speaking && text.length >= bargeInChars) service.cancelSpeech()
           },
           onFinal(text, meta) {
+            if (entry.discarded) return
             // A stopped session may still deliver the last utterance: keep it.
             if (isCurrent()) set({ partial: '' })
             if (state.speaking && bargeIn) service.cancelSpeech()
+            const held = entry.held
+            if (held) {
+              if (held.done || !text.trim()) return
+              held.texts.push(text.trim())
+              held.stt = provider.name
+              if (meta?.confidence !== undefined) held.confidence = Math.min(held.confidence ?? 1, meta.confidence)
+              if (isCurrent() && !entry.stopping) set({ partial: heldText(held) })
+              return
+            }
             ctx.signal({
               modality: 'transcript',
               parts: [{ type: 'text', text }],
@@ -146,15 +196,26 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           },
           onEnd() {
             clearTimeout(entry.killTimer)
-            if (!isCurrent()) return
+            if (!isCurrent()) {
+              if (entry.held && entry.held !== holding) release(entry.held)
+              return
+            }
             active = undefined
-            set({ listening: false, partial: '' })
+            if (failed?.code === 'not-allowed') wantListening = false
+            // Hold-to-talk outlives the browser's session: start another until release.
+            const keepHolding = !!entry.held && entry.held === holding && wantListening && !pausedForSpeech
+            set({ listening: keepHolding, partial: keepHolding && entry.held ? heldText(entry.held) : '' })
             if (failed?.recoverable && sttIndex < sttProviders.length - 1) {
               sttIndex++
               if (wantListening) void startSession()
+              else if (entry.held) release(entry.held)
               return
             }
-            if (failed?.code === 'not-allowed') wantListening = false
+            if (keepHolding) {
+              restartTimer = setTimeout(() => wantListening && !active && void startSession(), 250)
+              return
+            }
+            if (entry.held) release(entry.held)
             // Browsers end recognition after silence; hands-free keeps going.
             if (wantListening && state.mode === 'hands-free' && !pausedForSpeech) {
               restartTimer = setTimeout(() => wantListening && !active && void startSession(), 250)
@@ -173,6 +234,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         return startSession()
       }
       wantListening = false
+      if (entry.held) release(entry.held)
     }
   }
 
@@ -182,7 +244,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    async listen() {
+    async listen(options = {}) {
       if (active && !active.stopping) return
       if (active) {
         // Pressed again while the previous session was still flushing.
@@ -190,7 +252,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         active = undefined
         clearTimeout(previous.killTimer)
         previous.session?.abort()
+        if (previous.held) release(previous.held)
       }
+      clearTimeout(restartTimer)
+      if (holding) release(holding)
+      holding =
+        options.until === 'stop' && state.mode === 'push-to-talk' ? { texts: [], done: false } : undefined
       wantListening = true
       // Talking while the bot speaks is a barge-in.
       if (state.speaking) service.cancelSpeech()
@@ -200,9 +267,15 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       wantListening = false
       clearTimeout(restartTimer)
       const entry = active
+      const press = holding
+      holding = undefined
       // The mic turns off for the user right away; the provider flushes in the background.
       set({ listening: false, partial: '' })
-      if (!entry || entry.stopping) return
+      if (!entry || entry.stopping) {
+        // Released between two sessions of a hold-to-talk press.
+        if (press) release(press)
+        return
+      }
       entry.stopping = true
       entry.session?.stop()
       entry.killTimer = setTimeout(() => {
@@ -210,7 +283,21 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           entry.session?.abort()
           active = undefined
         }
+        if (entry.held) release(entry.held)
       }, 3000)
+    },
+    cancel() {
+      wantListening = false
+      clearTimeout(restartTimer)
+      if (holding) release(holding, false)
+      const entry = active
+      active = undefined
+      set({ listening: false, partial: '' })
+      if (!entry) return
+      entry.discarded = true
+      if (entry.held) release(entry.held, false)
+      clearTimeout(entry.killTimer)
+      entry.session?.abort()
     },
     async toggle() {
       if (state.listening || wantListening) service.stop()
@@ -285,6 +372,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
 
   ctx.onDispose(() => {
     wantListening = false
+    if (holding) release(holding, false)
     clearTimeout(restartTimer)
     active?.session?.abort()
     service.cancelSpeech()

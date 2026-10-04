@@ -210,6 +210,117 @@ describe('push-to-talk release', () => {
   })
 })
 
+describe('hold-to-talk', () => {
+  it("until: 'stop' keeps listening across pauses and sends everything on release", async () => {
+    const stt = fakeSTT()
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    const signals: unknown[] = []
+    h4b.on('signal', (signal) => void signals.push(signal))
+    await v.listen({ until: 'stop' })
+    expect(stt.last().continuous).toBe(true)
+    stt.last().handlers.onFinal('mostra os pedidos', { confidence: 0.9 })
+    stt.last().handlers.onPartial?.('de ontem')
+    expect(v.getState().partial).toBe('mostra os pedidos de ontem')
+    stt.last().handlers.onFinal('de ontem', { confidence: 0.7 })
+    await tick(5)
+    expect(h4b.messages).toHaveLength(0)
+    expect(v.getState().listening).toBe(true)
+
+    v.stop()
+    await tick(5)
+    expect(signals).toHaveLength(1)
+    expect(signals[0]).toMatchObject({ modality: 'transcript', meta: { confidence: 0.7, stt: 'fake' } })
+    expect(h4b.messages[0]).toMatchObject({ role: 'user', modality: 'transcript' })
+    expect(textOf(h4b.messages[0]!)).toBe('mostra os pedidos de ontem')
+    expect(h4b.messages.filter((m) => m.role === 'user')).toHaveLength(1)
+  })
+
+  it('starts a new session when the browser ends one while the user still holds', async () => {
+    vi.useFakeTimers()
+    const stt = fakeSTT()
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    await v.listen({ until: 'stop' })
+    stt.last().handlers.onFinal('primeira parte')
+    stt.last().handlers.onEnd()
+    expect(v.getState()).toMatchObject({ listening: true, partial: 'primeira parte' })
+    await vi.advanceTimersByTimeAsync(300)
+    expect(stt.sessions).toHaveLength(2)
+    stt.last().handlers.onFinal('segunda parte')
+    v.stop()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(textOf(h4b.messages[0]!)).toBe('primeira parte segunda parte')
+  })
+
+  it('a final transcript that arrives after release is included', async () => {
+    const stt = fakeSTT('slow', { lazyStop: true })
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    await v.listen({ until: 'stop' })
+    stt.last().handlers.onFinal('abre')
+    v.stop()
+    expect(v.getState().listening).toBe(false)
+    stt.last().handlers.onFinal('o carrinho')
+    stt.last().handlers.onEnd()
+    await tick(5)
+    expect(textOf(h4b.messages[0]!)).toBe('abre o carrinho')
+  })
+
+  it('the default push-to-talk still sends on the first pause', async () => {
+    const stt = fakeSTT()
+    const { voice: v } = await setup({ stt: stt.provider })
+    await v.listen()
+    expect(stt.last().continuous).toBe(false)
+  })
+})
+
+describe('cancel', () => {
+  it('turns the mic off and sends nothing', async () => {
+    const stt = fakeSTT()
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    await v.listen()
+    stt.last().handlers.onPartial?.('esquece')
+    v.cancel()
+    expect(stt.last().abort).toHaveBeenCalled()
+    expect(v.getState()).toMatchObject({ listening: false, partial: '' })
+    stt.last().handlers.onFinal('esquece isso')
+    await tick(5)
+    expect(h4b.messages).toHaveLength(0)
+  })
+
+  it('discards a hold-to-talk press, including what was already transcribed', async () => {
+    const stt = fakeSTT('slow', { lazyStop: true })
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    await v.listen({ until: 'stop' })
+    stt.last().handlers.onFinal('não manda')
+    v.cancel()
+    stt.last().handlers.onFinal('nada disso')
+    stt.last().handlers.onEnd()
+    await tick(5)
+    expect(h4b.messages).toHaveLength(0)
+  })
+
+  it('discards an utterance still flushing after release', async () => {
+    const stt = fakeSTT('slow', { lazyStop: true })
+    const { h4b, voice: v } = await setup({ stt: stt.provider })
+    await v.listen()
+    v.stop()
+    v.cancel()
+    stt.last().handlers.onFinal('tarde demais')
+    await tick(5)
+    expect(h4b.messages).toHaveLength(0)
+  })
+
+  it('stops hands-free listening for good', async () => {
+    vi.useFakeTimers()
+    const stt = fakeSTT()
+    const { voice: v } = await setup({ stt: stt.provider, mode: 'hands-free' })
+    await v.listen()
+    v.cancel()
+    await vi.advanceTimersByTimeAsync(500)
+    expect(stt.sessions).toHaveLength(1)
+    expect(v.getState().listening).toBe(false)
+  })
+})
+
 describe('providers', () => {
   it('skips unsupported providers and falls back when one fails', async () => {
     const unsupported = fakeSTT('cloud', { supported: false })

@@ -2,6 +2,7 @@ export {
   voice,
   createVoice,
   type InputModality,
+  type ListenOptions,
   type OutputPreference,
   type VoiceMode,
   type VoiceOptions,
