@@ -54,6 +54,18 @@ npm run dev
 
 Open the URL printed by Vite. Point `engine_endpoint` in `src/Init.js` at a reachable Rasa instance.
 
+## Vue (headless)
+
+Host-rendered chat with the Vue adapter, runnable without Docker:
+
+```bash
+cd vue
+npm install
+npm run dev:mock
+```
+
+Details: **[vue/README.md](./vue/README.md)**
+
 ## Optional observability stack
 
 Grafana + Tempo + Loki via [`grafana/otel-lgtm`](https://grafana.com/docs/opentelemetry/docker-lgtm/).  

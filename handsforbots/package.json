@@ -2,17 +2,29 @@
   "name": "@handsforbots/core",
   "version": "0.1.0",
   "private": true,
-  "description": "Hands for Bots \u2014 conversational runtime that talks and acts on the GUI.",
+  "description": "Hands for Bots — conversational runtime that talks and acts on the GUI.",
   "type": "module",
   "main": "./Bot.js",
   "exports": {
     ".": "./Bot.js",
     "./headless": "./Headless/index.js",
+    "./vue": "./Adapters/Vue/index.js",
     "./action-guard": "./Libs/ActionGuard.js",
     "./*": "./*"
   },
   "scripts": {
     "test": "node --test \"test/*.test.js\""
+  },
+  "peerDependencies": {
+    "vue": ">=3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "vue": "^3.5.43"
   },
   "license": "SEE LICENSE IN ../LICENSE.md"
 }
