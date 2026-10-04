@@ -40,6 +40,7 @@ Hands for Bots usa uma arquitetura modular baseada em plugins para conceder um a
 	- [Texto](./core/output/text.md)
 	- [Voz](./core/output/voice.md)
   - [Políticas de Ação](./core/action-policies.md)
+- [Modo Headless](./headless.md)
 - [Plugins](./plugins.md)
   - [GUIDed](./plugins/guided.md)
 - [Eventos](./events.md)

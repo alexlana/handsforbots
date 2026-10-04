@@ -2,11 +2,12 @@
   "name": "@handsforbots/core",
   "version": "0.1.0",
   "private": true,
-  "description": "Hands for Bots — conversational runtime that talks and acts on the GUI.",
+  "description": "Hands for Bots \u2014 conversational runtime that talks and acts on the GUI.",
   "type": "module",
   "main": "./Bot.js",
   "exports": {
     ".": "./Bot.js",
+    "./headless": "./Headless/index.js",
     "./action-guard": "./Libs/ActionGuard.js",
     "./*": "./*"
   },

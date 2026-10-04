@@ -76,7 +76,7 @@ async ( action, ctx ) => resultado
 
 - As políticas rodam em ordem e podem ser assíncronas (ex.: pedir confirmação ao usuário).
 - Política que lança exceção **bloqueia** a ação (fail-closed).
-- Comandos reexecutados ao restaurar o histórico (`rebuildHistory`, após recarregar a página) **não** passam pelas políticas: já foram aceitos quando rodaram pela primeira vez.
+- Ao recarregar a página, o plugin Comandos de Bots reexecuta os comandos do histórico (`action.replay === true`). Nesse replay só rodam políticas marcadas com `runOnReplay = true`, como o `loopDetector`, que chega à mesma decisão do turno original. Políticas interativas (confirmação, permissões) não são perguntadas de novo, e bloqueios no replay não disparam `core.action_blocked`.
 
 
 ## Detector de loop

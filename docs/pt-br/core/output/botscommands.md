@@ -30,7 +30,7 @@ Os comandos são definidos como objetos JSON com a seguinte estrutura:
 ```
 
 
-- **`action`:** Especifica a função de destino ou método de plugin para invocar. Para funções JavaScript padrão, use apenas o nome da função. Para métodos de plugin, use `NomeDaClasse.NomeDoMétodo`.
+- **`action`:** Especifica a função de destino ou método de plugin para invocar. Para funções JavaScript padrão, use apenas o nome da função. Para métodos de plugin, use `NomeDaClasse.NomeDoMétodo`. Funções registradas com `bot.registerCommand( nome, fn )` têm prioridade.
 
 - **`params`:** Uma matriz opcional de parâmetros para passar para a função de destino. Você pode passar um único parâmetro (string, objeto, etc.) ou omitir `params` se a função não exigir argumentos.
 

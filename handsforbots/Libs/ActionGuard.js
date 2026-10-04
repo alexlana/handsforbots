@@ -12,6 +12,8 @@
  * A policy is `async ( action, ctx ) => result`, where:
  *
  *  - action: { type: 'command'|'tool', name, params, turnId, replay }
+ *            replay is true when BotsCommands re-runs commands from history after
+ *            a page load; only policies with `runOnReplay = true` see those.
  *  - ctx:    { bot, turnActions } — turnActions are the actions already executed
  *            since the last user input (oldest first).
  *  - result: undefined | true | 'allow'           → continue to the next policy
@@ -85,8 +87,10 @@ export default class ActionGuard {
 	/**
 	 * Run the policies for an action.
 	 *
-	 * Replayed actions (history rebuild after a page load) skip the policies and
-	 * are not recorded: they were already allowed when they first ran.
+	 * Replayed actions (history rebuild after a page load) only go through policies
+	 * flagged `runOnReplay` — deterministic ones like `loopDetector`, which then
+	 * reach the same decision as in the original turn. Interactive policies (ask
+	 * the user, check permissions) are not asked again.
 	 *
 	 * @param  {Object} action - { type, name, params, replay }
 	 * @return {Promise<Object>} { allowed, action, reason, policy }
@@ -101,16 +105,16 @@ export default class ActionGuard {
 			replay: action.replay === true,
 		}
 
-		if ( current.replay ) {
-			return { allowed: true, action: current }
-		}
-
 		const ctx = {
 			bot: this.bot,
 			turnActions: this.turnActions.slice(),
 		}
 
-		for ( const policy of this.policies ) {
+		const policies = current.replay
+			? this.policies.filter( p => p.runOnReplay === true )
+			: this.policies
+
+		for ( const policy of policies ) {
 
 			let result
 			try {
@@ -160,8 +164,11 @@ export default class ActionGuard {
 			policy: policyName( policy ),
 		}
 
-		console.warn( `[⚠] Action "${action.name}" blocked by "${blocked.policy}": ${reason}` )
-		this.bot.eventEmitter.trigger( 'core.action_blocked', [blocked] )
+		// a replayed block was already reported when the action first ran
+		if ( ! action.replay ) {
+			console.warn( `[⚠] Action "${action.name}" blocked by "${blocked.policy}": ${reason}` )
+			this.bot.eventEmitter.trigger( 'core.action_blocked', [blocked] )
+		}
 
 		return blocked
 
@@ -223,6 +230,7 @@ export function loopDetector ( options = {} ) {
 	}
 
 	Object.defineProperty( policy, 'name', { value: 'loopDetector' } )
+	policy.runOnReplay = true
 
 	return policy
 

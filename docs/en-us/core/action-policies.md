@@ -76,7 +76,7 @@ async ( action, ctx ) => result
 
 - Policies run in order and may be async (e.g. ask the user).
 - A policy that throws **blocks** the action (fail-closed).
-- Commands replayed when the history is restored (`rebuildHistory`, after a page reload) **skip** the policies: they were accepted when they first ran.
+- On page reload, the Bot's Commands output re-runs the commands from history (`action.replay === true`). Only policies flagged `runOnReplay = true`, like `loopDetector`, run on replay, reaching the same decision as in the original turn. Interactive policies (confirmation, permissions) are not asked again, and replay blocks do not emit `core.action_blocked`.
 
 
 ## Loop detector

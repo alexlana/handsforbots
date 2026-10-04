@@ -30,7 +30,7 @@
   ```
 
 
-  - **`action`:** Specifies the target function or plugin method to invoke. For standard JavaScript functions, use the function name only. For plugin methods, use `ClassName.MethodName`.
+  - **`action`:** Specifies the target function or plugin method to invoke. For standard JavaScript functions, use the function name only. For plugin methods, use `ClassName.MethodName`. Functions registered with `bot.registerCommand( name, fn )` take precedence.
 
   - **`params`:** An optional array of parameters to pass to the target function.  You can pass a single parameter (string, object, etc.) or omit `params` if the function doesn't require arguments.
 

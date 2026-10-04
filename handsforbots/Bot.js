@@ -116,6 +116,11 @@ export default class Bot {
 		this.ui_outputs = {} // list of output plugins
 
 		/**
+		 * Functions the bot's commands can call, registered by the host app.
+		 */
+		this.commands = {}
+
+		/**
 		 * Message queue.
 		 */
 		this.queue = []
@@ -521,6 +526,39 @@ export default class Bot {
 	addActionPolicy ( policy ) {
 
 		return this.actionGuard.addPolicy( policy )
+
+	}
+
+	/**
+	 * Register a function that bot's commands can call by name, without exposing it on `window`.
+	 * @param  String	name	Command name used in `{"action": name}` (ex.: 'Cart.add')
+	 * @param  Function	fn		Receives the command `params`
+	 * @return Function	Function that removes the command
+	 */
+	registerCommand ( name, fn ) {
+
+		if ( typeof fn !== 'function' ) {
+			throw new Error( `Command "${name}" must be a function.` )
+		}
+		this.commands[ name ] = fn
+		return ()=>{
+			if ( this.commands[ name ] === fn ) {
+				delete this.commands[ name ]
+			}
+		}
+
+	}
+
+	/**
+	 * Release browser resources (tab sync channel, crypto worker). The instance can not be used after it.
+	 * @return Void
+	 */
+	destroy () {
+
+		this.destroyed = true
+		this.bc.close()
+		this.crypto_worker.terminate()
+		this.eventEmitter.trigger( 'core.destroyed' )
 
 	}
 

@@ -17,12 +17,20 @@ export default class BotsCommandsOutput {
 		this.bot = bot
 
 		this.commands_history_loaded = false
+		this.all_ui_loaded = false
+		this.bot_history_loaded = false
 
 		/**
 		 * Event listeners
+		 * Previous commands are re-run once both the plugins' UIs and the history are loaded.
 		 */
 		this.bot.eventEmitter.on( 'core.all_ui_loaded', ()=>{
-			this.rebuildHistory() // refaz os comandos anteriores
+			this.all_ui_loaded = true
+			this.maybeRebuildHistory()
+		})
+		this.bot.eventEmitter.on( 'core.history_loaded', ()=>{
+			this.bot_history_loaded = true
+			this.maybeRebuildHistory()
 		})
 		this.bot.eventEmitter.on( 'core.output_ready', ( payload )=>{
 			this.output( payload )
@@ -74,7 +82,7 @@ export default class BotsCommandsOutput {
 			}
 			const params = verdict.action.params
 
-			let fn = window[ command.action ];
+			let fn = this.bot.commands[ command.action ] || window[ command.action ];
 			if ( !fn ) {
 
 				const classMethod = command.action.split( '.' );
@@ -106,24 +114,46 @@ export default class BotsCommandsOutput {
 
 	}
 
+	maybeRebuildHistory () {
+
+		if ( this.all_ui_loaded && this.bot_history_loaded && ! this.commands_history_loaded ) {
+			this.rebuildHistory() // refaz os comandos anteriores
+		}
+
+	}
+
 	/**
-	 * Trigger previous commands.
+	 * Trigger previous commands, in order. Each user input in the history starts a new
+	 * turn in the action guard, so replay-aware policies (loop detector) reach the same
+	 * decisions as when the commands first ran.
 	 * @return	void
 	 */
-	rebuildHistory () {
+	async rebuildHistory () {
 
-		for ( var i in this.bot.history ) {
-			if ( this.bot.history[i][0] == 'output' ) {
-				const output = JSON.parse( this.bot.history[i][2] )
-				for ( var j in output ) {
-					if ( output[j].do != undefined ) {
-						this.output( [ output[j] ], true )
+		this.commands_history_loaded = true
+
+		const guard = this.bot.actionGuard
+		guard.newTurn()
+
+		for ( const entry of this.bot.history ) {
+			if ( entry[0] == 'input' ) {
+				guard.newTurn()
+			} else if ( entry[0] == 'output' ) {
+				let output
+				try {
+					output = JSON.parse( entry[2] )
+				} catch ( error ) {
+					continue
+				}
+				for ( const item of output ) {
+					if ( item.do != undefined ) {
+						await this.output( [ item ], true )
 					}
 				}
 			}
 		}
 
-		this.commands_history_loaded = true
+		guard.newTurn()
 
 	}
 
