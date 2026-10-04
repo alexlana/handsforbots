@@ -1,3 +1,6 @@
+> [!CAUTION]
+> **Esta é a v1 do Hands for Bots, que foi descontinuada.** O desenvolvimento continua no branch [`v2`](https://github.com/alexlana/handsforbots/tree/v2): um kernel headless em TypeScript, com plugins. Não abra issues nem pull requests para a v1; veja [Migrando da v1](https://github.com/alexlana/handsforbots/blob/v2/docs/pt-br/migrating-from-v1.md).
+
 <div align="center"><img src="../hands-for-bots-cover.png" alt="[•_•] Hands for Bots" style="max-width: 100%;width: 700px;margin: auto;display: block;"></div>
 
 <div align="right">
