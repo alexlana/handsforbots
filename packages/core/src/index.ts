@@ -24,4 +24,4 @@ export type {
   TurnStatus,
 } from './registry.js'
 export * from './types.js'
-export { textOf } from './util.js'
+export { sameRetention, storableSnapshot, textOf } from './util.js'

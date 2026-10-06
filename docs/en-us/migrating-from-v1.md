@@ -18,8 +18,8 @@ v2 is a rewrite: there is no compatibility layer. Configuration moves from `new 
 | `Observability` plugin | `observability({ … })` (same exporters) |
 | `Analytics` | Retired: use `observability` exporters |
 | `HexPresentation` | Retired (portfolio-specific) |
-| `SessionManager`, `BackendSessionManager`, encryption | `storageLocal({ ttlMinutes: 30 })`; backend sessions in `http({ session })` / `universalLLM`. Local encryption was dropped: the key lived next to the data |
-| `BroadcastChannel` tab sync | `tabSync()` |
+| `SessionManager`, `BackendSessionManager`, encryption | `storageLocal()` (encrypted, key in a cookie that expires after 30 min, as in v1; or `backendKey`) or `storageBackend({ url })`; backend sessions in `http({ session })` / `universalLLM` |
+| `BroadcastChannel` tab sync | `tabSync({ mode: 'sync' \| 'notify' \| 'off' })` |
 | `quick_start`, `presentation`, `disclaimer` | Plugin lists; `widget({ greeting, disclaimer })` |
 | `core.*` events | `on('turn.status' \| 'signal' \| 'stimulus' \| 'action.invoked' …)` and interceptors |
 | In-browser Vosk (WASM) | `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser') })` |

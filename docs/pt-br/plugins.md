@@ -20,7 +20,8 @@ Cada pacote exporta uma fábrica de plugin: chame com as opções e passe para `
 | [`guided`](#guided) | `guided` | `guided` |
 | [`expose-webmcp`](#expose-webmcp) | `webmcp` | `webmcp` |
 | [`mcp-apps`](#mcp-apps) | `mountMcpApp`, `mcpAppRenderer` | — |
-| [`storage-local`](#storage-local) | `storageLocal` | `storage` |
+| [`storage-local`](#storage-local) | `storageLocal`, `cookieKey`, `backendKey` | `storage`, `retention` |
+| [`storage-backend`](#storage-backend) | `storageBackend` | `storage`, `retention` |
 | [`tab-sync`](#tab-sync) | `tabSync` | — |
 | [`observability`](#observability) | `observability` | `observability` |
 | [`testkit`](#testkit) | utilitários de teste, `transportConformance` | — |
@@ -86,7 +87,7 @@ Data parts `data-ui-effect`, `data-ui-render` e `data-state` viram efeitos na GU
 
 ## widget
 
-`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, autofocus?, renderers? })`
+`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?, renderers? })`
 
 Um Web Component (`<h4b-chat>`, shadow DOM) que funciona em qualquer página ou framework: Markdown seguro, imagens, respostas rápidas, cartões de ação identificados por origem, linha de status comum a todas as rotas, cadência entre mensagens do bot, sugestões do menu ao digitar, controles de microfone e alto-falante (com `voice`), botões de anexo e câmera (com `files` / `camera`), colar e arrastar. Estilize com variáveis CSS (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) ou `::part()`. Adicione componentes para conteúdo rico com `renderers: { nome: (props) => HTMLElement }`; `gallery` já vem pronto.
 
@@ -167,11 +168,54 @@ widget({ renderers: { 'mcp-app': mcpAppRenderer({ allowTools: ['filter_orders'] 
 
 ## storage-local
 
-`storageLocal({ key?, ttlMinutes?: 30, area?: 'local' | 'session', maxMessages?: 200 })`. Restaura a conversa ao carregar; recomeça após inatividade. Blobs viram marcadores.
+Guarda a conversa no navegador. **Criptografada por padrão** (AES-GCM): a chave fica fora do dado guardado e expira, então depois do prazo não sobra nada legível, mesmo que a pessoa nunca volte ao site.
+
+```ts
+storageLocal() // chave num cookie que expira após 30 min sem uso
+storageLocal({ keySource: cookieKey({ ttlMinutes: 15, path: '/app' }) })
+storageLocal({ keySource: backendKey({ url: '/api/h4b/key' }) }) // o seu servidor guarda a chave e decide quando ela expira
+storageLocal({ retention: 'tab', userChoices: ['key', { ttlMinutes: 5 }] })
+```
+
+| Opção | Padrão | |
+|---|---|---|
+| `encrypt` | `true` | `false` guarda JSON legível (e descarta sobras criptografadas) |
+| `keySource` | `cookieKey()` | `cookieKey({ ttlMinutes: 30, name: 'h4b-key', path: '/', domain?, sameSite: 'Strict' })` ou `backendKey({ url, ttlMinutes?, headers?, credentials: 'same-origin', fetch? })` |
+| `retention` | `'key'` | `'key'` (até a chave expirar), `{ ttlMinutes }` (também apaga após esse tempo sem atividade), `'tab'` (sessionStorage, some ao fechar a aba) |
+| `userChoices` | `[]` | Retenções que quem usa o site pode escolher; o widget as mostra |
+| `key`, `maxMessages` | `'h4b:conversation'`, `200` | |
+
+- A chave no cookie é renovada a cada carregamento e gravação (`Max-Age`, `SameSite=Strict`, `Secure` em https). Ela é legível pelos scripts da página e vai junto nas requisições ao `path` (uns 60 bytes).
+- Protocolo do `backendKey`: `GET url` → `200 { "key": "<base64url, 32 bytes>" }` (renovando) ou `404`; `POST url` → `200` com a chave existente ou uma nova. O servidor reconhece o usuário pela própria sessão (cookie HttpOnly, enviado com `credentials: 'same-origin'`). A chave é buscada a cada carregamento e gravação e fica só em memória.
+- Sem chave, o dado não pode ser lido: ele é apagado no próximo carregamento ou pela varredura que roda a cada minuto. Se não houver fonte de chave (sem Web Crypto, cookies bloqueados), nada é salvo e o `save()` reporta um `error` com origem `storage`.
+- Blobs viram marcadores.
+- **Não protege contra XSS:** um script injetado na página consegue ler a chave. Isto limita o tempo em que a conversa fica legível no navegador.
+
+## storage-backend
+
+Guarda a conversa no seu servidor.
+
+```ts
+storageBackend({ url: '/api/h4b/conversation', retention: 'server', userChoices: [{ ttlMinutes: 30 }, 'tab'] })
+```
+
+`GET url` carrega (`200` com o snapshot, ou `204`/`404`), `PUT url` salva o snapshot (JSON, Blobs viram marcadores), `DELETE url` apaga. Toda requisição leva `X-H4B-Conversation` (um id aleatório guardado no localStorage, ou no sessionStorage com `'tab'`, para que uma aba fechada não o alcance mais) e `X-H4B-Retention` (`server`, `tab` ou o TTL em minutos); o seu servidor aplica a retenção. Quem tem o id consegue ler a conversa: vincule-o à sessão do usuário quando houver uma. Opções: `url`, `retention` (`'server'`), `userChoices`, `headers`, `credentials` (`'same-origin'`), `fetch`, `maxMessages` (200), `idKey`.
+
+## Retenção
+
+Os dois storages fornecem o serviço `retention` (`RetentionControl` no `core`): `current`, `choices` (o padrão do desenvolvedor seguido de `userChoices`), `location` (`'browser'` ou `'server'`), `encrypted`, `keyTtlMinutes`, `set(retenção)` (move o que está guardado e lembra a escolha neste navegador, para todas as abas) e `subscribe`. O widget mostra um botão 🔒 com onde a conversa fica, as escolhas e *Apagar a conversa agora* (`widget({ showPrivacy: false })` esconde).
 
 ## tab-sync
 
-`tabSync({ channel?, throttleMs? })`. Espelha a conversa entre abas; históricos da mesma conversa são mesclados por id de mensagem.
+`tabSync({ mode?: 'sync', channel?, throttleMs?, context? })`.
+
+| `mode` | Comportamento |
+|---|---|
+| `sync` (padrão) | As abas compartilham uma conversa; históricos da mesma conversa são mesclados por id de mensagem, uma conversa diferente substitui |
+| `notify` | Cada aba tem a sua conversa; as outras recebem o evento `tabs.activity` (`{ kind: 'action', name, origin, ok, error? }`, `{ kind: 'turn', phase, route }` para turnos do assistente, `{ kind: 'reset' }`, mais `tab` e `at`) e um sinal de contexto `tab-sync.activity` com as últimas `context.limit` (10) atividades, para o assistente saber; `context: false` deixa só o evento |
+| `off` | Abas isoladas: nada é transmitido |
+
+Com `notify` ou `off`, use a retenção `'tab'`: senão abas que gravam na mesma chave do localStorage (ou no mesmo id do backend) sobrescrevem a conversa uma da outra.
 
 ## testkit
 

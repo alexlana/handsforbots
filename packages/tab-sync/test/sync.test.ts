@@ -106,4 +106,41 @@ describe('tab-sync', () => {
     await wait()
     expect(b.messages).toEqual([])
   })
+
+  it("'off' isolates tabs", async () => {
+    const createChannel = bus()
+    const a = await createH4B({ plugins: [tabSync({ createChannel, mode: 'off', throttleMs: 0 })] }).start()
+    const b = await createH4B({ plugins: [tabSync({ createChannel, mode: 'off', throttleMs: 0 })] }).start()
+    a.provide('transport', echo)
+    await a.ask('oi')
+    await wait()
+    expect(b.messages).toEqual([])
+  })
+
+  it("'notify' keeps conversations apart but tells the others what happened", async () => {
+    const createChannel = bus()
+    const a = await createH4B({ plugins: [tabSync({ createChannel, mode: 'notify' })] }).start()
+    const b = await createH4B({ plugins: [tabSync({ createChannel, mode: 'notify', context: { limit: 2 } })] }).start()
+    a.actions.register({ name: 'filter_orders', description: 'Filters orders', exposeTo: ['user'], handler: () => 'ok' })
+    a.provide('transport', echo)
+    const seen: any[] = []
+    b.on('tabs.activity', (activity) => seen.push(activity))
+    await a.ask('oi')
+    await a.runAction('filter_orders', { status: 'late' })
+    await a.runAction('missing')
+    await eventually(() => expect(seen).toHaveLength(3))
+    expect(seen.map(({ kind, name, ok, phase, route }) => ({ kind, name, ok, phase, route }))).toEqual([
+      { kind: 'turn', name: undefined, ok: undefined, phase: 'done', route: 'transport' },
+      { kind: 'action', name: 'filter_orders', ok: true, phase: undefined, route: undefined },
+      { kind: 'action', name: 'missing', ok: false, phase: undefined, route: undefined },
+    ])
+    expect(seen[0].tab).toMatch(/^tab_/)
+    expect(b.messages).toEqual([])
+    // The assistant in B sees the last activities as context.
+    const [context] = b.context
+    expect(context).toMatchObject({ key: 'tab-sync.activity', source: 'tab-sync' })
+    expect((context!.parts[0] as any).value.map((v: any) => v.name ?? v.kind)).toEqual(['filter_orders', 'missing'])
+    await a.reset()
+    await eventually(() => expect(seen.at(-1).kind).toBe('reset'))
+  })
 })

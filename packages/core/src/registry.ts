@@ -2,6 +2,7 @@ import type {
   Confirmer,
   Message,
   Origin,
+  RetentionControl,
   Route,
   Signal,
   Stimulus,
@@ -20,6 +21,7 @@ import type {
 export interface Services {
   transport: Transport
   storage: Storage
+  retention: RetentionControl
   confirm: Confirmer
 }
 

@@ -243,11 +243,26 @@ importers:
         specifier: '>=4.0.0'
         version: 6.2.2
 
+  packages/storage-backend:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      '@handsforbots/testkit':
+        specifier: workspace:^
+        version: link:../testkit
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
+
   packages/storage-local:
     devDependencies:
       '@handsforbots/core':
         specifier: workspace:^
         version: link:../core
+      '@handsforbots/testkit':
+        specifier: workspace:^
+        version: link:../testkit
       jsdom:
         specifier: ^27.0.0
         version: 27.4.0
@@ -257,6 +272,9 @@ importers:
       '@handsforbots/core':
         specifier: workspace:^
         version: link:../core
+      '@handsforbots/testkit':
+        specifier: workspace:^
+        version: link:../testkit
       jsdom:
         specifier: ^27.0.0
         version: 27.4.0

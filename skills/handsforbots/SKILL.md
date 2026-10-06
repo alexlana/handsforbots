@@ -29,8 +29,8 @@ const h4b = createH4B({
   plugins: [
     universalLLM({ url: '/api/llm', provider: 'anthropic' }), // keys stay on the server
     widget({ botName: 'Assistant', language: 'en-us' }),
-    storageLocal({ ttlMinutes: 30 }),
-    tabSync(),
+    storageLocal(), // encrypted; the key cookie expires after 30 min idle. Or storageBackend({ url })
+    tabSync(), // mode: 'sync' | 'notify' | 'off'
   ],
   actions: [
     {

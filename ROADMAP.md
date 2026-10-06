@@ -369,8 +369,8 @@ Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com sub
 | HexPresentation | Plugin de apresentação do `widget` | |
 | Analytics | Aposentado → sink do `observability` | |
 | Observability + SemanticEventObservability | `observability` (pacote já existente) | `traceparent` no transporte |
-| `SessionManager`, `BackendSessionManager`, `BotSessionAdapter`, `WebStorage`, cripto | Serviço `session` + provedores `storage-local`, `storage-backend` | Revisar a cripto local: chave e dado no mesmo storage não protegem |
-| `BroadcastChannel` (sincronia entre abas) | `tab-sync` | Nome de canal por instância |
+| `SessionManager`, `BackendSessionManager`, `BotSessionAdapter`, `WebStorage`, cripto | Serviço `retention` + provedores `storage-local`, `storage-backend` | Cripto local de volta como prazo de legibilidade: chave em cookie que expira ou no backend ([ADR 0008](./docs/adr/0008-persistencia-e-abas.md)); não protege contra XSS |
+| `BroadcastChannel` (sincronia entre abas) | `tab-sync` | Nome de canal por instância; modos `sync`, `notify`, `off` |
 | `quick_start` | Presets: `presets.text()`, `presets.voice()`, `presets.textAndVoice()` | Só arrays de plugins |
 | `language`, `disclaimer`, `presentation` | Serviço `i18n` + config do `widget` | |
 
@@ -397,6 +397,18 @@ Aprendizados que ajustaram o plano:
 - No tour guiado, só comandos de navegação são capturados (`capture` com `accepts`); uma pergunta no meio do tour segue para o assistente, o que a v1 não fazia.
 - `tab-sync` mescla históricos por id em vez de "último a escrever vence", que perdia mensagens.
 - Os exporters Langfuse/LangSmith davam precedência ao módulo importado sobre o injetado; corrigido ao mover a lib para `packages/`.
+
+Entregue depois (2026-10-06, [ADR 0008](./docs/adr/0008-persistencia-e-abas.md)): `storage-local` criptografado por padrão, com a chave num cookie que expira (`cookieKey`) ou no backend (`backendKey`), e varredura que apaga dados sem chave ou vencidos; pacote `storage-backend`; serviço `retention` com escolhas do desenvolvedor e de quem usa o site (painel de privacidade no `widget`); `tab-sync` com os modos `sync`, `notify` e `off`.
+
+### Prioritário: revisão de XSS
+
+Antes da 1.0, revisar o H4B contra XSS, de ponta a ponta. A cripto do `storage-local` só limita o tempo em que a conversa fica legível; um script injetado na página lê o cookie da chave (não pode ser `HttpOnly`, o JavaScript precisa dela), chama o `backendKey` com as credenciais da sessão e lê `h4b.messages` em memória. Pontos a revisar:
+
+- Arquitetura da chave: chave não exportável (`extractable: false`) no IndexedDB combinada com expiração; chave só no servidor com descriptografia no servidor; vincular `X-H4B-Conversation` à sessão autenticada no `storage-backend`.
+- Superfícies de renderização: Markdown do `widget`, renderizadores customizados, `gallery`, `mcp-apps` (sandbox e CSP), `ui.render` vindo do backend.
+- Entradas que viram HTML ou URL: links, imagens, `data-h4b-*` do `gui()`, argumentos de ações.
+- Recomendações para quem integra: CSP, Trusted Types, `request.before` para dados pessoais, o que nunca guardar na conversa.
+- Testes automatizados com payloads conhecidos em cada superfície.
 
 ## 4. Fases
 
@@ -480,6 +492,7 @@ Seguir o [handsforbots-roadmap](./packages/semantic-event-observability/docs/han
 
 ```text
 P0 — sem isto não há v2
+├── Revisão de XSS de ponta a ponta, incluindo a arquitetura da chave do storage (seção 3)
 ├── Kernel + formato de plugin + modelo Sinal/Estímulo
 ├── transport-agui + react + bridge-copilotkit
 ├── Registro de ações com políticas de segurança
@@ -540,7 +553,7 @@ P3 — reavaliar com demanda
 | 3 | Provedor de STT/TTS em nuvem de referência | Escolher 1 com streaming e pt-BR de qualidade; avaliar custo e latência na Fase 2 |
 | 4 | Matcher semântico local no menu | Modelo de embeddings pequeno no navegador vs. só padrões; decidir com dados da Fase 3 |
 | 5 | Destino do widget atual | Reescrever sobre o core v2 vs. manter visual e trocar só o motor |
-| 6 | Cripto local da sessão | Remover, ou usar chave não exportável (WebCrypto `extractable: false`) em IndexedDB |
+| 6 | Cripto local da sessão | Decidida no [ADR 0008](./docs/adr/0008-persistencia-e-abas.md) para limitar o tempo de legibilidade (chave em cookie que expira ou no backend). A proteção contra XSS segue em aberto: revisão prioritária (seção 3) |
 
 ---
 
@@ -548,6 +561,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-10-06 | Persistência com chave que expira, `storage-backend`, retenção escolhível, modos do `tab-sync` (ADR 0008); revisão de XSS como prioridade P0 |
 | 2026-07-02 | Documento inicial — roadmap 3–6 meses (runtime headless) |
 | 2026-10-03 | Seção 3 atualizada: Fase 5 quase completa, v1 removida, docs v2 |
 | 2026-10-02 | Seção 3: estado da implementação na branch `v2` |

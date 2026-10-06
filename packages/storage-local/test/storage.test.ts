@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { createH4B, type Transport } from '@handsforbots/core'
+import { waitForIdle } from '@handsforbots/testkit'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { storageLocal } from '../src/index.js'
+import { backendKey, cookieKey, createLocalStorage, storageLocal, type LocalStorageOptions } from '../src/index.js'
 
 const echo: Transport = {
   name: 'echo',
@@ -10,57 +11,148 @@ const echo: Transport = {
   },
 }
 
-async function bot(options = {}) {
+async function bot(options: LocalStorageOptions = {}) {
   const h4b = createH4B({ plugins: [storageLocal(options)] })
   h4b.provide('transport', echo)
   return h4b.start()
 }
 
+/** Asks and waits until the job (and its save) is over. */
+async function say(h4b: Awaited<ReturnType<typeof bot>>, text: string) {
+  await h4b.ask(text)
+  await waitForIdle(h4b)
+}
+
+const dropKeyCookie = () => (document.cookie = 'h4b-key=; Max-Age=0; Path=/')
+
 afterEach(() => {
   localStorage.clear()
   sessionStorage.clear()
+  dropKeyCookie()
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('storage-local', () => {
-  it('keeps the conversation across page loads', async () => {
+  it('keeps the conversation across page loads, encrypted', async () => {
     const first = await bot()
-    await first.ask('oi')
+    await say(first, 'segredo')
+    const raw = localStorage.getItem('h4b:conversation')!
+    expect(JSON.parse(raw).version).toBe(2)
+    expect(raw).not.toContain('segredo')
+    expect(document.cookie).toMatch(/h4b-key=[\w-]{43}/)
     const second = await bot()
     expect(second.conversation.threadId).toBe(first.conversation.threadId)
     expect(second.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
   })
 
-  it('starts fresh after the inactivity timeout', async () => {
-    vi.useFakeTimers()
-    const first = await bot({ ttlMinutes: 30 })
-    await first.ask('oi')
-    vi.setSystemTime(Date.now() + 31 * 60_000)
-    const second = await bot({ ttlMinutes: 30 })
+  it('writes the key cookie with Max-Age, SameSite and Path', async () => {
+    const writes: string[] = []
+    const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie')!
+    vi.spyOn(document, 'cookie', 'set').mockImplementation(function (this: Document, value: string) {
+      writes.push(value)
+      descriptor.set!.call(this, value)
+    })
+    const h4b = await bot({ keySource: cookieKey({ ttlMinutes: 5, path: '/app' }) })
+    await say(h4b, 'oi')
+    expect(writes.at(-1)).toMatch(/^h4b-key=[\w-]+; Path=\/app; SameSite=Strict; Max-Age=300$/)
+  })
+
+  it('makes the data unreadable when the key cookie expires, and deletes it', async () => {
+    const first = await bot()
+    await say(first, 'oi')
+    dropKeyCookie()
+    const second = await bot()
+    expect(second.messages).toEqual([])
+    expect(localStorage.getItem('h4b:conversation')).toBeNull()
+  })
+
+  it('sweep() deletes data whose key is gone without loading it', async () => {
+    const storage = createLocalStorage()
+    await storage.save({ threadId: 't', messages: [] })
+    storage.sweep()
+    expect(localStorage.getItem('h4b:conversation')).not.toBeNull()
+    dropKeyCookie()
+    storage.sweep()
+    expect(localStorage.getItem('h4b:conversation')).toBeNull()
+  })
+
+  it('can keep the key on the backend', async () => {
+    let serverKey: string | undefined
+    const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      if (init?.method === 'POST') serverKey ??= btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+      return serverKey ? Response.json({ key: serverKey }) : new Response(null, { status: 404 })
+    })
+    const keySource = backendKey({ url: '/api/h4b/key', fetch: fetch as typeof globalThis.fetch })
+    const first = await bot({ keySource })
+    await say(first, 'segredo')
+    expect(document.cookie).not.toContain('h4b-key')
+    expect(fetch.mock.calls[0]![1]).toMatchObject({ method: 'POST', credentials: 'same-origin' })
+    expect((await bot({ keySource })).messages).toHaveLength(2)
+    serverKey = undefined // the server let it expire
+    expect((await bot({ keySource })).messages).toEqual([])
+    expect(localStorage.getItem('h4b:conversation')).toBeNull()
+  })
+
+  it('a TTL retention also deletes the data after inactivity', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const first = await bot({ retention: { ttlMinutes: 10 } })
+    await say(first, 'oi')
+    vi.setSystemTime(Date.now() + 11 * 60_000)
+    const second = await bot({ retention: { ttlMinutes: 10 } })
     expect(second.messages).toEqual([])
     expect(localStorage.length).toBe(0)
   })
 
-  it('can use sessionStorage, limits size and drops blobs', async () => {
-    const h4b = await bot({ area: 'session', maxMessages: 2 })
+  it("the 'tab' retention uses sessionStorage; limits size and drops blobs", async () => {
+    const h4b = await bot({ retention: 'tab', encrypt: false, maxMessages: 2 })
     await h4b.ask({
       modality: 'image',
       source: 'camera',
       parts: [{ type: 'image', mimeType: 'image/png', source: { kind: 'blob', blob: new Blob(['x']) } }],
     })
-    await h4b.ask('b')
+    await say(h4b, 'b')
     const stored = JSON.parse(sessionStorage.getItem('h4b:conversation')!)
     expect(stored.snapshot.messages).toHaveLength(2)
-    expect(localStorage.length).toBe(0)
-    const again = await bot({ area: 'session', maxMessages: 4 })
-    await again.ask('c')
+    expect(localStorage.getItem('h4b:conversation')).toBeNull()
+    const again = await bot({ retention: 'tab', encrypt: false, maxMessages: 4 })
+    await say(again, 'c')
     const parts = JSON.parse(sessionStorage.getItem('h4b:conversation')!).snapshot.messages.flatMap((m: any) => m.parts ?? [])
     expect(parts.some((p: any) => p.name === 'omitted_media')).toBe(false) // first image fell out of the window
   })
 
+  it('encrypt: false stores plain JSON and drops encrypted leftovers', async () => {
+    await say(await bot(), 'oi')
+    const plain = await bot({ encrypt: false })
+    expect(plain.messages).toEqual([])
+    await say(plain, 'aberto')
+    expect(localStorage.getItem('h4b:conversation')).toContain('aberto')
+  })
+
+  it('lets end users pick among the allowed retentions', async () => {
+    const h4b = await bot({ userChoices: ['tab', { ttlMinutes: 5 }] })
+    const retention = h4b.get('retention')!
+    expect(retention.choices).toEqual(['key', 'tab', { ttlMinutes: 5 }])
+    expect(retention).toMatchObject({ current: 'key', location: 'browser', encrypted: true, keyTtlMinutes: 30 })
+    await say(h4b, 'oi')
+    const changed = vi.fn()
+    retention.subscribe(changed)
+    await retention.set('tab')
+    expect(changed).toHaveBeenCalled()
+    expect(localStorage.getItem('h4b:conversation')).toBeNull()
+    expect(sessionStorage.getItem('h4b:conversation')).not.toBeNull()
+    // Remembered on the next load.
+    const next = await bot({ userChoices: ['tab', { ttlMinutes: 5 }] })
+    expect(next.get('retention')!.current).toBe('tab')
+    expect(next.messages).toHaveLength(2)
+    await expect(retention.set({ ttlMinutes: 60 })).rejects.toThrow(/not one of the choices/)
+    // A choice the developer removed is ignored.
+    expect((await bot()).get('retention')!.current).toBe('key')
+  })
+
   it('reset() clears what was stored', async () => {
     const h4b = await bot()
-    await h4b.ask('oi')
+    await say(h4b, 'oi')
     await h4b.reset()
     expect(localStorage.getItem('h4b:conversation')).toBeNull()
   })

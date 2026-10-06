@@ -24,6 +24,18 @@ export type Strings = {
   camera: string
   capture: string
   cancel: string
+  privacy: string
+  storedInBrowser: string
+  storedEncrypted: string
+  storedOnServer: string
+  /** `{minutes}` is replaced. */
+  retentionKey: string
+  retentionKeyBrowser: string
+  retentionServer: string
+  /** `{minutes}` is replaced. */
+  retentionTtl: string
+  retentionTab: string
+  deleteConversation: string
 }
 
 const pt: Strings = {
@@ -52,6 +64,16 @@ const pt: Strings = {
   camera: 'Câmera',
   capture: 'Capturar',
   cancel: 'Cancelar',
+  privacy: 'Privacidade da conversa',
+  storedInBrowser: 'A conversa fica guardada neste navegador.',
+  storedEncrypted: 'A conversa fica guardada neste navegador, criptografada.',
+  storedOnServer: 'A conversa fica guardada no servidor do site.',
+  retentionKey: 'Até {minutes} min sem uso',
+  retentionKeyBrowser: 'Até fechar o navegador',
+  retentionServer: 'Pelo prazo definido pelo site',
+  retentionTtl: 'Apagar após {minutes} min sem uso',
+  retentionTab: 'Apagar ao fechar esta aba',
+  deleteConversation: 'Apagar a conversa agora',
 }
 
 export const STRINGS: Record<string, Strings> = {
@@ -81,6 +103,16 @@ export const STRINGS: Record<string, Strings> = {
     camera: 'Camera',
     capture: 'Capture',
     cancel: 'Cancel',
+    privacy: 'Conversation privacy',
+    storedInBrowser: 'The conversation is kept in this browser.',
+    storedEncrypted: 'The conversation is kept in this browser, encrypted.',
+    storedOnServer: "The conversation is kept on the site's server.",
+    retentionKey: 'Until {minutes} min without use',
+    retentionKeyBrowser: 'Until the browser closes',
+    retentionServer: 'For as long as the site decides',
+    retentionTtl: 'Delete after {minutes} min without use',
+    retentionTab: 'Delete when this tab closes',
+    deleteConversation: 'Delete the conversation now',
   },
   pt,
   'pt-br': pt,

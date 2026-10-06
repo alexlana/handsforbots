@@ -11,3 +11,4 @@ Registro curto das decisões da v2: contexto, decisão e consequências. Para mu
 | [0005](./0005-acoes-e-seguranca.md) | Ações declaradas uma vez, com origens, confirmação e allowlist | Aceita |
 | [0006](./0006-adapters-substituiveis.md) | Ferramentas externas como adapters substituíveis, provados por conformidade | Aceita |
 | [0007](./0007-sem-compatibilidade-v1.md) | Sem compatibilidade com a v1 | Aceita |
+| [0008](./0008-persistencia-e-abas.md) | Persistência com prazo garantido (chave que expira, backend) e abas configuráveis | Aceita |

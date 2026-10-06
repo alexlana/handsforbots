@@ -1,7 +1,7 @@
 {
-  "name": "@handsforbots/storage-local",
+  "name": "@handsforbots/storage-backend",
   "version": "2.0.0-alpha.0",
-  "description": "Persists the Hands for Bots conversation in localStorage/sessionStorage with an inactivity timeout.",
+  "description": "Keeps the Hands for Bots conversation on your backend, with retention the server enforces.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

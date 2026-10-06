@@ -51,6 +51,47 @@ describe('markdown', () => {
 })
 
 describe('<h4b-chat>', () => {
+  it('shows where the conversation is kept and lets users pick a retention or delete it', async () => {
+    const { h4b, $, $$ } = await mount({ startOpen: true, language: 'en' })
+    expect($('.privacy-toggle').hidden).toBe(true) // no storage, nothing to show
+    let current: any = 'key'
+    const listeners = new Set<() => void>()
+    const set = vi.fn(async (r: any) => {
+      current = r
+      listeners.forEach((l) => l())
+    })
+    h4b.provide('retention', {
+      get current() {
+        return current
+      },
+      choices: ['key', 'tab', { ttlMinutes: 5 }],
+      location: 'browser',
+      encrypted: true,
+      keyTtlMinutes: 30,
+      set,
+      subscribe: (l) => (listeners.add(l), () => void listeners.delete(l)),
+    })
+    expect($('.privacy-toggle').hidden).toBe(false)
+    $('.privacy-toggle').click()
+    expect($('.privacy').hidden).toBe(false)
+    expect($('.privacy').textContent).toContain('kept in this browser, encrypted')
+    const options = $$('.privacy label')
+    expect(options.map((o) => o.textContent!.trim())).toEqual([
+      'Until 30 min without use',
+      'Delete when this tab closes',
+      'Delete after 5 min without use',
+    ])
+    expect(($$('.privacy input')[0] as HTMLInputElement).checked).toBe(true)
+    const tab = $$('.privacy input')[1] as HTMLInputElement
+    tab.checked = true
+    tab.dispatchEvent(new Event('change'))
+    expect(set).toHaveBeenCalledWith('tab')
+    expect(($$('.privacy input')[1] as HTMLInputElement).checked).toBe(true)
+    const reset = vi.spyOn(h4b, 'reset')
+    ;($('.privacy .delete') as HTMLButtonElement).click()
+    expect(reset).toHaveBeenCalled()
+  })
+
   it('renders the conversation with markdown for the bot and plain text for the user', async () => {
     const { h4b, $, $$ } = await mount(
       { startOpen: true, botName: 'Hex' },

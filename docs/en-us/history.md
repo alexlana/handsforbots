@@ -81,13 +81,13 @@ The declarative buttons of the `gui()` plugin from `@handsforbots/inputs` do the
 - **Failures are recorded too.** Unknown action, not exposed to the user, invalid arguments, declined confirmation or cancelled by an `action.before` interceptor: each becomes a `tool` message with `error`, shown by the widget and sent to the model. `runAction` never throws; check `outcome.error`.
 - **`exposeTo: ['user']` removes the action from the assistant's tool list**, but calls already recorded still travel in the history. OpenAI-compatible transports send them as `tool_calls`; check that your backend accepts a tool call for a tool that is not in `tools`.
 - **Don't call `h4b.conversation.append` directly.** It bypasses the queue (it can interleave with a streaming answer), doesn't emit `turn.status`, and storage only saves it at the end of the next turn.
-- **No secrets.** Arguments and results go to the backend and, with `storage-local`, to `localStorage` without encryption. Use a `request.before` interceptor to redact personal data.
+- **No secrets.** Arguments and results go to the backend and are stored with the conversation (`storage-local` encrypts them by default, but a script on the page can read them). Use a `request.before` interceptor to redact personal data.
 
 ## Persistence, tabs and limits
 
-- `storageLocal({ ttlMinutes: 30, maxMessages: 200 })` saves the history at the end of every turn, action or push, and restores it on `start()`. After `ttlMinutes` without activity, the conversation starts over. Only the last `maxMessages` messages are kept: each `runAction` takes **two** (the call and the result). If your timeline needs more, raise the limit or also store decisions in your backend.
+- `storageLocal({ maxMessages: 200 })` saves the history, encrypted, at the end of every turn, action or push, and restores it on `start()`. By default it lasts while its key does (a cookie that expires after 30 minutes without use); `retention: { ttlMinutes }` or `'tab'` shorten it, and `storageBackend({ url })` keeps it on your server instead. See [Plugins](./plugins.md#storage-local). Only the last `maxMessages` messages are kept: each `runAction` takes **two** (the call and the result). If your timeline needs more, raise the limit or also store decisions in your backend.
 - Blobs (photos, audio) become `omitted_media` placeholders when saved.
-- `tabSync()` merges the tabs' histories by message `id`, in creation order; nothing is lost between tabs. A `reset()` in one tab replaces the conversation in the others.
+- `tabSync()` merges the tabs' histories by message `id`, in creation order; nothing is lost between tabs. A `reset()` in one tab replaces the conversation in the others. With `mode: 'notify'` each tab keeps its own history and only learns which actions ran elsewhere; `mode: 'off'` isolates them.
 - `h4b.reset()` starts a new conversation and clears the saved history.
 
 ## Decision timeline

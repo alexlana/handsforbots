@@ -98,6 +98,12 @@ header strong { display: block; }
 header small { opacity: .85; }
 header button { border: 0; background: transparent; color: white; font-size: 18px; padding: 4px 8px; border-radius: 8px; }
 header button:hover { background: rgba(255,255,255,.15); }
+header button[hidden] { display: none; }
+.privacy { display: grid; gap: 6px; padding: 10px 14px; font-size: 13px; background: var(--h4b-bg); border-bottom: 1px solid var(--h4b-border); }
+.privacy[hidden] { display: none; }
+.privacy p { margin: 0; color: var(--h4b-muted); }
+.privacy label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.privacy .delete { justify-self: start; border: 1px solid var(--h4b-danger); color: var(--h4b-danger); background: transparent; border-radius: 99px; padding: 4px 12px; }
 
 .log {
   flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px;

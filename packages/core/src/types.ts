@@ -270,3 +270,28 @@ export type Storage = {
   save(snapshot: SessionSnapshot): void | Promise<void>
   clear(): void | Promise<void>
 }
+
+/**
+ * How long a stored conversation lives.
+ * - `'key'`: until its encryption key expires (`storage-local`).
+ * - `'server'`: whatever the backend decides (`storage-backend`).
+ * - `{ ttlMinutes }`: deleted after this much inactivity.
+ * - `'tab'`: tied to the tab; gone (or unreachable) when it closes.
+ */
+export type Retention = 'key' | 'server' | 'tab' | { ttlMinutes: number }
+
+/** The `retention` service, provided by storage plugins. */
+export type RetentionControl = {
+  readonly current: Retention
+  /** The developer's default followed by what end users may pick. Only one = nothing to choose. */
+  readonly choices: readonly Retention[]
+  /** Where the conversation is kept. */
+  readonly location: 'browser' | 'server'
+  /** Whether it is encrypted in the browser. */
+  readonly encrypted: boolean
+  /** Lifetime of the encryption key after the last activity, when known. 0 = until the browser closes. */
+  readonly keyTtlMinutes?: number
+  /** Applies one of `choices`, moves what is stored and remembers it in this browser. */
+  set(retention: Retention): Promise<void>
+  subscribe(listener: () => void): () => void
+}

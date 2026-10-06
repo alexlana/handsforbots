@@ -1,4 +1,14 @@
-import { definePlugin, textOf, type H4B, type MediaPart, type Message, type Signal, type TurnStatus } from '@handsforbots/core'
+import {
+  definePlugin,
+  sameRetention,
+  textOf,
+  type H4B,
+  type MediaPart,
+  type Message,
+  type Retention,
+  type Signal,
+  type TurnStatus,
+} from '@handsforbots/core'
 import { stringsFor, type Strings } from './i18n.js'
 import { escapeHtml, renderMarkdown } from './markdown.js'
 import { PALETTES, STYLES } from './styles.js'
@@ -83,6 +93,8 @@ export type WidgetOptions = {
   /** Components for rich content, by name (merged with the built-in `gallery`). */
   renderers?: Record<string, Renderer>
   autofocus?: boolean
+  /** Let users see where the conversation is kept, pick a retention (when the storage offers choices) and delete it. Default true. */
+  showPrivacy?: boolean
 }
 
 const TAG = 'h4b-chat'
@@ -131,6 +143,8 @@ export class H4BChatElement extends BaseElement {
     attach: HTMLButtonElement
     cam: HTMLButtonElement
     camera: HTMLElement
+    privacyButton: HTMLButtonElement
+    privacy: HTMLElement
   }
   private rendered = new Map<string, { message: Message; element: HTMLElement }>()
   private renderedParts = new WeakSet<object>()
@@ -160,12 +174,21 @@ export class H4BChatElement extends BaseElement {
     }
     watchVoice()
     this.renderMedia()
+    let unsubscribeRetention: (() => void) | undefined
+    const watchRetention = () => {
+      unsubscribeRetention?.()
+      unsubscribeRetention = this.h4b?.get('retention')?.subscribe(() => this.renderPrivacy())
+      this.renderPrivacy()
+    }
+    watchRetention()
     const onService = ({ key }: { key: string }) => {
       if (key === 'voice') watchVoice()
       if (key === 'files' || key === 'camera') this.renderMedia()
+      if (key === 'retention') watchRetention()
     }
     this.cleanups.push(
       () => unsubscribeVoice?.(),
+      () => unsubscribeRetention?.(),
       h4b.on('service.provided', onService as never),
       h4b.on('service.removed', onService as never),
     )
@@ -210,8 +233,10 @@ export class H4BChatElement extends BaseElement {
         <header part="header">
           ${o.avatar ? `<img src="${escapeHtml(o.avatar)}" alt="">` : ''}
           <div class="who"><strong>${escapeHtml(o.botName ?? s.botName)}</strong>${o.botJob ? `<small>${escapeHtml(o.botJob)}</small>` : `<small>${escapeHtml(o.title ?? s.title)}</small>`}</div>
+          <button class="privacy-toggle" type="button" hidden aria-expanded="false" aria-label="${escapeHtml(s.privacy)}" title="${escapeHtml(s.privacy)}">🔒</button>
           <button class="close" type="button" aria-label="${escapeHtml(s.close)}">✕</button>
         </header>
+        <div class="privacy" part="privacy" role="group" aria-label="${escapeHtml(s.privacy)}" hidden></div>
         <div class="log" part="log" role="log" aria-live="polite" aria-relevant="additions text">
           ${o.disclaimer ? `<details class="disclaimer"><summary>${escapeHtml(s.disclaimer)}</summary>${renderMarkdown(o.disclaimer)}</details>` : ''}
           <div class="typing" aria-hidden="true" hidden>•••</div>
@@ -250,6 +275,8 @@ export class H4BChatElement extends BaseElement {
       attach: $('.attach'),
       cam: $('.cam'),
       camera: $('.camera'),
+      privacyButton: $('.privacy-toggle'),
+      privacy: $('.privacy'),
     }
     const { launcher, form, input } = this.els
     const close = $<HTMLButtonElement>('.close')
@@ -275,6 +302,11 @@ export class H4BChatElement extends BaseElement {
     })
     this.bindVoiceButtons()
     this.bindMediaButtons()
+    this.els.privacyButton.addEventListener('click', () => {
+      const open = this.els.privacy.hidden
+      this.els.privacy.hidden = !open
+      this.els.privacyButton.setAttribute('aria-expanded', String(open))
+    })
 
     let open = this.dataset.alwaysOpen !== undefined || !!this.options.startOpen
     try {
@@ -675,6 +707,62 @@ export class H4BChatElement extends BaseElement {
   /* ---------------------------------------------------------------------- */
   /* Voice                                                                  */
   /* ---------------------------------------------------------------------- */
+
+  /* ---------------------------------------------------------------------- */
+  /* Privacy                                                                */
+  /* ---------------------------------------------------------------------- */
+
+  private renderPrivacy() {
+    const { privacyButton, privacy } = this.els
+    const retention = this.h4b?.get('retention')
+    privacyButton.hidden = !retention || this.options.showPrivacy === false
+    if (privacyButton.hidden) {
+      privacy.hidden = true
+      return
+    }
+    const s = this.strings
+    const where =
+      retention!.location === 'server' ? s.storedOnServer : retention!.encrypted ? s.storedEncrypted : s.storedInBrowser
+    const label = (r: Retention) => {
+      if (r === 'key') {
+        const minutes = retention!.keyTtlMinutes
+        return minutes === 0 ? s.retentionKeyBrowser : minutes ? s.retentionKey.replace('{minutes}', String(minutes)) : s.retentionServer
+      }
+      if (r === 'server') return s.retentionServer
+      if (r === 'tab') return s.retentionTab
+      return s.retentionTtl.replace('{minutes}', String(r.ttlMinutes))
+    }
+    privacy.replaceChildren()
+    const text = document.createElement('p')
+    text.textContent = where
+    privacy.append(text)
+    const choices = retention!.choices
+    if (choices.length === 1) {
+      const only = document.createElement('p')
+      only.textContent = label(choices[0]!)
+      privacy.append(only)
+    } else {
+      for (const [i, choice] of choices.entries()) {
+        const option = document.createElement('label')
+        const radio = document.createElement('input')
+        radio.type = 'radio'
+        radio.name = 'h4b-retention'
+        radio.value = String(i)
+        radio.checked = sameRetention(choice, retention!.current)
+        radio.addEventListener('change', () => {
+          retention!.set(choice).catch((error) => this.h4b?.emit('error', { error, source: 'widget' }))
+        })
+        option.append(radio, ` ${label(choice)}`)
+        privacy.append(option)
+      }
+    }
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.className = 'delete'
+    remove.textContent = s.deleteConversation
+    remove.addEventListener('click', () => void this.h4b?.reset())
+    privacy.append(remove)
+  }
 
   private voice(): VoiceLike | undefined {
     return this.h4b?.get('voice' as never) as VoiceLike | undefined

@@ -1,6 +1,6 @@
 # Hands for Bots v2 — runtime reference
 
-Verified against `packages/core/src/kernel.ts`, `actions.ts`, the transports and `storage-local` / `tab-sync`. When the code in the project disagrees with this file, trust the code.
+Verified against `packages/core/src/kernel.ts`, `actions.ts`, the transports and `storage-local` / `storage-backend` / `tab-sync`. When the code in the project disagrees with this file, trust the code.
 
 ## `createH4B(options)`
 
@@ -72,8 +72,10 @@ await h4b.push([
 
 ## Storage and tabs
 
-- `storageLocal({ key: 'h4b:conversation', ttlMinutes: 30, area: 'local', maxMessages: 200 })`: saves after every job (turn, action, push), restores on `start()`, starts over after `ttlMinutes` idle, keeps the last `maxMessages`, replaces Blobs with `omitted_media` placeholders. Plain JSON in `localStorage`/`sessionStorage`, no encryption.
-- `tabSync({ channel })`: broadcasts snapshots; same thread → merge by message id ordered by `createdAt`; different thread → replace. Snapshots arriving during a turn are applied after it.
+- `storageLocal({ key: 'h4b:conversation', encrypt: true, keySource: cookieKey({ ttlMinutes: 30 }), retention: 'key', userChoices: [], maxMessages: 200 })`: saves after every job (turn, action, push), restores on `start()`, keeps the last `maxMessages`, replaces Blobs with `omitted_media` placeholders. AES-GCM encrypted by default; the key lives in a cookie (`Max-Age` renewed on use, `SameSite=Strict`) or, with `backendKey({ url })`, on the server (`GET` → `{ key }` or 404, `POST` creates). No key → the data is deleted on load or by the 1-minute sweep. `retention`: `'key'` (lasts while the key does), `{ ttlMinutes }` (also deleted after that much inactivity), `'tab'` (sessionStorage). `encrypt: false` → plain JSON. Not an XSS defense.
+- `storageBackend({ url, retention: 'server', userChoices: [] })`: `GET`/`PUT`/`DELETE url` with headers `X-H4B-Conversation` (random id in localStorage, sessionStorage for `'tab'`) and `X-H4B-Retention` (`server` | `tab` | minutes). The server enforces retention and should tie the id to the user's session.
+- Both provide the `retention` service (`current`, `choices`, `location`, `encrypted`, `keyTtlMinutes`, `set`, `subscribe`); the widget shows it behind 🔒 (`showPrivacy: false` hides it). `ask()` resolves at the end of the turn, possibly before the async save finishes; use `waitForIdle` in tests that reload.
+- `tabSync({ mode: 'sync', channel })`: `sync` broadcasts snapshots (same thread → merge by message id ordered by `createdAt`; different thread → replace; snapshots arriving during a turn are applied after it). `notify` keeps histories apart and emits `tabs.activity` (actions, assistant turns, resets) plus a `tab-sync.activity` context signal with the last 10 (`context: false` disables it). `off` broadcasts nothing. With `notify`/`off`, use the `'tab'` retention so tabs don't overwrite each other's saved conversation.
 
 ## Testing
 

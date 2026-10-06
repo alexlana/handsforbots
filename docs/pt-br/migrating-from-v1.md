@@ -18,8 +18,8 @@ A v2 é uma reescrita: não há camada de compatibilidade. A configuração sai 
 | Plugin `Observability` | `observability({ … })` (mesmos exporters) |
 | `Analytics` | Aposentado: use os exporters do `observability` |
 | `HexPresentation` | Aposentado (específico de portfólio) |
-| `SessionManager`, `BackendSessionManager`, criptografia | `storageLocal({ ttlMinutes: 30 })`; sessões no backend com `http({ session })` / `universalLLM`. A criptografia local saiu: a chave ficava ao lado do dado |
-| Sincronização entre abas por `BroadcastChannel` | `tabSync()` |
+| `SessionManager`, `BackendSessionManager`, criptografia | `storageLocal()` (criptografado, chave num cookie que expira após 30 min, como na v1; ou `backendKey`) ou `storageBackend({ url })`; sessões no backend com `http({ session })` / `universalLLM` |
+| Sincronização entre abas por `BroadcastChannel` | `tabSync({ mode: 'sync' \| 'notify' \| 'off' })` |
 | `quick_start`, `presentation`, `disclaimer` | Listas de plugins; `widget({ greeting, disclaimer })` |
 | Eventos `core.*` | `on('turn.status' \| 'signal' \| 'stimulus' \| 'action.invoked' …)` e interceptadores |
 | Vosk no navegador (WASM) | `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser') })` |

@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@handsforbots/core": "workspace:^",
-    "jsdom": "^27.0.0"
+    "jsdom": "^27.0.0",
+    "@handsforbots/testkit": "workspace:^"
   }
 }

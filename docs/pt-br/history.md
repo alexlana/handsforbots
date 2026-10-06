@@ -81,13 +81,13 @@ Os botões declarativos do plugin `gui()` de `@handsforbots/inputs` fazem o mesm
 - **Falhas também ficam registradas.** Ação inexistente, não exposta ao usuário, argumentos inválidos, confirmação recusada ou cancelada por um interceptador `action.before`: tudo vira uma mensagem `tool` com `error`, mostrada pelo widget e enviada ao modelo. `runAction` nunca lança; confira `outcome.error`.
 - **`exposeTo: ['user']` tira a ação da lista de ferramentas do assistente**, mas as chamadas já registradas continuam indo no histórico. Os transportes compatíveis com OpenAI as enviam como `tool_calls`; confirme que o seu backend aceita uma tool call de uma ferramenta que não está em `tools`.
 - **Não use `h4b.conversation.append` direto.** Fica fora da fila (pode se misturar com uma resposta em streaming), não dispara `turn.status` e só é salvo pelo storage no fim do próximo turno.
-- **Sem segredos.** Argumentos e resultados vão para o backend e, com `storage-local`, para o `localStorage` sem criptografia. Use um interceptador `request.before` para ocultar dados pessoais.
+- **Sem segredos.** Argumentos e resultados vão para o backend e são guardados com a conversa (o `storage-local` os criptografa por padrão, mas um script na página consegue lê-los). Use um interceptador `request.before` para ocultar dados pessoais.
 
 ## Persistência, abas e limites
 
-- `storageLocal({ ttlMinutes: 30, maxMessages: 200 })` salva o histórico no fim de cada turno, ação ou push e o restaura no `start()`. Depois de `ttlMinutes` sem atividade, a conversa recomeça. Só as últimas `maxMessages` mensagens são guardadas: cada `runAction` ocupa **duas** (a chamada e o resultado). Se a sua linha do tempo precisa de mais, aumente o limite ou guarde as decisões também no seu backend.
+- `storageLocal({ maxMessages: 200 })` salva o histórico, criptografado, no fim de cada turno, ação ou push e o restaura no `start()`. Por padrão ele dura enquanto durar a chave (um cookie que expira após 30 minutos sem uso); `retention: { ttlMinutes }` ou `'tab'` encurtam isso, e `storageBackend({ url })` guarda no seu servidor. Veja [Plugins](./plugins.md#storage-local). Só as últimas `maxMessages` mensagens são guardadas: cada `runAction` ocupa **duas** (a chamada e o resultado). Se a sua linha do tempo precisa de mais, aumente o limite ou guarde as decisões também no seu backend.
 - Blobs (fotos, áudio) viram marcadores `omitted_media` ao salvar.
-- `tabSync()` junta os históricos das abas pelo `id` das mensagens, em ordem de criação; nada se perde entre abas. Um `reset()` em uma aba troca a conversa nas outras.
+- `tabSync()` junta os históricos das abas pelo `id` das mensagens, em ordem de criação; nada se perde entre abas. Um `reset()` em uma aba troca a conversa nas outras. Com `mode: 'notify'` cada aba fica com o seu histórico e só fica sabendo das ações executadas nas outras; `mode: 'off'` as isola.
 - `h4b.reset()` começa uma conversa nova e apaga o histórico salvo.
 
 ## Linha do tempo de decisões

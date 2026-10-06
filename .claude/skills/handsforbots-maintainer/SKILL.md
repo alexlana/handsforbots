@@ -19,7 +19,7 @@ Monorepo pnpm (Node 20+, pnpm 10) com um kernel headless em TypeScript e um paco
 | `packages/transport-*` | AG-UI, Rasa, HTTP (+ `universalLLM`, `openAICompatible`), Vercel AI SDK |
 | `packages/widget`, `react`, `copilotkit`, `assistant-ui` | Interfaces |
 | `packages/voice`, `keyboard`, `inputs`, `menu`, `guided`, `expose-webmcp`, `mcp-apps` | Capacidades |
-| `packages/storage-local`, `tab-sync`, `observability`, `testkit` | Infra; `testkit` tem a suíte de conformidade de transportes |
+| `packages/storage-local`, `storage-backend`, `tab-sync`, `observability`, `testkit` | Infra; `testkit` tem a suíte de conformidade de transportes |
 | `packages/semantic-event-observability` | Biblioteca JS independente, testada com `node:test` |
 | `docs/en-us`, `docs/pt-br` | Documentação pública espelhada |
 | `skills/` | Skills para quem **integra** o H4B (copiadas para `.claude/skills` do projeto consumidor) |
@@ -56,8 +56,10 @@ Se mudar algum destes, atualize `docs/*/history.md`, `docs/*/concepts.md`, `skil
 - `runAction` grava mensagem `assistant` com `toolCalls` (rota `direct` ou `agent`) + mensagem `tool` com `result` ou `error`, inclusive quando falha; persiste ao fim do job.
 - Ação com `destructive: true` sem serviço `confirm` é recusada.
 - Ação só com `parameters` (sem `input`) não tem os argumentos validados em runtime.
-- `storageLocal`: salva após cada job, `ttlMinutes` 30, `maxMessages` 200, Blobs viram `omitted_media`, sem criptografia.
-- `tabSync`: mesma thread → merge por id ordenado por `createdAt`; thread diferente → substitui.
+- `storageLocal`: salva após cada job, `maxMessages` 200, Blobs viram `omitted_media`; criptografado por padrão com a chave num cookie que expira (30 min, renovado a cada uso) ou no backend (`backendKey`); sem chave, o dado é apagado; retenção `'key'` (padrão), `{ ttlMinutes }` ou `'tab'`. Não protege contra XSS.
+- `storageBackend`: GET/PUT/DELETE com `X-H4B-Conversation` e `X-H4B-Retention`; o servidor aplica a retenção.
+- Serviço `retention` (ambos os storages): escolhas do desenvolvedor + `userChoices`, preferência no `localStorage`, painel 🔒 no widget.
+- `tabSync`: `mode` `sync` (padrão; mesma thread → merge por id ordenado por `createdAt`; thread diferente → substitui), `notify` (`tabs.activity` + sinal de contexto `tab-sync.activity`), `off`.
 - Transportes de chat enviam ações gravadas como `tool_calls` + mensagens `tool`; o `rasa` não envia histórico.
 - O widget esconde mensagens sem texto/imagem/`ui` e mostra mensagens `tool` como cartões de ação (`showActions`).
 
