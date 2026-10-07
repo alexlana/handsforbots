@@ -100,3 +100,51 @@ describe('storage-backend', () => {
     expect(h4b.messages).toEqual([])
   })
 })
+
+describe('storage-backend with consent', () => {
+  const consented = (fetch: typeof globalThis.fetch, initial: Record<string, boolean>) => {
+    const h4b = createH4B({
+      consent: { channel: false, initial },
+      plugins: [storageBackend({ url: '/api/h4b/conversation', fetch })],
+    })
+    h4b.provide('transport', echo)
+    return h4b.start()
+  }
+  const consentHeaders = (fetch: any) =>
+    (fetch.mock.calls as [string, RequestInit][]).map(([, init]) => (init.headers as Record<string, string>)['x-h4b-consent'])
+
+  it('sends the granted purposes and saves again when they change', async () => {
+    const { fetch, calls } = server()
+    const h4b = await consented(fetch, { persistence: true, review: false })
+    await h4b.ask('oi')
+    await waitForIdle(h4b)
+    expect(consentHeaders(fetch).at(-1)).toBe('persistence')
+    const puts = calls.filter((c) => c.method === 'PUT').length
+    await h4b.consent.set({ review: true })
+    await waitForIdle(h4b)
+    await h4b.persist()
+    expect(calls.filter((c) => c.method === 'PUT').length).toBeGreaterThan(puts)
+    expect(consentHeaders(fetch).at(-1)).toBe('persistence,review')
+  })
+
+  it('on revoke, deletes the conversation on the server and forgets its id, keeping it on screen', async () => {
+    const { fetch, conversations, calls } = server()
+    const h4b = await consented(fetch, { persistence: true })
+    await h4b.ask('oi')
+    await waitForIdle(h4b)
+    await h4b.persist()
+    expect(conversations.size).toBe(1)
+    await h4b.consent.set({ persistence: false })
+    expect(calls.at(-1)!.method).toBe('DELETE')
+    expect(conversations.size).toBe(0)
+    expect(localStorage.getItem('h4b:conversation-id')).toBeNull()
+    expect(h4b.messages).toHaveLength(2)
+  })
+
+  it('never mints a conversation id just to erase', async () => {
+    const { fetch, calls } = server()
+    await consented(fetch, { persistence: false })
+    expect(calls).toHaveLength(0)
+    expect(localStorage.getItem('h4b:conversation-id')).toBeNull()
+  })
+})

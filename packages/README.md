@@ -23,6 +23,7 @@
 | [`@handsforbots/storage-local`](./storage-local) | Conversation persistence in the browser, encrypted with a key that expires |
 | [`@handsforbots/storage-backend`](./storage-backend) | Conversation persistence on your server |
 | [`@handsforbots/tab-sync`](./tab-sync) | Tabs share the conversation, hear about each other's actions, or stay isolated |
+| [`@handsforbots/consent`](./consent) | Consent rule sets per legislation (JSON/YAML), region helpers, anonymization of what is stored |
 | [`@handsforbots/observability`](./observability) | Turns, routes, actions and signals as semantic telemetry |
 | [`@handsforbots/testkit`](./testkit) | Test helpers and the transport conformance suite |
 | [`@handsforbots/semantic-event-observability`](./semantic-event-observability) | The underlying observability library (Grafana, OTel, Langfuse, LangSmith) |

@@ -42,6 +42,7 @@ await h4b.start()
 - [Escrevendo plugins](./writing-plugins.md)
 - [Histórico](./history.md): leitura, registro de decisões da interface, linha do tempo
 - [Persistência, memória e privacidade](./persistence.md): o que é enviado, guardado e armazenado, criptografia, retenção, abas
+- [Consentimento](./consent.md): trabalhar com a sua ferramenta de consentimento, regras por legislação e região, apagar ao revogar, anonimização para revisão humana
 - [Segurança](./security.md)
 - [Desenvolvimento](./development.md)
 - [Migrando da v1](./migrating-from-v1.md)

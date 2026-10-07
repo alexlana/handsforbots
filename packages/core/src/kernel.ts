@@ -1,9 +1,10 @@
 import { memory, type MemoryOptions } from '@handsforbots/memory'
 import { ActionError, ActionRegistry } from './actions.js'
+import { ConsentManager, type ConsentControl, type ConsentOptions } from './consent.js'
 import { Conversation } from './conversation.js'
 import { EventBus } from './events.js'
 import { createId } from './id.js'
-import { API_VERSION, PluginContext, type Plugin } from './plugin.js'
+import { API_VERSION, PluginContext, purposeOf, type Plugin } from './plugin.js'
 import type {
   ActionInvocation,
   Events,
@@ -50,6 +51,13 @@ export type H4BOptions = {
    * unplug it, or put your own `memory(...)` in `plugins`.
    */
   memory?: MemoryOptions | false
+  /**
+   * Turns consent on: plugins that require a purpose (storages require
+   * `persistence`) are mounted only while it is granted, and unmounted with
+   * what they stored erased when it is withdrawn. Feed decisions with
+   * `h4b.consent.set()`. Absent = no gating (everything counts as granted).
+   */
+  consent?: ConsentOptions
 }
 
 export type H4BSnapshot = {
@@ -89,6 +97,8 @@ export function createH4B(options: H4BOptions = {}): H4B {
 export class H4B {
   readonly actions: ActionRegistry
   readonly conversation: Conversation
+  /** Consent decisions and the rule set in force (see `H4BOptions.consent`). */
+  readonly consent: ConsentControl
 
   private bus: EventBus<Events>
   private services = new Map<keyof Services, { service: unknown; by: string }>()
@@ -106,6 +116,13 @@ export class H4B {
   private disconnectTransport?: () => void
   private started = false
   private stopping = false
+  private consentManager: ConsentManager
+  /** Every plugin that requires a consent purpose, mounted or not. */
+  private gated = new Map<Plugin<any>, string>()
+  /** Gated plugins whose leftovers were already erased while denied. */
+  private erased = new Set<Plugin<any>>()
+  private reconciling: Promise<void> = Promise.resolve()
+  private saving: Promise<void> = Promise.resolve()
 
   constructor(private options: H4BOptions = {}) {
     const report = options.onError ?? ((error, source) => console.error(`[h4b] ${source}:`, error))
@@ -127,6 +144,11 @@ export class H4B {
       },
     )
     for (const action of options.actions ?? []) this.actions.register(action)
+    this.consentManager = new ConsentManager(options.consent, async () => {
+      this.emit('consent.changed', this.consentManager.snapshot())
+      await this.reconcileConsent()
+    })
+    this.consent = this.consentManager
   }
 
   /* ------------------------------------------------------------------------ */
@@ -137,7 +159,13 @@ export class H4B {
     if (this.started) return this
     this.started = true
 
-    let pending = [...(this.options.plugins ?? [])]
+    this.consentManager.open()
+    let pending: Plugin<any>[] = []
+    for (const plugin of this.options.plugins ?? []) {
+      const purpose = purposeOf(plugin)
+      if (purpose) this.gated.set(plugin, purpose)
+      if (!purpose || this.consent.granted(purpose)) pending.push(plugin)
+    }
     if (this.options.memory !== false && !pending.some((p) => p.definition.name === 'memory')) {
       pending.unshift(memory(this.options.memory || undefined))
     }
@@ -162,6 +190,8 @@ export class H4B {
         this.emit('error', { error, source: 'storage' })
       }
     }
+    // Decisions or the region may have changed while plugins were mounting.
+    await this.reconcileConsent()
     return this
   }
 
@@ -169,18 +199,113 @@ export class H4B {
     this.stopping = true
     this.abort({ clearQueue: true })
     for (const plugin of [...this.mounted.keys()].reverse()) await this.unmount(plugin)
+    this.consentManager.close()
+    this.gated.clear()
     this.stopping = false
     this.started = false
   }
 
-  /** Mounts a plugin at runtime. Resolves to a disposer. */
+  /**
+   * Mounts a plugin at runtime. Resolves to a disposer. A plugin that requires
+   * a consent purpose waits for it (and follows it) like the ones in `plugins`.
+   */
   async use(plugin: Plugin<any>): Promise<() => Promise<void>> {
+    const purpose = purposeOf(plugin)
+    const dispose = async () => {
+      this.gated.delete(plugin)
+      await this.unmount(plugin)
+    }
+    if (purpose) {
+      this.gated.set(plugin, purpose)
+      if (!this.consent.granted(purpose)) return dispose
+    }
     const missing = this.missing(plugin)
     if (missing.length > 0) {
+      this.gated.delete(plugin)
       throw new Error(`[h4b] plugin "${plugin.definition.name}" needs ${missing.join(', ')}`)
     }
     await this.mount(plugin)
-    return () => this.unmount(plugin)
+    if (purpose) await this.adoptStorage(plugin)
+    return dispose
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Consent                                                                  */
+  /* ------------------------------------------------------------------------ */
+
+  /** Mounts and unmounts gated plugins to match consent. Serialized. */
+  private reconcileConsent(): Promise<void> {
+    const run = async () => {
+      if (!this.started || this.stopping) return
+      for (const [plugin, purpose] of [...this.gated]) {
+        const state = this.consent.state(purpose)
+        const mounted = this.mounted.has(plugin)
+        try {
+          if (state === 'granted' && !mounted) {
+            this.erased.delete(plugin)
+            const missing = this.missing(plugin)
+            if (missing.length > 0) {
+              throw new Error(`[h4b] plugin "${plugin.definition.name}" needs ${missing.join(', ')}`)
+            }
+            await this.mount(plugin)
+            await this.adoptStorage(plugin)
+          } else if (state !== 'granted' && mounted) {
+            await this.revoke(plugin, purpose)
+          } else if (state === 'denied' && !mounted && !this.erased.has(plugin) && this.consentManager.erases(purpose)) {
+            // Stored on an earlier visit: mount it just to erase what it kept.
+            if (this.missing(plugin).length > 0) continue
+            await this.mount(plugin)
+            await this.revoke(plugin, purpose)
+          }
+        } catch (error) {
+          this.emit('error', { error, source: 'consent' })
+        }
+      }
+    }
+    this.reconciling = this.reconciling.then(run, run)
+    return this.reconciling
+  }
+
+  /**
+   * A storage mounted after start: restores what it kept if nothing was typed
+   * yet; otherwise the conversation on screen wins and is saved.
+   */
+  private async adoptStorage(plugin: Plugin<any>) {
+    if (this.services.get('storage')?.by !== plugin.definition.name) return
+    const storage = this.get('storage')!
+    try {
+      const stored = await storage.load()
+      const typed = this.conversation.messages.some((m) => m.role === 'user')
+      if (this.running) return // the job saves when it ends
+      if (stored && !typed) this.conversation.restore(stored)
+      else if (this.conversation.messages.length > 0) await this.persist()
+    } catch (error) {
+      this.emit('error', { error, source: 'storage' })
+    }
+  }
+
+  /** Unmounts a plugin whose purpose is no longer granted and erases what it stored. The conversation in memory stays. */
+  private async revoke(plugin: Plugin<any>, purpose: string) {
+    const entry = this.mounted.get(plugin)
+    if (!entry) return
+    const storage = this.services.get('storage')?.by === plugin.definition.name ? this.get('storage') : undefined
+    const handlers = entry.ctx.revokeHandlers
+    await this.unmount(plugin) // from here on nothing new is saved through it
+    this.erased.add(plugin)
+    if (!this.consentManager.erases(purpose)) return
+    await this.saving // a save already under way must not land after the erase
+    try {
+      await storage?.clear()
+    } catch (error) {
+      this.emit('error', { error, source: 'storage' })
+    }
+    for (const handler of handlers) {
+      try {
+        await handler()
+      } catch (error) {
+        this.emit('error', { error, source: plugin.definition.name })
+      }
+    }
   }
 
   private missing(plugin: Plugin<any>): (keyof Services)[] {
@@ -869,14 +994,27 @@ export class H4B {
     }
   }
 
-  private async persist() {
-    const storage = this.get('storage')
-    if (!storage) return
-    try {
-      await storage.save(this.conversation.snapshot())
-    } catch (error) {
-      this.emit('error', { error, source: 'storage' })
+  /**
+   * Saves the conversation now through the storage service, after the
+   * `storage.before` interceptors. Saves run one at a time. Never throws:
+   * failures are reported as `error` events from `storage`. The kernel calls
+   * it after every job.
+   */
+  persist(): Promise<void> {
+    const run = async () => {
+      const storage = this.get('storage')
+      if (!storage) return
+      try {
+        const snapshot = this.hasInterceptors('storage.before')
+          ? await this.runHooks('storage.before', this.conversation.snapshot())
+          : this.conversation.snapshot()
+        if (snapshot) await storage.save(snapshot)
+      } catch (error) {
+        this.emit('error', { error, source: 'storage' })
+      }
     }
+    this.saving = this.saving.then(run, run)
+    return this.saving
   }
 }
 

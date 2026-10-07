@@ -1,6 +1,6 @@
 ---
 name: handsforbots
-description: Integrate Hands for Bots v2 (H4B, @handsforbots/* packages) into a web app - create the kernel with createH4B, pick a transport (AG-UI, Rasa, HTTP/UniversalLLM, OpenAI-compatible, Vercel AI SDK, CopilotKit), declare GUI actions the assistant, the user and browser agents can trigger, send context signals, add the <h4b-chat> widget or React/Vue bindings, voice, menu, guided tours, storage and tab sync, and write plugins. Use whenever code imports @handsforbots/*, calls createH4B, h4b.actions.register, h4b.signal/ask/runAction/push, or the user mentions Hands for Bots, H4B or HfB. For the conversation history (h4b.messages, recording GUI decisions, timelines), also load handsforbots-history.
+description: Integrate Hands for Bots v2 (H4B, @handsforbots/* packages) into a web app - create the kernel with createH4B, pick a transport (AG-UI, Rasa, HTTP/UniversalLLM, OpenAI-compatible, Vercel AI SDK, CopilotKit), declare GUI actions the assistant, the user and browser agents can trigger, send context signals, add the <h4b-chat> widget or React/Vue bindings, voice, menu, guided tours, storage and tab sync, and write plugins. Use whenever code imports @handsforbots/*, calls createH4B, h4b.actions.register, h4b.signal/ask/runAction/push, or the user mentions Hands for Bots, H4B or HfB. For the conversation history (h4b.messages, recording GUI decisions, timelines), also load handsforbots-history. For consent tools, cookie banners, LGPD/GDPR or anonymization, also load handsforbots-consent.
 ---
 
 # Hands for Bots v2 — integration
@@ -95,4 +95,5 @@ Everything goes through **one queue**: turns, `runAction` and `push` run one at 
 - [ ] Screen state the model needs goes as context signals, not as fake user messages.
 - [ ] `await h4b.start()` before relying on restored history; `h4b.stop()` on teardown (SPAs, tests).
 - [ ] Memory, storage, retention and tabs chosen on purpose (skill `handsforbots-persistence`).
+- [ ] If the site has a consent tool: `createH4B({ consent })` wired to it (skill `handsforbots-consent`).
 - [ ] Tested with a scripted transport (`@handsforbots/testkit` or an inline `Transport`) and, in the browser, with a reload mid-conversation if `storage-local` is used.

@@ -24,6 +24,7 @@ Cada pacote exporta uma fábrica de plugin: chame com as opções e passe para `
 | [`storage-local`](#storage-local) | `storageLocal`, `cookieKey`, `backendKey` | `storage`, `retention` |
 | [`storage-backend`](#storage-backend) | `storageBackend` | `storage`, `retention` |
 | [`tab-sync`](#tab-sync) | `tabSync` | — |
+| [`consent`](#consent) | `redact`, presets, `loadConsentRules`, `regionFromMeta`, `regionFromUrl` | — |
 | [`observability`](#observability) | `observability` | `observability` |
 | [`testkit`](#testkit) | utilitários de teste, `transportConformance` | — |
 
@@ -37,11 +38,13 @@ const h4b = createH4B({
   matchThreshold?: 0.75,     // confiança mínima para comandos diretos
   maxActionRoundtrips?: 5,   // idas e voltas assistente ↔ ações por turno
   onError?: (error, source) => void,
+  memory?: { … } | false,    // veja memory
+  consent?: { rules?, region?, initial?, manage?, channel? }, // veja Consentimento
 })
 await h4b.start()
 ```
 
-API principal: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `abort()`, `reset()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`.
+API principal: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). O `withConsent(plugin, finalidade | false)` condiciona um plugin a uma finalidade de consentimento, ou o deixa sempre livre. Guia: [Consentimento](./consent.md).
 
 ## transport-agui
 
@@ -197,6 +200,7 @@ storageLocal({ retention: 'tab', userChoices: ['key', { ttlMinutes: 5 }] })
 - Sem chave, o dado não pode ser lido: ele é apagado no próximo carregamento ou pela varredura que roda a cada minuto. Se não houver fonte de chave (sem Web Crypto, cookies bloqueados), nada é salvo e o `save()` reporta um `error` com origem `storage`.
 - Blobs viram marcadores.
 - **Não protege contra XSS:** um script injetado na página consegue ler a chave. Isto limita o tempo em que a conversa fica legível no navegador.
+- Exige a finalidade de consentimento `persistence` quando o `createH4B` tem `consent`: nada (nem o cookie da chave) é gravado antes de ela ser concedida; ao revogar, a conversa, a escolha de retenção e a chave são apagadas (o `backendKey` recebe `DELETE url`). Veja [Consentimento](./consent.md).
 
 ## storage-backend
 
@@ -207,6 +211,8 @@ storageBackend({ url: '/api/h4b/conversation', retention: 'server', userChoices:
 ```
 
 `GET url` carrega (`200` com o snapshot, ou `204`/`404`), `PUT url` salva o snapshot (JSON, Blobs viram marcadores), `DELETE url` apaga. Toda requisição leva `X-H4B-Conversation` (um id aleatório guardado no localStorage, ou no sessionStorage com `'tab'`, para que uma aba fechada não o alcance mais) e `X-H4B-Retention` (`server`, `tab` ou o TTL em minutos); o seu servidor aplica a retenção. Quem tem o id consegue ler a conversa: vincule-o à sessão do usuário quando houver uma. Opções: `url`, `retention` (`'server'`), `userChoices`, `headers`, `credentials` (`'same-origin'`), `fetch`, `idKey`.
+
+Com `createH4B({ consent })`, exige `persistence`, envia as finalidades concedidas em `X-H4B-Consent` (por exemplo `persistence,review`) e salva de novo quando elas mudam; ao revogar, envia `DELETE` e esquece o id. Veja [Consentimento](./consent.md).
 
 ## Retenção
 
@@ -223,6 +229,17 @@ Os dois storages fornecem o serviço `retention` (`RetentionControl` no `core`):
 | `off` | Abas isoladas: nada é transmitido |
 
 Com `notify` ou `off`, use a retenção `'tab'`: senão abas que gravam na mesma chave do localStorage (ou no mesmo id do backend) sobrescrevem a conversa uma da outra.
+
+O `tab-sync` não depende de consentimento: ele não guarda nada, só compartilha a conversa em memória entre as abas abertas.
+
+## consent
+
+Conjuntos de regras e utilitários para o `createH4B({ consent })` (o mecanismo em si fica no `core`). Guia: [Consentimento](./consent.md).
+
+- `lgpd`, `gdpr`, `ccpa`, `optIn` e `presets` (os quatro): pontos de partida com as finalidades `persistence`, `review` e `analytics`; também em `@handsforbots/consent/rules/*.json`.
+- `loadConsentRules(url, { parse?, fetch? })`: busca um conjunto ou uma lista (JSON, ou YAML com `parse: YAML.parse`) e valida.
+- `regionFromMeta(name = 'h4b-region')`, `regionFromUrl(url)`: a região de quem visita, pela página ou por um endpoint seu.
+- `redact({ patterns?, custom?, replace?, media?: 'omit' | 'keep', hooks?: ['storage.before'], when? })`: anonimiza e-mails, telefones, CPF, CNPJ e números de cartão (e mídia) no que é guardado, opcionalmente só enquanto uma finalidade (por exemplo `review`) estiver concedida. Também `redactText`, `redactMessages`, `redactor`, `PATTERNS`.
 
 ## testkit
 

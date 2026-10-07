@@ -19,7 +19,8 @@ Monorepo pnpm (Node 20+, pnpm 10) com um kernel headless em TypeScript e um paco
 | `packages/transport-*` | AG-UI, Rasa, HTTP (+ `universalLLM`, `openAICompatible`), Vercel AI SDK |
 | `packages/widget`, `react`, `copilotkit`, `assistant-ui` | Interfaces |
 | `packages/voice`, `keyboard`, `inputs`, `menu`, `guided`, `expose-webmcp`, `mcp-apps` | Capacidades |
-| `packages/memory`, `storage-local`, `storage-backend`, `tab-sync`, `observability`, `testkit` | Infra; `testkit` tem a suíte de conformidade de transportes |
+| `packages/core/src/consent.ts` | `h4b.consent` (`ConsentManager`): finalidades, regras por região, canal entre abas; o kernel monta/desmonta plugins condicionados |
+| `packages/memory`, `storage-local`, `storage-backend`, `tab-sync`, `consent`, `observability`, `testkit` | Infra; `consent` tem presets de regras, carregador, região e `redact`; `testkit` tem a suíte de conformidade de transportes |
 | `packages/semantic-event-observability` | Biblioteca JS independente, testada com `node:test` |
 | `docs/en-us`, `docs/pt-br` | Documentação pública espelhada |
 | `skills/` | Skills para quem **integra** o H4B (copiadas para `.claude/skills` do projeto consumidor) |
@@ -60,6 +61,8 @@ Se mudar algum destes, atualize `docs/*/history.md`, `docs/*/concepts.md`, `skil
 - `storageLocal`: salva após cada job, Blobs viram `omitted_media`; criptografado por padrão com a chave num cookie que expira (30 min, renovado a cada uso) ou no backend (`backendKey`); sem chave, o dado é apagado; retenção `'key'` (padrão), `{ ttlMinutes }` ou `'tab'`. Não protege contra XSS.
 - `storageBackend`: GET/PUT/DELETE com `X-H4B-Conversation` e `X-H4B-Retention`; o servidor aplica a retenção.
 - Serviço `retention` (ambos os storages): escolhas do desenvolvedor + `userChoices`, preferência no `localStorage`, painel 🔒 no widget.
+- Consentimento (ADR 0010): sem `consent` no `createH4B`, nada é condicionado. Com ele, plugins com `definePlugin({ consent })` ou `withConsent()` só montam com a finalidade `granted` (os storages exigem `persistence`); estado = decisão > padrão da regra da região > `pending` (região assíncrona: tudo `pending` até resolver). Ao revogar: desmonta, espera o salvamento em curso, `storage.clear()` e `ctx.onRevoke`; a conversa em memória fica. `denied` apaga sobras. Decisões vão às outras abas (BroadcastChannel `h4b-consent:<channel>`). Storage montado tarde restaura só se não houver mensagem `user`.
+- `storage.before` roda antes de todo salvamento (`h4b.persist()`, em série, nunca lança); o `storageBackend` envia `X-H4B-Consent` e salva de novo quando as finalidades concedidas mudam; `storageLocal.forget()` apaga conversa, preferência e chave (`KeySource.forget`).
 - `tabSync`: `mode` `sync` (padrão; mesma thread → merge por id ordenado por `createdAt`; thread diferente → substitui), `notify` (`tabs.activity` + sinal de contexto `tab-sync.activity`), `off`.
 - Transportes de chat enviam ações gravadas como `tool_calls` + mensagens `tool`; o `rasa` não envia histórico.
 - O widget esconde mensagens sem texto/imagem/`ui` e mostra mensagens `tool` como cartões de ação (`showActions`).

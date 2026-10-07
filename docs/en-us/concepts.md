@@ -52,7 +52,7 @@ An action is a capability of your GUI: name, description, input schema (Standard
 | Service contract | Do the work: transport, actions, matchers, storage, confirmation | Yes |
 | Awaitable host API | Use H4B like a function | Yes |
 
-All accept sync or async functions. Interception points: `signal.before`, `request.before`, `action.before`, `stimulus.before`.
+All accept sync or async functions. Interception points: `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` (what is saved; see [Consent](./consent.md)).
 
 ```ts
 const { status, messages } = await h4b.ask('show late orders')   // awaits the turn

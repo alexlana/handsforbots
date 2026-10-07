@@ -15,12 +15,20 @@ export type PluginDefinition<C> = {
   inject?: (keyof Services)[]
   /** Validates and normalizes the config given to the factory. */
   config?: StandardSchemaV1<unknown, C>
+  /**
+   * Consent purpose this plugin needs by default (e.g. `persistence` for
+   * storages). With `createH4B({ consent })`, it is mounted only while the
+   * purpose is granted. Hosts override it with `withConsent()`.
+   */
+  consent?: string
   apply(ctx: PluginContext, config: C): void | Promise<void>
 }
 
 export type Plugin<C = unknown> = {
   readonly definition: PluginDefinition<C>
   readonly config: unknown
+  /** Overrides `definition.consent`; false = never gated. */
+  readonly requires?: string | false
 }
 
 export type PluginFactory<C> = undefined extends C
@@ -37,6 +45,23 @@ export function definePlugin<C = undefined>(definition: PluginDefinition<C>): Pl
   return ((config?: C) => ({ definition, config })) as PluginFactory<C>
 }
 
+/**
+ * Mounts `plugin` only while `purpose` is granted (see `createH4B({ consent })`),
+ * or never gates it with `false`:
+ *
+ *   withConsent(observability({ … }), 'analytics')
+ *   withConsent(storageLocal(), false) // e.g. a storage your legal basis doesn't tie to consent
+ */
+export function withConsent<C>(plugin: Plugin<C>, purpose: string | false): Plugin<C> {
+  return { ...plugin, requires: purpose }
+}
+
+/** The consent purpose that gates `plugin`, if any. */
+export function purposeOf(plugin: Plugin<any>): string | undefined {
+  const purpose = plugin.requires ?? plugin.definition.consent
+  return purpose || undefined
+}
+
 type Disposer = () => void | Promise<void>
 
 /**
@@ -45,6 +70,7 @@ type Disposer = () => void | Promise<void>
  */
 export class PluginContext {
   private disposers: Disposer[] = []
+  private revokers: Disposer[] = []
   private disposed = false
 
   constructor(
@@ -106,6 +132,21 @@ export class PluginContext {
   /** Registers an arbitrary cleanup. */
   onDispose(disposer: Disposer): void {
     this.track(disposer)
+  }
+
+  /**
+   * Runs after the plugin was unmounted because the consent it requires was
+   * withdrawn (and the rules erase on revoke): delete what it kept, besides
+   * the `storage` service it provided, which the kernel already clears.
+   * Never runs on `stop()` or a plain unmount.
+   */
+  onRevoke(handler: Disposer): void {
+    this.revokers.push(handler)
+  }
+
+  /** @internal */
+  get revokeHandlers(): Disposer[] {
+    return [...this.revokers]
   }
 
   get isDisposed(): boolean {

@@ -1,9 +1,11 @@
+import type { ConsentSnapshot } from './consent.js'
 import type {
   Confirmer,
   Message,
   Origin,
   RetentionControl,
   Route,
+  SessionSnapshot,
   Signal,
   Stimulus,
   Storage,
@@ -60,6 +62,12 @@ export interface Hooks {
   'action.before': ActionInvocation
   /** Before a stimulus reaches history and sinks. */
   'stimulus.before': Stimulus
+  /**
+   * Before the conversation is saved by the storage service (e.g. anonymize
+   * what is kept). Return a new snapshot, never mutate the one received: it
+   * shares objects with the conversation on screen. `null` skips this save.
+   */
+  'storage.before': SessionSnapshot
 }
 
 export type Interceptor<T> = (value: T) => T | null | undefined | void | Promise<T | null | undefined | void>
@@ -77,5 +85,7 @@ export interface Events {
   'service.removed': { key: keyof Services; by: string }
   'plugin.mounted': { name: string }
   'plugin.disposed': { name: string }
+  /** Consent decisions, region or rule set changed. */
+  'consent.changed': ConsentSnapshot
   error: { error: unknown; source: string }
 }

@@ -52,7 +52,7 @@ Uma ação é uma capacidade da sua interface: nome, descrição, schema de entr
 | Contrato de serviço | Fazer o trabalho: transporte, ações, matchers, storage, confirmação | Sim |
 | API aguardável do host | Usar o H4B como uma função | Sim |
 
-Todos aceitam funções síncronas ou assíncronas. Pontos de interceptação: `signal.before`, `request.before`, `action.before`, `stimulus.before`.
+Todos aceitam funções síncronas ou assíncronas. Pontos de interceptação: `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` (o que é salvo; veja [Consentimento](./consent.md)).
 
 ```ts
 const { status, messages } = await h4b.ask('mostrar pedidos atrasados') // aguarda o turno

@@ -168,9 +168,11 @@ Sem o `tab-sync`, as abas ainda compartilham o mesmo storage do navegador: cada 
 | Linhas do tempo longas de decisões | Aumente `keep` (ou `'all'`) e mantenha o backend como fonte da verdade |
 | Menos tokens por turno | Diminua `send`; `compact: httpSummarizer(...)` para resumos melhores |
 | Agente com memória própria | `memory: { send: 'none' }` |
+| Guardar só com consentimento | `createH4B({ consent })`: os storages esperam `persistence`; veja [Consentimento](./consent.md) |
+| Anonimizar o que é guardado | `redact()` do `@handsforbots/consent`, no `storage.before` |
 
 ## Notas de segurança
 
 - A criptografia aqui **limita o tempo** em que a conversa fica legível no navegador. Ela **não** protege contra XSS: um script injetado na página consegue ler o cookie da chave, chamar o `backendKey` com a sessão do usuário e ler `h4b.messages` em memória. Uma revisão de XSS de ponta a ponta, incluindo esta arquitetura de chave, é item P0 do [ROADMAP](../../ROADMAP.md).
-- Não coloque segredos em argumentos ou resultados de ações: eles são histórico, enviados ao backend e guardados. Oculte dados pessoais com um interceptador `request.before`.
-- Veja também [Segurança](./security.md) e as decisões nos [ADR 0008](../adr/0008-persistencia-e-abas.md) e [ADR 0009](../adr/0009-memoria.md).
+- Não coloque segredos em argumentos ou resultados de ações: eles são histórico, enviados ao backend e guardados. Oculte dados pessoais com um interceptador `request.before` (o que é enviado) ou `storage.before` (o que é guardado).
+- Veja também [Segurança](./security.md) [Consentimento](./consent.md) e as decisões nos [ADR 0008](../adr/0008-persistencia-e-abas.md), [ADR 0009](../adr/0009-memoria.md) e [ADR 0010](../adr/0010-consentimento.md).

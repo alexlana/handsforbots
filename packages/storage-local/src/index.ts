@@ -18,6 +18,8 @@ export type KeySource = {
   gone?(): boolean
   /** Lifetime after the last use, when known. 0 = until the browser closes. */
   ttlMinutes?: number
+  /** Drops the key for good (consent withdrawn). */
+  forget?(): void | Promise<void>
 }
 
 export type LocalStorageOptions = {
@@ -43,6 +45,8 @@ export type LocalStorage = Storage & {
   setRetention(retention: Retention): void
   /** Deletes data whose TTL passed or whose key is gone. Runs on load and every minute in the plugin. */
   sweep(): void
+  /** Deletes everything this storage keeps in the browser: the conversation under every retention, the retention preference and the key. */
+  forget(): Promise<void>
 }
 
 type Plain = { version: 1; savedAt: number; snapshot: SessionSnapshot }
@@ -51,6 +55,7 @@ type Sealed = { version: 2; savedAt: number; iv: string; data: string }
 export const storageLocal = definePlugin<LocalStorageOptions | undefined>({
   name: 'storage-local',
   provides: ['storage', 'retention'],
+  consent: 'persistence',
   apply(ctx, options = {}) {
     const keySource = options.keySource ?? cookieKey()
     const storage = createLocalStorage({ ...options, keySource })
@@ -69,7 +74,7 @@ export const storageLocal = definePlugin<LocalStorageOptions | undefined>({
           throw new Error(`[h4b] storage-local: retention ${JSON.stringify(retention)} is not one of the choices`)
         }
         storage.setRetention(retention)
-        await storage.save(ctx.app.conversation.snapshot())
+        await ctx.app.persist()
         listeners.forEach((l) => l())
       },
       subscribe(listener) {
@@ -87,6 +92,7 @@ export const storageLocal = definePlugin<LocalStorageOptions | undefined>({
       }
     }, 60_000)
     ctx.onDispose(() => clearInterval(timer))
+    ctx.onRevoke(() => storage.forget())
   },
 })
 
@@ -203,6 +209,15 @@ export function createLocalStorage(options: LocalStorageOptions = {}): LocalStor
     clear() {
       for (const r of ['key', 'tab'] as const) area(r)?.removeItem(key)
     },
+    async forget() {
+      for (const r of ['key', 'tab'] as const) area(r)?.removeItem(key)
+      try {
+        localStorage.removeItem(prefKey)
+      } catch {
+        /* blocked storage: nothing was kept */
+      }
+      if (encrypt) await keys.forget?.()
+    },
   }
 }
 
@@ -255,6 +270,17 @@ export function cookieKey(options: CookieKeyOptions = {}): KeySource {
   return {
     ttlMinutes,
     gone: () => typeof document !== 'undefined' && !readCookie(name),
+    forget() {
+      if (typeof document === 'undefined') return
+      document.cookie = [
+        `${name}=`,
+        `Path=${options.path ?? '/'}`,
+        options.domain ? `Domain=${options.domain}` : '',
+        'Max-Age=0',
+      ]
+        .filter(Boolean)
+        .join('; ')
+    },
     async get(create) {
       if (typeof document === 'undefined') return null
       let raw = readCookie(name)
@@ -282,21 +308,28 @@ export type BackendKeyOptions = {
 /**
  * The key lives on your server, which decides when it expires. Protocol:
  * `GET url` → 200 `{ "key": "<base64url, 32 bytes>" }` (and renews it) or 404;
- * `POST url` → 200 with the existing key or a new one. The key is fetched on
- * every load and save and kept only in memory.
+ * `POST url` → 200 with the existing key or a new one; `DELETE url` (when
+ * consent is withdrawn) drops it, and any answer is accepted. The key is
+ * fetched on every load and save and kept only in memory.
  */
 export function backendKey(options: BackendKeyOptions): KeySource {
   const importer = keyImporter()
+  const call = async (method: 'GET' | 'POST' | 'DELETE') => {
+    const doFetch = options.fetch ?? globalThis.fetch
+    const headers = typeof options.headers === 'function' ? await options.headers() : options.headers
+    return doFetch(options.url, {
+      method,
+      headers: { accept: 'application/json', ...headers },
+      credentials: options.credentials ?? 'same-origin',
+    })
+  }
   return {
     ttlMinutes: options.ttlMinutes,
+    async forget() {
+      await call('DELETE')
+    },
     async get(create) {
-      const doFetch = options.fetch ?? globalThis.fetch
-      const headers = typeof options.headers === 'function' ? await options.headers() : options.headers
-      const response = await doFetch(options.url, {
-        method: create ? 'POST' : 'GET',
-        headers: { accept: 'application/json', ...headers },
-        credentials: options.credentials ?? 'same-origin',
-      })
+      const response = await call(create ? 'POST' : 'GET')
       if (response.status === 404) return null
       if (!response.ok) throw new Error(`[h4b] backendKey: ${response.status} from ${options.url}`)
       const { key } = (await response.json()) as { key?: string }

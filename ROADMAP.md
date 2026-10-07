@@ -400,6 +400,8 @@ Aprendizados que ajustaram o plano:
 
 Entregue depois (2026-10-06, [ADR 0008](./docs/adr/0008-persistencia-e-abas.md)): `storage-local` criptografado por padrão, com a chave num cookie que expira (`cookieKey`) ou no backend (`backendKey`), e varredura que apaga dados sem chave ou vencidos; pacote `storage-backend`; serviço `retention` com escolhas do desenvolvedor e de quem usa o site (painel de privacidade no `widget`); `tab-sync` com os modos `sync`, `notify` e `off`. Em seguida ([ADR 0009](./docs/adr/0009-memoria.md)): pacote `memory`, montado por padrão, com janela de envio e retenção medidas em turnos (20 e 100) e compactação dos turnos antigos num resumo (local ou via backend); `turnId` em cada mensagem; os transportes deixaram de cortar o histórico por conta própria.
 
+Em 2026-10-07 ([ADR 0010](./docs/adr/0010-consentimento.md)): consentimento por finalidade no core (`createH4B({ consent })`, `h4b.consent`, `withConsent`, `ctx.onRevoke`), com plugins montados só enquanto a finalidade está concedida e o storage apagado ao revogar, sem tocar na conversa em memória; regras declarativas (JSON/YAML) escolhidas pela região do acesso; decisões levadas às outras abas; hook `storage.before` e `h4b.persist()`; `X-H4B-Consent` no `storage-backend`; pacote `consent` com presets (LGPD, GDPR, CCPA, opt-in), carregador de regras, região e anonimização (`redact`); consentimento no painel 🔒 do widget. Isso cobre o "consentimento explícito" de armazenamento; o consentimento por modalidade de captura (seção 2.8) continua em aberto, mas já pode usar `withConsent`.
+
 ### Prioritário: revisão de XSS
 
 Antes da 1.0, revisar o H4B contra XSS, de ponta a ponta. A cripto do `storage-local` só limita o tempo em que a conversa fica legível; um script injetado na página lê o cookie da chave (não pode ser `HttpOnly`, o JavaScript precisa dela), chama o `backendKey` com as credenciais da sessão e lê `h4b.messages` em memória. Pontos a revisar:
@@ -561,6 +563,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-10-07 | Consentimento por finalidade com regras declarativas por região, apagando o storage ao revogar; pacote `consent` com presets e anonimização (ADR 0010); guia de consentimento; skill `handsforbots-consent` |
 | 2026-10-07 | Política de memória: pacote `memory` montado por padrão, turnos enviados/guardados, compactação (ADR 0009); guia de persistência, memória e privacidade; skill `handsforbots-persistence` |
 | 2026-10-06 | Persistência com chave que expira, `storage-backend`, retenção escolhível, modos do `tab-sync` (ADR 0008); revisão de XSS como prioridade P0 |
 | 2026-07-02 | Documento inicial — roadmap 3–6 meses (runtime headless) |

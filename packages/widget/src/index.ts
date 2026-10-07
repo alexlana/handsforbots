@@ -1,4 +1,5 @@
 import {
+  consentText,
   definePlugin,
   sameRetention,
   textOf,
@@ -93,7 +94,11 @@ export type WidgetOptions = {
   /** Components for rich content, by name (merged with the built-in `gallery`). */
   renderers?: Record<string, Renderer>
   autofocus?: boolean
-  /** Let users see where the conversation is kept, pick a retention (when the storage offers choices) and delete it. Default true. */
+  /**
+   * Let users see where the conversation is kept, pick a retention (when the
+   * storage offers choices), see or change consent (when `createH4B` has
+   * `consent`) and delete it. Default true.
+   */
   showPrivacy?: boolean
 }
 
@@ -127,6 +132,7 @@ export class H4BChatElement extends BaseElement {
   private h4b?: H4B
   private options: WidgetOptions = {}
   private strings: Strings = stringsFor('en')
+  private language = 'en'
   private root!: ShadowRoot
   private els!: {
     launcher: HTMLButtonElement
@@ -162,7 +168,8 @@ export class H4BChatElement extends BaseElement {
     this.disconnect()
     this.h4b = h4b
     this.options = options
-    this.strings = stringsFor(options.language ?? document.documentElement.lang, options.strings)
+    this.language = options.language ?? (document.documentElement.lang || 'en')
+    this.strings = stringsFor(this.language, options.strings)
     this.build()
     this.cleanups.push(h4b.subscribe(() => this.render()))
     // Voice may be installed after the widget (plugin order) or removed at runtime.
@@ -189,6 +196,7 @@ export class H4BChatElement extends BaseElement {
     this.cleanups.push(
       () => unsubscribeVoice?.(),
       () => unsubscribeRetention?.(),
+      h4b.consent.subscribe(() => this.renderPrivacy()),
       h4b.on('service.provided', onService as never),
       h4b.on('service.removed', onService as never),
     )
@@ -715,14 +723,24 @@ export class H4BChatElement extends BaseElement {
   private renderPrivacy() {
     const { privacyButton, privacy } = this.els
     const retention = this.h4b?.get('retention')
-    privacyButton.hidden = !retention || this.options.showPrivacy === false
+    const consent = this.h4b?.consent
+    privacyButton.hidden = (!retention && !consent?.enabled) || this.options.showPrivacy === false
     if (privacyButton.hidden) {
       privacy.hidden = true
       return
     }
     const s = this.strings
+    privacy.replaceChildren()
+    if (!retention) {
+      const text = document.createElement('p')
+      text.textContent = s.storedNowhere
+      privacy.append(text)
+      this.renderConsent(privacy)
+      this.renderDelete(privacy)
+      return
+    }
     const where =
-      retention!.location === 'server' ? s.storedOnServer : retention!.encrypted ? s.storedEncrypted : s.storedInBrowser
+      retention.location === 'server' ? s.storedOnServer : retention.encrypted ? s.storedEncrypted : s.storedInBrowser
     const label = (r: Retention) => {
       if (r === 'key') {
         const minutes = retention!.keyTtlMinutes
@@ -732,7 +750,6 @@ export class H4BChatElement extends BaseElement {
       if (r === 'tab') return s.retentionTab
       return s.retentionTtl.replace('{minutes}', String(r.ttlMinutes))
     }
-    privacy.replaceChildren()
     const text = document.createElement('p')
     text.textContent = where
     privacy.append(text)
@@ -756,10 +773,59 @@ export class H4BChatElement extends BaseElement {
         privacy.append(option)
       }
     }
+    this.renderConsent(privacy)
+    this.renderDelete(privacy)
+  }
+
+  /** One line per purpose: a checkbox, or its state and a button to your consent tool when `consent.manage` is set. */
+  private renderConsent(privacy: HTMLElement) {
+    const consent = this.h4b?.consent
+    if (!consent?.enabled) return
+    const s = this.strings
+    const group = document.createElement('div')
+    group.className = 'consent'
+    group.setAttribute('part', 'consent')
+    for (const purpose of consent.purposes) {
+      const rule = consent.rules?.purposes[purpose]
+      const name = consentText(rule?.label, this.language) ?? purpose
+      const description = consentText(rule?.description, this.language)
+      const state = consent.state(purpose)
+      if (consent.manage) {
+        const line = document.createElement('p')
+        line.dataset.purpose = purpose
+        line.textContent = `${name}: ${state === 'granted' ? s.consentGranted : state === 'denied' ? s.consentDenied : s.consentPending}`
+        if (description) line.title = description
+        group.append(line)
+        continue
+      }
+      const option = document.createElement('label')
+      const box = document.createElement('input')
+      box.type = 'checkbox'
+      box.name = `h4b-consent-${purpose}`
+      box.checked = state === 'granted'
+      box.addEventListener('change', () => {
+        consent.set({ [purpose]: box.checked }).catch((error) => this.h4b?.emit('error', { error, source: 'widget' }))
+      })
+      option.append(box, ` ${name}`)
+      if (description) option.title = description
+      group.append(option)
+    }
+    if (consent.manage) {
+      const manage = document.createElement('button')
+      manage.type = 'button'
+      manage.className = 'manage-consent'
+      manage.textContent = s.manageConsent
+      manage.addEventListener('click', () => consent.manage?.())
+      group.append(manage)
+    }
+    if (group.childElementCount > 0) privacy.append(group)
+  }
+
+  private renderDelete(privacy: HTMLElement) {
     const remove = document.createElement('button')
     remove.type = 'button'
     remove.className = 'delete'
-    remove.textContent = s.deleteConversation
+    remove.textContent = this.strings.deleteConversation
     remove.addEventListener('click', () => void this.h4b?.reset())
     privacy.append(remove)
   }

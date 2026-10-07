@@ -1,0 +1,42 @@
+{
+  "id": "ccpa",
+  "label": "CCPA (California)",
+  "regions": [
+    "US-CA"
+  ],
+  "purposes": {
+    "persistence": {
+      "default": "granted",
+      "label": {
+        "en": "Keep this conversation",
+        "pt-BR": "Guardar esta conversa"
+      },
+      "description": {
+        "en": "Keep the conversation so it survives reloads and later visits.",
+        "pt-BR": "Guardar a conversa para que ela continue depois de recarregar a página ou voltar ao site."
+      }
+    },
+    "review": {
+      "default": "granted",
+      "label": {
+        "en": "Human review",
+        "pt-BR": "Revisão por pessoas"
+      },
+      "description": {
+        "en": "Keep the conversation, with contacts and documents anonymized, so our team can review it to improve the service.",
+        "pt-BR": "Guardar a conversa, com contatos e documentos anonimizados, para que a nossa equipe a revise e melhore o atendimento."
+      }
+    },
+    "analytics": {
+      "default": "granted",
+      "label": {
+        "en": "Usage metrics",
+        "pt-BR": "Métricas de uso"
+      },
+      "description": {
+        "en": "Measure how the assistant is used.",
+        "pt-BR": "Medir como o assistente é usado."
+      }
+    }
+  }
+}

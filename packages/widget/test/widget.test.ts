@@ -92,6 +92,51 @@ describe('<h4b-chat>', () => {
     expect(reset).toHaveBeenCalled()
   })
 
+  it('shows consent per purpose: toggles, or the state and a button to the consent tool', async () => {
+    const rules = {
+      id: 'r',
+      purposes: {
+        persistence: { default: 'pending' as const, label: { en: 'Keep this conversation', 'pt-BR': 'Guardar' } },
+        review: { default: 'pending' as const, label: 'Human review' },
+      },
+    }
+    const open = async (manage?: () => void) => {
+      document.body.innerHTML = ''
+      const h4b = createH4B({
+        consent: { rules, channel: false, ...(manage ? { manage } : {}) },
+        plugins: [widget({ pace: 0, startOpen: true, language: 'en' })],
+      })
+      await h4b.start()
+      const root = (document.querySelector('h4b-chat') as H4BChatElement).shadowRoot!
+      return { h4b, root }
+    }
+    const { h4b, root } = await open()
+    const toggle = root.querySelector('.privacy-toggle') as HTMLButtonElement
+    expect(toggle.hidden).toBe(false) // consent on, even without a storage
+    toggle.click()
+    expect(root.querySelector('.privacy')!.textContent).toContain('kept only on this page')
+    const boxes = [...root.querySelectorAll('.consent input')] as HTMLInputElement[]
+    expect([...root.querySelectorAll('.consent label')].map((l) => l.textContent!.trim())).toEqual([
+      'Keep this conversation',
+      'Human review',
+    ])
+    boxes[0]!.checked = true
+    boxes[0]!.dispatchEvent(new Event('change'))
+    await h4b.consent.ready()
+    expect(h4b.consent.state('persistence')).toBe('granted')
+    expect((root.querySelector('.consent input') as HTMLInputElement).checked).toBe(true)
+
+    const manage = vi.fn()
+    const managed = await open(manage)
+    await managed.h4b.consent.set({ review: 'denied' })
+    expect([...managed.root.querySelectorAll('.consent p')].map((p) => p.textContent)).toEqual([
+      'Keep this conversation: not answered',
+      'Human review: not allowed',
+    ])
+    ;(managed.root.querySelector('.manage-consent') as HTMLButtonElement).click()
+    expect(manage).toHaveBeenCalled()
+  })
+
   it('renders the conversation with markdown for the bot and plain text for the user', async () => {
     const { h4b, $, $$ } = await mount(
       { startOpen: true, botName: 'Hex' },

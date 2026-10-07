@@ -46,11 +46,12 @@ export const weather = definePlugin<WeatherOptions>({
 | `provide(key, service)` / `get(key)` / `require(key)` | Services by stable key |
 | `registerAction(definition)` | Actions (removed on dispose) |
 | `on(event, listener)` / `emit(event, payload)` | Notifications |
-| `intercept(hook, fn, priority?)` | `signal.before`, `request.before`, `action.before`, `stimulus.before` |
+| `intercept(hook, fn, priority?)` | `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` |
 | `addMatcher(matcher)` | Direct-command recognition (see `menu`) |
 | `capture(handler, { accepts })` | Take some trigger signals for yourself (see `guided`) |
 | `signal(input)` | Send input (source defaults to the plugin name) |
 | `effect(setup)` / `onDispose(fn)` | Resources with cleanup |
+| `onRevoke(fn)` | Runs after the plugin was unmounted because its consent purpose was withdrawn: delete what it kept. Declare the purpose with `definePlugin({ consent: 'persistence', … })` (see [Consent](./consent.md)) |
 | `app` | The H4B instance (`ask`, `runAction`, `push`, `messages`…) |
 
 ## Typed services and events

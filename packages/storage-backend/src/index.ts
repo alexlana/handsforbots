@@ -26,19 +26,30 @@ export type BackendStorageOptions = {
   fetch?: typeof fetch
   /** Browser key that holds the conversation id. Default 'h4b:conversation-id'. */
   idKey?: string
+  /**
+   * Granted consent purposes, sent in `X-H4B-Consent` (comma-separated) so the
+   * server knows what it may do with the conversation (e.g. `review`). The
+   * plugin fills it from `h4b.consent` when consent is on.
+   */
+  consentPurposes?: () => string[] | undefined
 }
 
 export type BackendStorage = Storage & {
   readonly retention: BackendRetention
   /** Remembers a retention for this browser and deletes what the server held under the previous one. Save again to keep it. */
   setRetention(retention: BackendRetention): Promise<void>
+  /** Forgets the conversation ids and the retention preference kept in this browser (call `clear()` first to delete it on the server). */
+  forget(): void
 }
 
 export const storageBackend = definePlugin<BackendStorageOptions>({
   name: 'storage-backend',
   provides: ['storage', 'retention'],
+  consent: 'persistence',
   apply(ctx, options) {
-    const storage = createBackendStorage(options)
+    const consent = ctx.app.consent
+    const granted = () => (consent.enabled ? consent.purposes.filter((p) => consent.granted(p)) : undefined)
+    const storage = createBackendStorage({ consentPurposes: granted, ...options })
     const choices = choicesOf(options)
     const listeners = new Set<() => void>()
     const control: RetentionControl = {
@@ -53,7 +64,7 @@ export const storageBackend = definePlugin<BackendStorageOptions>({
           throw new Error(`[h4b] storage-backend: retention ${JSON.stringify(retention)} is not one of the choices`)
         }
         await storage.setRetention(retention)
-        await storage.save(ctx.app.conversation.snapshot())
+        await ctx.app.persist()
         listeners.forEach((l) => l())
       },
       subscribe(listener) {
@@ -63,6 +74,15 @@ export const storageBackend = definePlugin<BackendStorageOptions>({
     }
     ctx.provide('storage', storage)
     ctx.provide('retention', control)
+    // Tell the server at once when what it may do with the conversation changes (e.g. `review`).
+    let sent = granted()?.join(',')
+    ctx.on('consent.changed', () => {
+      const now = granted()?.join(',')
+      if (now === sent) return
+      sent = now
+      if (ctx.app.messages.length > 0) void ctx.app.persist()
+    })
+    ctx.onRevoke(() => storage.forget())
   },
 })
 
@@ -88,6 +108,7 @@ export function createBackendStorage(options: BackendStorageOptions): BackendSto
   }
 
   let memoryId: string | undefined // when browser storage is blocked
+  const existingId = (r: BackendRetention) => area(r)?.getItem(idKey) ?? memoryId
   const idFor = (r: BackendRetention): string => {
     const store = area(r)
     const existing = store?.getItem(idKey) ?? memoryId
@@ -114,6 +135,7 @@ export function createBackendStorage(options: BackendStorageOptions): BackendSto
   const request = async (method: 'GET' | 'PUT' | 'DELETE', r: BackendRetention, body?: SessionSnapshot) => {
     const doFetch = options.fetch ?? globalThis.fetch
     const headers = typeof options.headers === 'function' ? await options.headers() : options.headers
+    const purposes = options.consentPurposes?.()
     const response = await doFetch(options.url, {
       method,
       headers: {
@@ -121,6 +143,7 @@ export function createBackendStorage(options: BackendStorageOptions): BackendSto
         ...(body ? { 'content-type': 'application/json' } : {}),
         'x-h4b-conversation': idFor(r),
         'x-h4b-retention': typeof r === 'object' ? String(r.ttlMinutes) : r,
+        ...(purposes ? { 'x-h4b-consent': purposes.join(',') } : {}),
         ...headers,
       },
       credentials: options.credentials ?? 'same-origin',
@@ -143,7 +166,7 @@ export function createBackendStorage(options: BackendStorageOptions): BackendSto
         /* not remembered across reloads */
       }
       if (sameRetention(before, next)) return
-      await request('DELETE', before)
+      if (existingId(before)) await request('DELETE', before)
       area(before)?.removeItem(idKey)
     },
     async load() {
@@ -154,7 +177,16 @@ export function createBackendStorage(options: BackendStorageOptions): BackendSto
       await request('PUT', retention(), storableSnapshot(snapshot))
     },
     async clear() {
-      await request('DELETE', retention())
+      if (existingId(retention())) await request('DELETE', retention()) // never mint an id just to delete
+    },
+    forget() {
+      for (const r of ['server', 'tab'] as const) area(r)?.removeItem(idKey)
+      memoryId = undefined
+      try {
+        localStorage.removeItem(prefKey)
+      } catch {
+        /* blocked storage: nothing was kept */
+      }
     },
   }
 }

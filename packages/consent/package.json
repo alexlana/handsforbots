@@ -1,0 +1,38 @@
+{
+  "name": "@handsforbots/consent",
+  "version": "2.0.0-alpha.0",
+  "description": "Consent rule sets (LGPD, GDPR, CCPA starting points), loaders for JSON/YAML rules, region helpers and anonymization for Hands for Bots.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./rules/*": "./rules/*"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      },
+      "./rules/*": "./rules/*"
+    }
+  },
+  "files": [
+    "dist",
+    "rules"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/storage-local": "workspace:^",
+    "@handsforbots/testkit": "workspace:^",
+    "jsdom": "^27.0.0"
+  }
+}

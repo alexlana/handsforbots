@@ -36,6 +36,11 @@ export type Strings = {
   retentionTtl: string
   retentionTab: string
   deleteConversation: string
+  storedNowhere: string
+  consentGranted: string
+  consentDenied: string
+  consentPending: string
+  manageConsent: string
 }
 
 const pt: Strings = {
@@ -74,6 +79,11 @@ const pt: Strings = {
   retentionTtl: 'Apagar após {minutes} min sem uso',
   retentionTab: 'Apagar ao fechar esta aba',
   deleteConversation: 'Apagar a conversa agora',
+  storedNowhere: 'A conversa fica só nesta página e some quando ela for fechada.',
+  consentGranted: 'permitido',
+  consentDenied: 'não permitido',
+  consentPending: 'sem resposta',
+  manageConsent: 'Preferências de privacidade',
 }
 
 export const STRINGS: Record<string, Strings> = {
@@ -113,6 +123,11 @@ export const STRINGS: Record<string, Strings> = {
     retentionTtl: 'Delete after {minutes} min without use',
     retentionTab: 'Delete when this tab closes',
     deleteConversation: 'Delete the conversation now',
+    storedNowhere: 'The conversation is kept only on this page and is gone when it closes.',
+    consentGranted: 'allowed',
+    consentDenied: 'not allowed',
+    consentPending: 'not answered',
+    manageConsent: 'Privacy preferences',
   },
   pt,
   'pt-br': pt,

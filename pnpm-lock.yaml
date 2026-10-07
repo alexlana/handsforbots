@@ -100,6 +100,21 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
 
+  packages/consent:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      '@handsforbots/storage-local':
+        specifier: workspace:^
+        version: link:../storage-local
+      '@handsforbots/testkit':
+        specifier: workspace:^
+        version: link:../testkit
+      jsdom:
+        specifier: ^27.0.0
+        version: 27.4.0
+
   packages/copilotkit:
     dependencies:
       '@handsforbots/transport-agui':

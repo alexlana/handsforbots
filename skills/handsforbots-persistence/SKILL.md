@@ -16,6 +16,8 @@ Three independent decisions, plus tabs. Settle each one explicitly; the defaults
 
 Full guide: `docs/en-us/persistence.md` (`docs/pt-br/persistence.md`) in https://github.com/alexlana/handsforbots. Decisions: ADR 0008 and 0009.
 
+**Consent:** with `createH4B({ consent })`, both storages require the purpose `persistence`: they mount only while it is granted and erase everything they kept when it is withdrawn (the conversation on screen stays). See the `handsforbots-consent` skill.
+
 ## Memory
 
 ```ts
@@ -45,7 +47,7 @@ storageLocal({ retention: 'key', userChoices: ['tab', { ttlMinutes: 5 }] })
 ```
 
 - The point of the encryption is a **guaranteed deadline**: when the key is gone (cookie expired, server dropped it), the data is unreadable and is deleted on the next load or by the 1-minute sweep.
-- `backendKey` endpoint: `GET` → `200 { key }` (renew) or `404`; `POST` → `200 { key }` (existing or new). 32 random bytes, base64url. Identify the user by the server's own session cookie.
+- `backendKey` endpoint: `GET` → `200 { key }` (renew) or `404`; `POST` → `200 { key }` (existing or new); `DELETE` (consent withdrawn) drops it. 32 random bytes, base64url. Identify the user by the server's own session cookie.
 - No Web Crypto or no cookies → nothing is saved; `save()` reports `error` source `storage`. Don't silently switch to `encrypt: false` for real users.
 - Blobs become `omitted_media` placeholders.
 - **Not an XSS defense**: scripts on the page can read the key and `h4b.messages`.
@@ -56,7 +58,7 @@ storageLocal({ retention: 'key', userChoices: ['tab', { ttlMinutes: 5 }] })
 storageBackend({ url: '/api/h4b/conversation', retention: 'server', userChoices: [{ ttlMinutes: 30 }, 'tab'] })
 ```
 
-Endpoint contract (implement all three): `GET` → `200` snapshot JSON, or `204`/`404`; `PUT` body = snapshot; `DELETE` clears. Headers: `X-H4B-Conversation` (random id from localStorage, or sessionStorage for `'tab'`), `X-H4B-Retention` (`server` | `tab` | minutes). The server must enforce the TTL and, for signed-in users, bind the id to their session (the id alone grants access). Requests use `credentials: 'same-origin'` by default.
+Endpoint contract (implement all three; with consent on, requests also carry `X-H4B-Consent` with the granted purposes): `GET` → `200` snapshot JSON, or `204`/`404`; `PUT` body = snapshot; `DELETE` clears. Headers: `X-H4B-Conversation` (random id from localStorage, or sessionStorage for `'tab'`), `X-H4B-Retention` (`server` | `tab` | minutes). The server must enforce the TTL and, for signed-in users, bind the id to their session (the id alone grants access). Requests use `credentials: 'same-origin'` by default.
 
 ## Retention and end users
 

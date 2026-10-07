@@ -46,11 +46,12 @@ export const weather = definePlugin<WeatherOptions>({
 | `provide(key, serviço)` / `get(key)` / `require(key)` | Serviços por chave estável |
 | `registerAction(definição)` | Ações (removidas no descarte) |
 | `on(evento, listener)` / `emit(evento, payload)` | Notificações |
-| `intercept(hook, fn, prioridade?)` | `signal.before`, `request.before`, `action.before`, `stimulus.before` |
+| `intercept(hook, fn, prioridade?)` | `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` |
 | `addMatcher(matcher)` | Reconhecimento de comandos diretos (veja `menu`) |
 | `capture(handler, { accepts })` | Pegar alguns sinais para si (veja `guided`) |
 | `signal(entrada)` | Enviar entrada (a origem é o nome do plugin) |
 | `effect(setup)` / `onDispose(fn)` | Recursos com limpeza |
+| `onRevoke(fn)` | Roda depois de o plugin ser desmontado porque a finalidade de consentimento dele foi retirada: apague o que ele guardou. Declare a finalidade com `definePlugin({ consent: 'persistence', … })` (veja [Consentimento](./consent.md)) |
 | `app` | A instância do H4B (`ask`, `runAction`, `push`, `messages`…) |
 
 ## Serviços e eventos tipados

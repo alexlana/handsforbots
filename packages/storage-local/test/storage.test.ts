@@ -170,3 +170,46 @@ describe('storage-local', () => {
     expect(h4b.messages).toEqual([])
   })
 })
+
+describe('storage-local with consent', () => {
+  it('writes nothing before consent and erases conversation, key and preference on revoke', async () => {
+    const h4b = createH4B({
+      consent: { channel: false },
+      plugins: [storageLocal({ userChoices: ['tab'] })],
+    })
+    h4b.provide('transport', echo)
+    await h4b.start()
+    await say(h4b, 'antes')
+    expect(localStorage.length).toBe(0)
+    expect(document.cookie).not.toMatch(/h4b-key=/)
+    await h4b.consent.set({ persistence: true })
+    await h4b.persist()
+    expect(localStorage.getItem('h4b:conversation')).not.toBeNull()
+    expect(document.cookie).toMatch(/h4b-key=/)
+    await h4b.get('retention')!.set('tab')
+    expect(localStorage.getItem('h4b:conversation:retention')).toBe('"tab"')
+    await h4b.consent.set({ persistence: false })
+    expect(localStorage.length).toBe(0)
+    expect(sessionStorage.length).toBe(0)
+    expect(document.cookie).not.toMatch(/h4b-key=/)
+    expect(h4b.messages).toHaveLength(2)
+  })
+
+  it('asks the key server to drop the key on revoke', async () => {
+    const methods: string[] = []
+    const fetch = vi.fn(async (_url: unknown, init: RequestInit = {}) => {
+      methods.push(init.method ?? 'GET')
+      if (init.method === 'DELETE') return new Response(null, { status: 204 })
+      return Response.json({ key: 'A'.repeat(43) })
+    }) as unknown as typeof globalThis.fetch
+    const h4b = createH4B({
+      consent: { channel: false, initial: { persistence: true } },
+      plugins: [storageLocal({ keySource: backendKey({ url: '/key', fetch }) })],
+    })
+    h4b.provide('transport', echo)
+    await h4b.start()
+    await say(h4b, 'oi')
+    await h4b.consent.set({ persistence: 'denied' })
+    expect(methods.at(-1)).toBe('DELETE')
+  })
+})

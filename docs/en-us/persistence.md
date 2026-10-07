@@ -168,9 +168,11 @@ Without `tab-sync`, tabs still share the same browser storage: each one loads it
 | Long decision timelines | Raise `keep` (or `'all'`), keep the backend as the source of truth |
 | Fewer tokens per turn | Lower `send`, `compact: httpSummarizer(...)` for better summaries |
 | Agent with its own memory | `memory: { send: 'none' }` |
+| Store only with consent | `createH4B({ consent })`: storages wait for `persistence`; see [Consent](./consent.md) |
+| Anonymize what is stored | `redact()` from `@handsforbots/consent`, on `storage.before` |
 
 ## Security notes
 
 - Encryption here **limits how long** the conversation stays readable in the browser. It does **not** protect against XSS: a script injected in the page can read the key cookie, call `backendKey` with the user's session and read `h4b.messages` in memory. An end-to-end XSS review, including this key architecture, is a P0 item in the [ROADMAP](../../ROADMAP.md).
-- Don't put secrets in actions' arguments or results: they are history, sent to the backend and stored. Redact personal data with a `request.before` interceptor.
-- See also [Security](./security.md) and the decisions in [ADR 0008](../adr/0008-persistencia-e-abas.md) and [ADR 0009](../adr/0009-memoria.md).
+- Don't put secrets in actions' arguments or results: they are history, sent to the backend and stored. Redact personal data with a `request.before` interceptor (what is sent) or `storage.before` (what is stored).
+- See also [Security](./security.md) [Consent](./consent.md), and the decisions in [ADR 0008](../adr/0008-persistencia-e-abas.md), [ADR 0009](../adr/0009-memoria.md) and [ADR 0010](../adr/0010-consentimento.md).

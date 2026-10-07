@@ -6,7 +6,21 @@ export {
   type Plugin,
   type PluginDefinition,
   type PluginFactory,
+  withConsent,
 } from './plugin.js'
+export {
+  consentText,
+  parseConsentRules,
+  selectConsentRules,
+  type ConsentControl,
+  type ConsentDecision,
+  type ConsentOptions,
+  type ConsentPurposeRule,
+  type ConsentRules,
+  type ConsentSnapshot,
+  type ConsentState,
+  type ConsentText,
+} from './consent.js'
 export { ActionRegistry, ActionError } from './actions.js'
 export { Conversation } from './conversation.js'
 export { EventBus, type Listener } from './events.js'

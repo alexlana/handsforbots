@@ -103,6 +103,8 @@ header button[hidden] { display: none; }
 .privacy[hidden] { display: none; }
 .privacy p { margin: 0; color: var(--h4b-muted); }
 .privacy label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.privacy .consent { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--h4b-border); }
+.privacy .manage-consent { justify-self: start; border: 1px solid var(--h4b-border); color: var(--h4b-text); background: transparent; border-radius: 99px; padding: 4px 12px; cursor: pointer; }
 .privacy .delete { justify-self: start; border: 1px solid var(--h4b-danger); color: var(--h4b-danger); background: transparent; border-radius: 99px; padding: 4px 12px; }
 
 .log {
