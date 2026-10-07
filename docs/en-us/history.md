@@ -85,7 +85,8 @@ The declarative buttons of the `gui()` plugin from `@handsforbots/inputs` do the
 
 ## Persistence, tabs and limits
 
-- `storageLocal({ maxMessages: 200 })` saves the history, encrypted, at the end of every turn, action or push, and restores it on `start()`. By default it lasts while its key does (a cookie that expires after 30 minutes without use); `retention: { ttlMinutes }` or `'tab'` shorten it, and `storageBackend({ url })` keeps it on your server instead. See [Plugins](./plugins.md#storage-local). Only the last `maxMessages` messages are kept: each `runAction` takes **two** (the call and the result). If your timeline needs more, raise the limit or also store decisions in your backend.
+- The `memory` plugin (mounted by default) keeps the last 100 **turns** in the history and sends the last 20 to the assistant, with older ones as a summary. Each `runAction` is a turn of its own. If your timeline needs more, raise `createH4B({ memory: { keep } })` (or `'all'`) or also store decisions in your backend.
+- `storageLocal()` saves the history, encrypted, at the end of every turn, action or push, and restores it on `start()`. By default it lasts while its key does (a cookie that expires after 30 minutes without use); `retention: { ttlMinutes }` or `'tab'` shorten it, and `storageBackend({ url })` keeps it on your server instead. See [Persistence, memory and privacy](./persistence.md).
 - Blobs (photos, audio) become `omitted_media` placeholders when saved.
 - `tabSync()` merges the tabs' histories by message `id`, in creation order; nothing is lost between tabs. A `reset()` in one tab replaces the conversation in the others. With `mode: 'notify'` each tab keeps its own history and only learns which actions ran elsewhere; `mode: 'off'` isolates them.
 - `h4b.reset()` starts a new conversation and clears the saved history.

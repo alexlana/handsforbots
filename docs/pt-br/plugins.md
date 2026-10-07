@@ -20,6 +20,7 @@ Cada pacote exporta uma fábrica de plugin: chame com as opções e passe para `
 | [`guided`](#guided) | `guided` | `guided` |
 | [`expose-webmcp`](#expose-webmcp) | `webmcp` | `webmcp` |
 | [`mcp-apps`](#mcp-apps) | `mountMcpApp`, `mcpAppRenderer` | — |
+| [`memory`](#memory) | `memory`, `httpSummarizer`, `localSummary`, `groupTurns` | `memory` |
 | [`storage-local`](#storage-local) | `storageLocal`, `cookieKey`, `backendKey` | `storage`, `retention` |
 | [`storage-backend`](#storage-backend) | `storageBackend` | `storage`, `retention` |
 | [`tab-sync`](#tab-sync) | `tabSync` | — |
@@ -166,6 +167,12 @@ widget({ renderers: { 'mcp-app': mcpAppRenderer({ allowTools: ['filter_orders'] 
 // ou na sua própria UI: elemento.append(mountMcpApp(h4b, props, { allowTools }))
 ```
 
+## memory
+
+Montado pelo `createH4B` por padrão; `createH4B({ memory: { … } })` ajusta, `memory: false` desliga, e um `memory(...)` em `plugins` o substitui.
+
+`memory({ send?: 20 | 'all' | 'none', keep?: 100 | 'all', compact?: 'local' | false | Summarizer, maxSummaryChars?: 4000 })`. Conta **turnos** (um job do kernel: uma mensagem do usuário e a resposta, um `runAction`, um `push`; as mensagens levam `turnId`). Envia os últimos `send` turnos e resume os anteriores no sinal de contexto `memory.summary` (`'local'` sem LLM, ou `httpSummarizer({ url })` → o seu backend recebe `{ previous, messages }` e responde `{ summary }`); guarda os últimos `keep` turnos no histórico, removendo só o que já está no resumo. Serviço `memory`: `options`, `summary`, `view(request)`, `maintain()`; evento `memory.changed`. Guia: [Persistência, memória e privacidade](./persistence.md).
+
 ## storage-local
 
 Guarda a conversa no navegador. **Criptografada por padrão** (AES-GCM): a chave fica fora do dado guardado e expira, então depois do prazo não sobra nada legível, mesmo que a pessoa nunca volte ao site.
@@ -183,7 +190,7 @@ storageLocal({ retention: 'tab', userChoices: ['key', { ttlMinutes: 5 }] })
 | `keySource` | `cookieKey()` | `cookieKey({ ttlMinutes: 30, name: 'h4b-key', path: '/', domain?, sameSite: 'Strict' })` ou `backendKey({ url, ttlMinutes?, headers?, credentials: 'same-origin', fetch? })` |
 | `retention` | `'key'` | `'key'` (até a chave expirar), `{ ttlMinutes }` (também apaga após esse tempo sem atividade), `'tab'` (sessionStorage, some ao fechar a aba) |
 | `userChoices` | `[]` | Retenções que quem usa o site pode escolher; o widget as mostra |
-| `key`, `maxMessages` | `'h4b:conversation'`, `200` | |
+| `key` | `'h4b:conversation'` | |
 
 - A chave no cookie é renovada a cada carregamento e gravação (`Max-Age`, `SameSite=Strict`, `Secure` em https). Ela é legível pelos scripts da página e vai junto nas requisições ao `path` (uns 60 bytes).
 - Protocolo do `backendKey`: `GET url` → `200 { "key": "<base64url, 32 bytes>" }` (renovando) ou `404`; `POST url` → `200` com a chave existente ou uma nova. O servidor reconhece o usuário pela própria sessão (cookie HttpOnly, enviado com `credentials: 'same-origin'`). A chave é buscada a cada carregamento e gravação e fica só em memória.
@@ -199,7 +206,7 @@ Guarda a conversa no seu servidor.
 storageBackend({ url: '/api/h4b/conversation', retention: 'server', userChoices: [{ ttlMinutes: 30 }, 'tab'] })
 ```
 
-`GET url` carrega (`200` com o snapshot, ou `204`/`404`), `PUT url` salva o snapshot (JSON, Blobs viram marcadores), `DELETE url` apaga. Toda requisição leva `X-H4B-Conversation` (um id aleatório guardado no localStorage, ou no sessionStorage com `'tab'`, para que uma aba fechada não o alcance mais) e `X-H4B-Retention` (`server`, `tab` ou o TTL em minutos); o seu servidor aplica a retenção. Quem tem o id consegue ler a conversa: vincule-o à sessão do usuário quando houver uma. Opções: `url`, `retention` (`'server'`), `userChoices`, `headers`, `credentials` (`'same-origin'`), `fetch`, `maxMessages` (200), `idKey`.
+`GET url` carrega (`200` com o snapshot, ou `204`/`404`), `PUT url` salva o snapshot (JSON, Blobs viram marcadores), `DELETE url` apaga. Toda requisição leva `X-H4B-Conversation` (um id aleatório guardado no localStorage, ou no sessionStorage com `'tab'`, para que uma aba fechada não o alcance mais) e `X-H4B-Retention` (`server`, `tab` ou o TTL em minutos); o seu servidor aplica a retenção. Quem tem o id consegue ler a conversa: vincule-o à sessão do usuário quando houver uma. Opções: `url`, `retention` (`'server'`), `userChoices`, `headers`, `credentials` (`'same-origin'`), `fetch`, `idKey`.
 
 ## Retenção
 

@@ -14,9 +14,9 @@ export function sameRetention(a: Retention, b: Retention): boolean {
   return typeof a === 'object' && typeof b === 'object' ? a.ttlMinutes === b.ttlMinutes : a === b
 }
 
-/** A snapshot ready to be stored as JSON: the last `maxMessages` messages, Blobs replaced by `omitted_media` placeholders. */
-export function storableSnapshot(snapshot: SessionSnapshot, maxMessages = 200): SessionSnapshot {
-  return { ...snapshot, messages: snapshot.messages.slice(-maxMessages).map(withoutBlobs) }
+/** A snapshot ready to be stored as JSON: Blobs replaced by `omitted_media` placeholders. How much is kept is the `memory` plugin's job. */
+export function storableSnapshot(snapshot: SessionSnapshot): SessionSnapshot {
+  return { ...snapshot, messages: snapshot.messages.map(withoutBlobs) }
 }
 
 function withoutBlobs(message: Message): Message {

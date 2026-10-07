@@ -19,6 +19,7 @@
 | [`@handsforbots/guided`](./guided) | Guided tours, highlights, `show_section`, `image_gallery` |
 | [`@handsforbots/expose-webmcp`](./expose-webmcp) | Publishes actions to browser agents through WebMCP |
 | [`@handsforbots/mcp-apps`](./mcp-apps) | Hosts MCP Apps (`ui://`) in sandboxed iframes, bridging their tool calls to actions |
+| [`@handsforbots/memory`](./memory) | Memory policy: turns sent and kept, compaction (mounted by default) |
 | [`@handsforbots/storage-local`](./storage-local) | Conversation persistence in the browser, encrypted with a key that expires |
 | [`@handsforbots/storage-backend`](./storage-backend) | Conversation persistence on your server |
 | [`@handsforbots/tab-sync`](./tab-sync) | Tabs share the conversation, hear about each other's actions, or stay isolated |

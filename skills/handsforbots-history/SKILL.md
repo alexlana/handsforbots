@@ -54,7 +54,7 @@ Rules that matter:
 - **Never throws, always records.** Unknown action, not exposed to `user`, invalid args, declined confirmation, `action.before` veto: all become a `tool` message with `error`, shown in the widget and sent to the model. Check `const { error } = await h4b.runAction(...)`; make sure the action exists before recording.
 - **Args and results are history.** They are persisted (encrypted in the browser by default with `storage-local`, readable by any script on the page; or on your server with `storage-backend`) and sent to the backend. Keep them small, JSON-only, free of secrets; give them a human `label` if the timeline should show text. Redact with a `request.before` interceptor when needed.
 - **`exposeTo: ['user']` hides the action from the assistant's tools, not its recorded calls.** OpenAI-style transports send past calls as `tool_calls`; verify the backend accepts calls to tools absent from `tools`.
-- **Each `runAction` adds two messages** (call + result). `storageLocal` keeps the last `maxMessages` (default 200); by default the conversation lasts while its key does (cookie, 30 min idle), or `retention: { ttlMinutes }` / `'tab'`. Size these for the timeline, or mirror decisions to your backend if they must outlive the conversation.
+- **Each `runAction` is a turn of its own** (two messages: call + result). The `memory` plugin keeps the last 100 turns (`createH4B({ memory: { keep } })`) and sends the last 20 to the model, older ones as a summary; storage lasts while its key does (cookie, 30 min idle), or `retention: { ttlMinutes }` / `'tab'`. Size these for the timeline, or mirror decisions to your backend if they must outlive the conversation. See skill `handsforbots-persistence`.
 - `<button data-h4b-command="name" data-h4b-args='{"…":…}'>` with `gui()` from `@handsforbots/inputs` records without code.
 
 ## Building the timeline
@@ -82,5 +82,5 @@ The history is append-only (no edit/delete API; `reset()` wipes everything). To 
 - [ ] Record-only actions use `exposeTo: ['user']`; real actions keep the narrowest `exposeTo` that works.
 - [ ] Args/results are small JSON with no secrets; timeline labels come from them.
 - [ ] Failures are handled from the returned outcome, not with try/catch.
-- [ ] `maxMessages` and the retention fit how far back users navigate.
+- [ ] `memory.keep` and the retention fit how far back users navigate.
 - [ ] Tested: record during a running turn, reload (with `storage-local`), second tab (with `tab-sync`), and the next model request contains the recorded calls.

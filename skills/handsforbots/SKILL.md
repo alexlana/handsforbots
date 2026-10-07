@@ -94,4 +94,5 @@ Everything goes through **one queue**: turns, `runAction` and `push` run one at 
 - [ ] Every action has a model-oriented description, a schema, a small JSON result and the narrowest `exposeTo` that works; destructive ones have a `confirm` service.
 - [ ] Screen state the model needs goes as context signals, not as fake user messages.
 - [ ] `await h4b.start()` before relying on restored history; `h4b.stop()` on teardown (SPAs, tests).
+- [ ] Memory, storage, retention and tabs chosen on purpose (skill `handsforbots-persistence`).
 - [ ] Tested with a scripted transport (`@handsforbots/testkit` or an inline `Transport`) and, in the browser, with a reload mid-conversation if `storage-local` is used.

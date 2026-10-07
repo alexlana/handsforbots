@@ -134,7 +134,11 @@ importers:
         specifier: 7.8.1
         version: 7.8.1
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@handsforbots/memory':
+        specifier: workspace:^
+        version: link:../memory
 
   packages/expose-webmcp:
     devDependencies:
@@ -187,6 +191,12 @@ importers:
       jsdom:
         specifier: ^27.0.0
         version: 27.4.0
+
+  packages/memory:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
 
   packages/menu:
     devDependencies:

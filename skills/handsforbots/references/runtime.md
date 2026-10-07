@@ -12,6 +12,7 @@ Verified against `packages/core/src/kernel.ts`, `actions.ts`, the transports and
 | `matchThreshold` | `0.75` | Minimum confidence for a direct-command match (menu). |
 | `maxActionRoundtrips` | `5` | Assistant ↔ client action rounds per turn before the turn errors. |
 | `onError` | `console.error` | Receives listener, storage, matcher and turn errors with a `source`. |
+| `memory` | `{ send: 20, keep: 100, compact: 'local' }` | The memory plugin, mounted automatically. `false` unplugs it; a `memory(...)` in `plugins` replaces it. See below. |
 
 ## The queue
 
@@ -28,12 +29,14 @@ Signals (triggers), `runAction` and `push` are jobs processed **one at a time, i
 
 ## What each transport sends
 
+The `memory` plugin trims `request.messages` before any transport sees it (default: last 20 turns, older ones summarized in the context signal `memory.summary`). The table describes what each transport does with what it receives.
+
 | Transport | History | Context signals | Actions as tools | Notes |
 |---|---|---|---|---|
 | `agui({ url })` | Full, AG-UI format (tool calls + results) | AG-UI `context` | Yes | CUSTOM `h4b.ui.effect` / `h4b.ui.render` events |
-| `http({ url, ... })` | Last 20 as chat messages + `message` | `context` object | `tools` | Customize with `body` / `parse` / `parseChunk` |
-| `universalLLM({ url, provider, model })` | Last `contextWindow` (10) + the new message | `context.h4b_context` | `context.tools` | v1 PHP/Laravel backend format |
-| `openAICompatible({ baseUrl, model })` | Last `contextWindow` (30) | In the system prompt | native `tools` | Browser key only for localhost |
+| `http({ url, ... })` | All received, as chat messages + `message` | `context` object | `tools` | Customize with `body` / `parse` / `parseChunk` |
+| `universalLLM({ url, provider, model })` | All received (optional extra cap `contextWindow`) + the new message | `context.h4b_context` | `context.tools` | v1 PHP/Laravel backend format |
+| `openAICompatible({ baseUrl, model })` | All received (optional extra cap `contextWindow`) | In the system prompt | native `tools` | Browser key only for localhost |
 | `aiSdk({ url })` | Full, as UIMessages | `context` | `tools` (declare without `execute` on the route) | `data-ui-*` parts become effects/render/state |
 | `rasa({ url })` | **No** (Rasa keeps its tracker; thread id = sender) | `metadata.h4b_context` | No (Rasa drives the GUI with `custom.h4b`) | `reportActionResults` sends results after assistant-requested actions |
 | CopilotKit bridge | The agent's own history; direct commands are mirrored into it | agent context | frontend tools | |
@@ -72,7 +75,8 @@ await h4b.push([
 
 ## Storage and tabs
 
-- `storageLocal({ key: 'h4b:conversation', encrypt: true, keySource: cookieKey({ ttlMinutes: 30 }), retention: 'key', userChoices: [], maxMessages: 200 })`: saves after every job (turn, action, push), restores on `start()`, keeps the last `maxMessages`, replaces Blobs with `omitted_media` placeholders. AES-GCM encrypted by default; the key lives in a cookie (`Max-Age` renewed on use, `SameSite=Strict`) or, with `backendKey({ url })`, on the server (`GET` → `{ key }` or 404, `POST` creates). No key → the data is deleted on load or by the 1-minute sweep. `retention`: `'key'` (lasts while the key does), `{ ttlMinutes }` (also deleted after that much inactivity), `'tab'` (sessionStorage). `encrypt: false` → plain JSON. Not an XSS defense.
+- `memory({ send: 20, keep: 100, compact: 'local', maxSummaryChars: 4000 })`: counts turns (messages carry `turnId`; one job = one turn). Before each request it updates the summary of turns that left the `send` window (`'local'`, a `Summarizer`, `httpSummarizer({ url })` → POST `{ previous, messages }` → `{ summary }`, or `false`) and sends the window + `memory.summary` context; `'none'` sends only the current turn, `'all'` everything. After each job it removes turns beyond `keep` (only summarized ones). Summary in `SessionSnapshot.memory`. Service `memory` (`options`, `summary`, `view`, `maintain`), event `memory.changed`.
+- `storageLocal({ key: 'h4b:conversation', encrypt: true, keySource: cookieKey({ ttlMinutes: 30 }), retention: 'key', userChoices: [] })`: saves after every job (turn, action, push), restores on `start()`, replaces Blobs with `omitted_media` placeholders. AES-GCM encrypted by default; the key lives in a cookie (`Max-Age` renewed on use, `SameSite=Strict`) or, with `backendKey({ url })`, on the server (`GET` → `{ key }` or 404, `POST` creates). No key → the data is deleted on load or by the 1-minute sweep. `retention`: `'key'` (lasts while the key does), `{ ttlMinutes }` (also deleted after that much inactivity), `'tab'` (sessionStorage). `encrypt: false` → plain JSON. Not an XSS defense.
 - `storageBackend({ url, retention: 'server', userChoices: [] })`: `GET`/`PUT`/`DELETE url` with headers `X-H4B-Conversation` (random id in localStorage, sessionStorage for `'tab'`) and `X-H4B-Retention` (`server` | `tab` | minutes). The server enforces retention and should tie the id to the user's session.
 - Both provide the `retention` service (`current`, `choices`, `location`, `encrypted`, `keyTtlMinutes`, `set`, `subscribe`); the widget shows it behind 🔒 (`showPrivacy: false` hides it). `ask()` resolves at the end of the turn, possibly before the async save finishes; use `waitForIdle` in tests that reload.
 - `tabSync({ mode: 'sync', channel })`: `sync` broadcasts snapshots (same thread → merge by message id ordered by `createdAt`; different thread → replace; snapshots arriving during a turn are applied after it). `notify` keeps histories apart and emits `tabs.activity` (actions, assistant turns, resets) plus a `tab-sync.activity` context signal with the last 10 (`context: false` disables it). `off` broadcasts nothing. With `notify`/`off`, use the `'tab'` retention so tabs don't overwrite each other's saved conversation.

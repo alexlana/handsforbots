@@ -1,7 +1,7 @@
 {
-  "name": "@handsforbots/core",
+  "name": "@handsforbots/memory",
   "version": "2.0.0-alpha.0",
-  "description": "Headless multimodal and action layer between users, GUIs and agents.",
+  "description": "Hands for Bots memory policy: how many turns are sent and kept, and compaction of older turns. Mounted by default by @handsforbots/core.",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
@@ -23,12 +23,10 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/alexlana/handsforbots",
-    "directory": "packages/core"
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^"
   },
-  "dependencies": {
-    "@handsforbots/memory": "workspace:^"
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
   }
 }

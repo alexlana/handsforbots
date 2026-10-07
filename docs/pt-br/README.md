@@ -41,6 +41,7 @@ await h4b.start()
 - [Plugins](./plugins.md): todos os pacotes e opções
 - [Escrevendo plugins](./writing-plugins.md)
 - [Histórico](./history.md): leitura, registro de decisões da interface, linha do tempo
+- [Persistência, memória e privacidade](./persistence.md): o que é enviado, guardado e armazenado, criptografia, retenção, abas
 - [Segurança](./security.md)
 - [Desenvolvimento](./development.md)
 - [Migrando da v1](./migrating-from-v1.md)

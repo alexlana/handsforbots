@@ -24,8 +24,6 @@ export type BackendStorageOptions = {
   /** Default 'same-origin', so the server also sees its own (HttpOnly) session cookie. */
   credentials?: RequestCredentials
   fetch?: typeof fetch
-  /** Keep only the last N messages. Default 200. */
-  maxMessages?: number
   /** Browser key that holds the conversation id. Default 'h4b:conversation-id'. */
   idKey?: string
 }
@@ -153,7 +151,7 @@ export function createBackendStorage(options: BackendStorageOptions): BackendSto
       return snapshot?.threadId && Array.isArray(snapshot.messages) ? snapshot : null
     },
     async save(snapshot) {
-      await request('PUT', retention(), storableSnapshot(snapshot, options.maxMessages))
+      await request('PUT', retention(), storableSnapshot(snapshot))
     },
     async clear() {
       await request('DELETE', retention())

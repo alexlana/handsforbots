@@ -35,8 +35,6 @@ export type LocalStorageOptions = {
   retention?: Exclude<Retention, 'server'>
   /** Retentions the end user may pick (e.g. in the widget). Empty (default) = fixed by the developer. */
   userChoices?: Exclude<Retention, 'server'>[]
-  /** Keep only the last N messages. Default 200. */
-  maxMessages?: number
 }
 
 export type LocalStorage = Storage & {
@@ -182,7 +180,7 @@ export function createLocalStorage(options: LocalStorageOptions = {}): LocalStor
     },
     async save(snapshot) {
       const r = retention()
-      const clean = storableSnapshot(snapshot, options.maxMessages)
+      const clean = storableSnapshot(snapshot)
       if (!encrypt) {
         const stored: Plain = { version: 1, savedAt: Date.now(), snapshot: clean }
         area(r)?.setItem(key, JSON.stringify(stored))

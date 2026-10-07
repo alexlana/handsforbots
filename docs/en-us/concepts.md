@@ -70,5 +70,5 @@ The kernel is small; everything else is a plugin: `{ name, inject, provides, con
 
 - `h4b.messages`: user, assistant and tool messages (immutable; safe for React's `useSyncExternalStore`).
 - `h4b.state`: shared state the backend can set with `state.snapshot` / `state.patch` (JSON Patch).
-- Persistence and tab sync are plugins: `storage-local`, `storage-backend`, `tab-sync`.
+- Persistence and tab sync are plugins: `storage-local`, `storage-backend`, `tab-sync`; how much is sent and kept is the `memory` plugin, mounted by default.
 - To record interface decisions in the history and build a timeline, see [History](./history.md).

@@ -73,6 +73,8 @@ export type ToolCall = { id: string; name: string; args: unknown }
 export type UserMessage = {
   id: string
   role: 'user'
+  /** The turn (job: turn, action or push) that added it. Absent in messages saved before it existed. */
+  turnId?: string
   parts: Part[]
   modality: Modality
   source: string
@@ -85,6 +87,8 @@ export type UserMessage = {
 export type AssistantMessage = {
   id: string
   role: 'assistant'
+  /** The turn (job: turn, action or push) that added it. Absent in messages saved before it existed. */
+  turnId?: string
   parts: Part[]
   toolCalls?: ToolCall[]
   route?: Route
@@ -96,6 +100,8 @@ export type AssistantMessage = {
 export type ToolMessage = {
   id: string
   role: 'tool'
+  /** The turn (job: turn, action or push) that added it. Absent in messages saved before it existed. */
+  turnId?: string
   toolCallId: string
   name: string
   result?: unknown
@@ -263,6 +269,8 @@ export type SessionSnapshot = {
   threadId: string
   messages: Message[]
   state?: unknown
+  /** Owned by the `memory` plugin (summary of turns that left the window). Stored with the conversation. */
+  memory?: unknown
 }
 
 export type Storage = {

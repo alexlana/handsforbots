@@ -20,6 +20,7 @@ Every package exports a plugin factory: call it with options and pass it to `cre
 | [`guided`](#guided) | `guided` | `guided` |
 | [`expose-webmcp`](#expose-webmcp) | `webmcp` | `webmcp` |
 | [`mcp-apps`](#mcp-apps) | `mountMcpApp`, `mcpAppRenderer` | — |
+| [`memory`](#memory) | `memory`, `httpSummarizer`, `localSummary`, `groupTurns` | `memory` |
 | [`storage-local`](#storage-local) | `storageLocal`, `cookieKey`, `backendKey` | `storage`, `retention` |
 | [`storage-backend`](#storage-backend) | `storageBackend` | `storage`, `retention` |
 | [`tab-sync`](#tab-sync) | `tabSync` | — |
@@ -166,6 +167,12 @@ widget({ renderers: { 'mcp-app': mcpAppRenderer({ allowTools: ['filter_orders'] 
 // or in your own UI: element.append(mountMcpApp(h4b, props, { allowTools }))
 ```
 
+## memory
+
+Mounted by `createH4B` by default; `createH4B({ memory: { … } })` tunes it, `memory: false` unplugs it, and a `memory(...)` in `plugins` replaces it.
+
+`memory({ send?: 20 | 'all' | 'none', keep?: 100 | 'all', compact?: 'local' | false | Summarizer, maxSummaryChars?: 4000 })`. Counts **turns** (one kernel job: a user message and its answer, a `runAction`, a `push`; messages carry `turnId`). Sends the last `send` turns and folds older ones into the context signal `memory.summary` (`'local'` without an LLM, or `httpSummarizer({ url })` → your backend gets `{ previous, messages }` and answers `{ summary }`); keeps the last `keep` turns in the history, removing only what is already summarized. Service `memory`: `options`, `summary`, `view(request)`, `maintain()`; event `memory.changed`. Guide: [Persistence, memory and privacy](./persistence.md).
+
 ## storage-local
 
 Keeps the conversation in the browser. **Encrypted by default** (AES-GCM): the key lives outside the stored data and expires, so after the deadline nothing readable is left, even if the person never comes back to the site.
@@ -183,7 +190,7 @@ storageLocal({ retention: 'tab', userChoices: ['key', { ttlMinutes: 5 }] })
 | `keySource` | `cookieKey()` | `cookieKey({ ttlMinutes: 30, name: 'h4b-key', path: '/', domain?, sameSite: 'Strict' })` or `backendKey({ url, ttlMinutes?, headers?, credentials: 'same-origin', fetch? })` |
 | `retention` | `'key'` | `'key'` (until the key expires), `{ ttlMinutes }` (also deleted after that much inactivity), `'tab'` (sessionStorage, gone when the tab closes) |
 | `userChoices` | `[]` | Retentions the end user may pick; the widget shows them |
-| `key`, `maxMessages` | `'h4b:conversation'`, `200` | |
+| `key` | `'h4b:conversation'` | |
 
 - The cookie key is renewed on every load and save (`Max-Age`, `SameSite=Strict`, `Secure` on https). It is readable by the page's scripts and travels with requests to its `path` (about 60 bytes).
 - `backendKey` protocol: `GET url` → `200 { "key": "<base64url, 32 bytes>" }` (renewing it) or `404`; `POST url` → `200` with the existing key or a new one. The server finds the user by its own session (HttpOnly cookie, sent with `credentials: 'same-origin'`). The key is fetched on every load and save and kept only in memory.
@@ -199,7 +206,7 @@ Keeps the conversation on your server.
 storageBackend({ url: '/api/h4b/conversation', retention: 'server', userChoices: [{ ttlMinutes: 30 }, 'tab'] })
 ```
 
-`GET url` loads (`200` snapshot, or `204`/`404`), `PUT url` saves the snapshot (JSON, Blobs replaced by placeholders), `DELETE url` clears. Every request carries `X-H4B-Conversation` (a random id kept in localStorage, or sessionStorage with `'tab'`, so a closed tab can't reach it again) and `X-H4B-Retention` (`server`, `tab` or the TTL in minutes); your server enforces the retention. Anyone holding the id can read the conversation: tie it to the user's session when there is one. Options: `url`, `retention` (`'server'`), `userChoices`, `headers`, `credentials` (`'same-origin'`), `fetch`, `maxMessages` (200), `idKey`.
+`GET url` loads (`200` snapshot, or `204`/`404`), `PUT url` saves the snapshot (JSON, Blobs replaced by placeholders), `DELETE url` clears. Every request carries `X-H4B-Conversation` (a random id kept in localStorage, or sessionStorage with `'tab'`, so a closed tab can't reach it again) and `X-H4B-Retention` (`server`, `tab` or the TTL in minutes); your server enforces the retention. Anyone holding the id can read the conversation: tie it to the user's session when there is one. Options: `url`, `retention` (`'server'`), `userChoices`, `headers`, `credentials` (`'same-origin'`), `fetch`, `idKey`.
 
 ## Retention
 

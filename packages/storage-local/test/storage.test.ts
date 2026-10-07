@@ -104,21 +104,28 @@ describe('storage-local', () => {
     expect(localStorage.length).toBe(0)
   })
 
-  it("the 'tab' retention uses sessionStorage; limits size and drops blobs", async () => {
-    const h4b = await bot({ retention: 'tab', encrypt: false, maxMessages: 2 })
+  it("the 'tab' retention uses sessionStorage and drops blobs", async () => {
+    const h4b = await bot({ retention: 'tab', encrypt: false })
     await h4b.ask({
       modality: 'image',
       source: 'camera',
       parts: [{ type: 'image', mimeType: 'image/png', source: { kind: 'blob', blob: new Blob(['x']) } }],
     })
-    await say(h4b, 'b')
+    await waitForIdle(h4b)
     const stored = JSON.parse(sessionStorage.getItem('h4b:conversation')!)
-    expect(stored.snapshot.messages).toHaveLength(2)
+    expect(stored.snapshot.messages[0].parts[0]).toMatchObject({ type: 'data', name: 'omitted_media' })
     expect(localStorage.getItem('h4b:conversation')).toBeNull()
-    const again = await bot({ retention: 'tab', encrypt: false, maxMessages: 4 })
-    await say(again, 'c')
-    const parts = JSON.parse(sessionStorage.getItem('h4b:conversation')!).snapshot.messages.flatMap((m: any) => m.parts ?? [])
-    expect(parts.some((p: any) => p.name === 'omitted_media')).toBe(false) // first image fell out of the window
+  })
+
+  it('saves what the memory plugin keeps, with its summary', async () => {
+    const h4b = createH4B({ memory: { send: 1, keep: 2 }, plugins: [storageLocal({ encrypt: false })] })
+    h4b.provide('transport', echo)
+    await h4b.start()
+    for (const text of ['a', 'b', 'c']) await say(h4b, text)
+    await h4b.get('memory')!.maintain()
+    const stored = JSON.parse(localStorage.getItem('h4b:conversation')!).snapshot
+    expect(stored.messages.filter((m: any) => m.role === 'user').map((m: any) => m.parts[0].text)).toEqual(['b', 'c'])
+    expect(stored.memory.summary).toContain('User: a')
   })
 
   it('encrypt: false stores plain JSON and drops encrypted leftovers', async () => {

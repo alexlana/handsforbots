@@ -1,3 +1,4 @@
+import { memory, type MemoryOptions } from '@handsforbots/memory'
 import { ActionError, ActionRegistry } from './actions.js'
 import { Conversation } from './conversation.js'
 import { EventBus } from './events.js'
@@ -43,6 +44,12 @@ export type H4BOptions = {
   /** Max assistant ↔ client action round trips per turn. Default 5. */
   maxActionRoundtrips?: number
   onError?: (error: unknown, source: string) => void
+  /**
+   * The memory policy (`@handsforbots/memory`), mounted by default: 20 turns
+   * sent, 100 kept, older turns compacted. Pass options to tune it, false to
+   * unplug it, or put your own `memory(...)` in `plugins`.
+   */
+  memory?: MemoryOptions | false
 }
 
 export type H4BSnapshot = {
@@ -57,6 +64,7 @@ export type H4BSnapshot = {
 }
 
 type RoundState = {
+  turnId: string
   route: Route
   lastAssistantId?: string
   pending: ToolCall[]
@@ -130,6 +138,9 @@ export class H4B {
     this.started = true
 
     let pending = [...(this.options.plugins ?? [])]
+    if (this.options.memory !== false && !pending.some((p) => p.definition.name === 'memory')) {
+      pending.unshift(memory(this.options.memory || undefined))
+    }
     while (pending.length > 0) {
       const ready = pending.filter((p) => this.missing(p).length === 0)
       if (ready.length === 0) {
@@ -558,7 +569,7 @@ export class H4B {
       const capture = await this.findCapture(signal)
       const match = capture ? undefined : await this.findMatch(signal)
       route = capture ? 'capture' : match ? 'direct' : 'transport'
-      this.appendUser(signal, route)
+      this.appendUser(signal, route, turnId)
       this.setStatus(turnId, 'acting', route, signal)
 
       if (capture) await capture(signal)
@@ -585,7 +596,7 @@ export class H4B {
     const turnId = createId('turn')
     const controller = new AbortController()
     this.controller = controller
-    const round: RoundState = { route: 'push', pending: [], resolved: new Set() }
+    const round: RoundState = { turnId, route: 'push', pending: [], resolved: new Set() }
     this.setStatus(turnId, 'acting', 'push')
     try {
       for await (const stimulus of job.stimuli) {
@@ -614,7 +625,7 @@ export class H4B {
     const controller = new AbortController()
     this.controller = controller
     const route: Route = job.origin === 'agent' ? 'agent' : 'direct'
-    const round: RoundState = { route, pending: [], resolved: new Set() }
+    const round: RoundState = { turnId, route, pending: [], resolved: new Set() }
     const call: ToolCall = { id: createId('call'), name: job.name, args: job.args }
     let outcome: ActionOutcome = {}
     this.setStatus(turnId, 'acting', route)
@@ -648,10 +659,11 @@ export class H4B {
     return undefined
   }
 
-  private appendUser(signal: Signal, route: Route) {
+  private appendUser(signal: Signal, route: Route, turnId: string) {
     this.conversation.append<UserMessage>({
       id: createId('msg'),
       role: 'user',
+      turnId,
       parts: signal.parts,
       modality: signal.modality,
       source: signal.source,
@@ -663,7 +675,7 @@ export class H4B {
 
   /** Direct command: run the action without a transport, recorded as a synthetic tool call. */
   private async runDirect(turnId: string, match: Match, abortSignal: AbortSignal) {
-    const round: RoundState = { route: 'direct', pending: [], resolved: new Set() }
+    const round: RoundState = { turnId, route: 'direct', pending: [], resolved: new Set() }
     const callId = createId('call')
     const args = match.args ?? {}
     await this.deliver(turnId, { type: 'action.call', callId, name: match.action, args }, round)
@@ -689,7 +701,7 @@ export class H4B {
     const maxRoundtrips = this.options.maxActionRoundtrips ?? 5
 
     for (let roundIndex = 0; roundIndex <= maxRoundtrips; roundIndex++) {
-      const round: RoundState = { route: 'transport', pending: [], resolved: new Set() }
+      const round: RoundState = { turnId, route: 'transport', pending: [], resolved: new Set() }
       const request = await this.runHooks('request.before', {
         threadId: this.conversation.threadId,
         turnId,
@@ -747,6 +759,7 @@ export class H4B {
       name: call.name,
       ...outcome,
       route: round.route,
+      turnId: round.turnId,
       createdAt: Date.now(),
     })
     round.resolved.add(call.id)
@@ -770,6 +783,7 @@ export class H4B {
         role: 'assistant',
         parts: [],
         route: round.route,
+        turnId: round.turnId,
         streaming: true,
         createdAt: Date.now(),
       })
@@ -818,6 +832,7 @@ export class H4B {
             name: stimulus.name ?? round.pending.find((c) => c.id === stimulus.callId)?.name ?? 'unknown',
             result: stimulus.result,
             route: round.route,
+            turnId: round.turnId,
             createdAt: Date.now(),
           })
         }

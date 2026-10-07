@@ -398,7 +398,7 @@ Aprendizados que ajustaram o plano:
 - `tab-sync` mescla históricos por id em vez de "último a escrever vence", que perdia mensagens.
 - Os exporters Langfuse/LangSmith davam precedência ao módulo importado sobre o injetado; corrigido ao mover a lib para `packages/`.
 
-Entregue depois (2026-10-06, [ADR 0008](./docs/adr/0008-persistencia-e-abas.md)): `storage-local` criptografado por padrão, com a chave num cookie que expira (`cookieKey`) ou no backend (`backendKey`), e varredura que apaga dados sem chave ou vencidos; pacote `storage-backend`; serviço `retention` com escolhas do desenvolvedor e de quem usa o site (painel de privacidade no `widget`); `tab-sync` com os modos `sync`, `notify` e `off`.
+Entregue depois (2026-10-06, [ADR 0008](./docs/adr/0008-persistencia-e-abas.md)): `storage-local` criptografado por padrão, com a chave num cookie que expira (`cookieKey`) ou no backend (`backendKey`), e varredura que apaga dados sem chave ou vencidos; pacote `storage-backend`; serviço `retention` com escolhas do desenvolvedor e de quem usa o site (painel de privacidade no `widget`); `tab-sync` com os modos `sync`, `notify` e `off`. Em seguida ([ADR 0009](./docs/adr/0009-memoria.md)): pacote `memory`, montado por padrão, com janela de envio e retenção medidas em turnos (20 e 100) e compactação dos turnos antigos num resumo (local ou via backend); `turnId` em cada mensagem; os transportes deixaram de cortar o histórico por conta própria.
 
 ### Prioritário: revisão de XSS
 
@@ -561,6 +561,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-10-07 | Política de memória: pacote `memory` montado por padrão, turnos enviados/guardados, compactação (ADR 0009); guia de persistência, memória e privacidade; skill `handsforbots-persistence` |
 | 2026-10-06 | Persistência com chave que expira, `storage-backend`, retenção escolhível, modos do `tab-sync` (ADR 0008); revisão de XSS como prioridade P0 |
 | 2026-07-02 | Documento inicial — roadmap 3–6 meses (runtime headless) |
 | 2026-10-03 | Seção 3 atualizada: Fase 5 quase completa, v1 removida, docs v2 |

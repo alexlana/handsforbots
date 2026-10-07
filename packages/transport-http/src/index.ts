@@ -207,7 +207,7 @@ export function contextObject(context: Signal[]): Record<string, unknown> {
 export const toolsOf = (request: TurnRequest) =>
   request.actions.map((a) => ({ type: 'function' as const, function: { name: a.name, description: a.description, parameters: a.parameters } }))
 
-/** Generic body: the new input, recent history, screen context and available tools. */
+/** Generic body: the new input, the history the `memory` plugin lets through, screen context and available tools. */
 export function defaultBody(request: TurnRequest, session?: string) {
   const last = request.messages.at(-1)
   return {
@@ -215,7 +215,7 @@ export function defaultBody(request: TurnRequest, session?: string) {
     session_id: session,
     turn_id: request.turnId,
     message: last?.role === 'user' ? partsText(last.parts) : undefined,
-    messages: toChatMessages(request.messages, 20),
+    messages: toChatMessages(request.messages),
     context: contextObject(request.context),
     tools: toolsOf(request),
     state: request.state,
@@ -386,7 +386,7 @@ export type UniversalLLMOptions = {
   provider?: string
   model?: string
   systemPrompt?: string
-  /** Messages of history sent along. Default 10 (as in v1). */
+  /** Extra cap on history messages sent along. Default: none (the `memory` plugin decides which turns are sent). */
   contextWindow?: number
   parameters?: Record<string, unknown>
   stream?: boolean
@@ -413,7 +413,7 @@ export function createUniversalLLMTransport(options: UniversalLLMOptions): Trans
     fetch: options.fetch,
     session: options.backendSession === false ? undefined : { url: `${options.url.replace(/\/$/, '')}/session`, method: 'GET' },
     body: (request, session) => {
-      const history = toChatMessages(request.messages, (options.contextWindow ?? 10) + 1)
+      const history = toChatMessages(request.messages, options.contextWindow === undefined ? undefined : options.contextWindow + 1)
       const current = history.at(-1)!
       const now = new Date().toISOString()
       return {
@@ -448,6 +448,7 @@ export type OpenAICompatibleOptions = {
   apiKey?: string
   stream?: boolean
   temperature?: number
+  /** Extra cap on history messages sent along. Default: none (the `memory` plugin decides which turns are sent). */
   contextWindow?: number
   fetch?: typeof fetch
 }
@@ -480,7 +481,7 @@ export function createOpenAICompatibleTransport(options: OpenAICompatibleOptions
         model: options.model,
         stream: !!options.stream,
         temperature: options.temperature ?? 0.7,
-        messages: [...(system ? [{ role: 'system', content: system }] : []), ...toChatMessages(request.messages, options.contextWindow ?? 30)],
+        messages: [...(system ? [{ role: 'system', content: system }] : []), ...toChatMessages(request.messages, options.contextWindow)],
         ...(tools.length ? { tools } : {}),
       }
     },

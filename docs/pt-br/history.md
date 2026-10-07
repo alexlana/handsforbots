@@ -85,7 +85,8 @@ Os botões declarativos do plugin `gui()` de `@handsforbots/inputs` fazem o mesm
 
 ## Persistência, abas e limites
 
-- `storageLocal({ maxMessages: 200 })` salva o histórico, criptografado, no fim de cada turno, ação ou push e o restaura no `start()`. Por padrão ele dura enquanto durar a chave (um cookie que expira após 30 minutos sem uso); `retention: { ttlMinutes }` ou `'tab'` encurtam isso, e `storageBackend({ url })` guarda no seu servidor. Veja [Plugins](./plugins.md#storage-local). Só as últimas `maxMessages` mensagens são guardadas: cada `runAction` ocupa **duas** (a chamada e o resultado). Se a sua linha do tempo precisa de mais, aumente o limite ou guarde as decisões também no seu backend.
+- O plugin `memory` (montado por padrão) guarda os últimos 100 **turnos** no histórico e envia os últimos 20 ao assistente, com os anteriores como resumo. Cada `runAction` é um turno próprio. Se a sua linha do tempo precisa de mais, aumente `createH4B({ memory: { keep } })` (ou `'all'`) ou guarde as decisões também no seu backend.
+- `storageLocal()` salva o histórico, criptografado, no fim de cada turno, ação ou push e o restaura no `start()`. Por padrão ele dura enquanto durar a chave (um cookie que expira após 30 minutos sem uso); `retention: { ttlMinutes }` ou `'tab'` encurtam isso, e `storageBackend({ url })` guarda no seu servidor. Veja [Persistência, memória e privacidade](./persistence.md).
 - Blobs (fotos, áudio) viram marcadores `omitted_media` ao salvar.
 - `tabSync()` junta os históricos das abas pelo `id` das mensagens, em ordem de criação; nada se perde entre abas. Um `reset()` em uma aba troca a conversa nas outras. Com `mode: 'notify'` cada aba fica com o seu histórico e só fica sabendo das ações executadas nas outras; `mode: 'off'` as isola.
 - `h4b.reset()` começa uma conversa nova e apaga o histórico salvo.

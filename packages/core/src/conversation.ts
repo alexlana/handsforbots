@@ -10,6 +10,8 @@ export class Conversation {
   threadId: string
   private _messages: Message[] = []
   private _state: unknown = undefined
+  /** Opaque slot for the `memory` plugin; saved and restored with the conversation. */
+  memory: unknown = undefined
 
   constructor(
     threadId: string | undefined,
@@ -31,6 +33,7 @@ export class Conversation {
     this.threadId = snapshot.threadId
     this._messages = snapshot.messages
     this._state = snapshot.state
+    this.memory = snapshot.memory
     this.onMessages(this._messages)
     this.onState(this._state)
   }
@@ -39,12 +42,18 @@ export class Conversation {
     this.threadId = threadId ?? createId('thread')
     this._messages = []
     this._state = undefined
+    this.memory = undefined
     this.onMessages(this._messages)
     this.onState(this._state)
   }
 
   snapshot(): SessionSnapshot {
-    return { threadId: this.threadId, messages: this._messages, state: this._state }
+    return {
+      threadId: this.threadId,
+      messages: this._messages,
+      state: this._state,
+      ...(this.memory === undefined ? {} : { memory: this.memory }),
+    }
   }
 
   append<M extends Message>(message: M): M {

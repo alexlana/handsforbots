@@ -70,5 +70,5 @@ O kernel é pequeno; o resto é plugin: `{ name, inject, provides, config, apply
 
 - `h4b.messages`: mensagens do usuário, do assistente e de ferramentas (imutáveis; seguras para `useSyncExternalStore` do React).
 - `h4b.state`: estado compartilhado que o backend define com `state.snapshot` / `state.patch` (JSON Patch).
-- Persistência e sincronização entre abas são plugins: `storage-local`, `storage-backend`, `tab-sync`.
+- Persistência e sincronização entre abas são plugins: `storage-local`, `storage-backend`, `tab-sync`; quanto é enviado e guardado é o plugin `memory`, montado por padrão.
 - Para registrar decisões da interface no histórico e montar uma linha do tempo, veja [Histórico](./history.md).

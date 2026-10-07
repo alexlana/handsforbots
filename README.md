@@ -49,6 +49,7 @@ await h4b.start()
 - [Plugins](./docs/en-us/plugins.md): every package and its options
 - [Writing plugins](./docs/en-us/writing-plugins.md)
 - [History](./docs/en-us/history.md): reading it, recording GUI decisions, timelines
+- [Persistence, memory and privacy](./docs/en-us/persistence.md): what is sent, kept and stored, encryption, retention, tabs
 - [Security](./docs/en-us/security.md)
 - [Development](./docs/en-us/development.md)
 - [Migrating from v1](./docs/en-us/migrating-from-v1.md)

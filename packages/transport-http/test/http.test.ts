@@ -123,6 +123,22 @@ describe('http transport', () => {
 })
 
 describe('presets', () => {
+  it('sends the turns the memory plugin lets through, with its summary as context', async () => {
+    const server = fakeServer(() => json({ response: 'ok' }))
+    const h4b = await createH4B({
+      memory: { send: 2 },
+      plugins: [universalLLM({ url: 'https://site/api/llm', backendSession: false, fetch: server.fetch })],
+    }).start()
+    for (const text of ['a', 'b', 'c']) await h4b.ask(text)
+    const body = server.calls.at(-1)!.body
+    expect(body.context.conversation_history.map((m: any) => m.content)).toEqual(['b', 'ok'])
+    expect(body.context.h4b_context['memory.summary'][0]).toContain('User: a')
+    const generic = fakeServer(() => json({ response: 'ok' }))
+    const h4b2 = await createH4B({ memory: { send: 'all' }, plugins: [http({ url: 'https://api/t', fetch: generic.fetch })] }).start()
+    for (let i = 0; i < 12; i++) await h4b2.ask(`m${i}`)
+    expect(generic.calls.at(-1)!.body.messages).toHaveLength(23) // no transport-level cap
+  })
+
   it('universalLLM keeps the v1 request format and adds tools and context', async () => {
     const server = fakeServer((call) => (call.url.endsWith('/session') ? json({ session_id: 'abc' }) : json({ response: 'oi!' })))
     const h4b = await createH4B({
