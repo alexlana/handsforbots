@@ -110,6 +110,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     for (const listener of listeners) listener()
   }
 
+  /** Shows the error in the state (for the UI) and on the kernel bus (for the developer). */
+  const fail = (error: SpeechError, patch: Partial<VoiceState> = {}) => {
+    set({ ...patch, error })
+    ctx.emit('error', { error, source: 'voice' })
+  }
+
   let sttIndex = 0
   /** A hold-to-talk press: finals accumulate until release, then go out as one signal. */
   type Held = { texts: string[]; confidence?: number; stt?: string; done: boolean }
@@ -150,7 +156,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   const startSession = async (): Promise<void> => {
     const provider = sttProviders[sttIndex]
     if (!provider) {
-      set({ error: new SpeechError('not-supported', 'No speech recognition available'), listening: false })
+      fail(new SpeechError('not-supported', 'No speech recognition available'), { listening: false })
       wantListening = false
       if (holding) release(holding)
       return
@@ -192,7 +198,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           },
           onError(error) {
             failed = error
-            if (isCurrent() && error.code !== 'no-speech') set({ error })
+            if (isCurrent() && error.code !== 'no-speech') fail(error)
           },
           onEnd() {
             clearTimeout(entry.killTimer)
@@ -232,7 +238,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     } catch (error) {
       const speechError = error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message)
       if (isCurrent()) active = undefined
-      set({ listening: false, error: speechError })
+      fail(speechError, { listening: false })
       if (speechError.recoverable && sttIndex < sttProviders.length - 1) {
         sttIndex++
         return startSession()
@@ -333,7 +339,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         try {
           await provider.speak(text, { language, voice: options.voiceName, signal: controller.signal })
         } catch (error) {
-          set({ error: error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message) })
+          fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
         } finally {
           set({ speaking: false })
           if (pausedForSpeech) {

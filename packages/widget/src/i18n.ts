@@ -19,6 +19,12 @@ export type Strings = {
   stopSpeaking: string
   voiceOn: string
   voiceOff: string
+  /** Shown when listening fails, by `voice.getState().error.code`. */
+  micDenied: string
+  speechServiceOff: string
+  micMissing: string
+  voiceNetwork: string
+  voiceFailed: string
   disclaimer: string
   attach: string
   camera: string
@@ -64,6 +70,11 @@ const pt: Strings = {
   stopSpeaking: 'Parar fala',
   voiceOn: 'Respostas faladas',
   voiceOff: 'Respostas só em texto',
+  micDenied: 'Microfone bloqueado. Libere o microfone para este site nas configurações do navegador.',
+  speechServiceOff: 'O reconhecimento de fala está desligado. Ative o ditado nas configurações do aparelho ou do navegador.',
+  micMissing: 'Nenhum microfone encontrado.',
+  voiceNetwork: 'Sem conexão para reconhecer a fala.',
+  voiceFailed: 'Não foi possível usar a voz agora.',
   disclaimer: 'Isenção de responsabilidade',
   attach: 'Anexar arquivo',
   camera: 'Câmera',
@@ -108,6 +119,11 @@ export const STRINGS: Record<string, Strings> = {
     stopSpeaking: 'Stop speaking',
     voiceOn: 'Spoken answers',
     voiceOff: 'Text-only answers',
+    micDenied: "Microphone blocked. Allow the microphone for this site in the browser's settings.",
+    speechServiceOff: 'Speech recognition is turned off. Enable dictation in the device or browser settings.',
+    micMissing: 'No microphone found.',
+    voiceNetwork: 'No connection to recognize speech.',
+    voiceFailed: 'Voice is not available right now.',
     disclaimer: 'Disclaimer',
     attach: 'Attach file',
     camera: 'Camera',

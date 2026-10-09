@@ -876,7 +876,18 @@ export class H4BChatElement extends BaseElement {
     speaker.textContent = state.speaking ? '⏹' : state.output === 'text' ? '🔇' : '🔈'
     speaker.title = state.speaking ? s.stopSpeaking : state.output === 'text' ? s.voiceOff : s.voiceOn
     speaker.setAttribute('aria-label', speaker.title)
-    partial.textContent = state.listening && state.partial ? `“${state.partial}”` : state.listening ? s.listening : ''
+    const failure = !state.listening && state.error ? this.voiceError(state.error.code) : ''
+    partial.classList.toggle('failed', !!failure)
+    partial.textContent = state.listening && state.partial ? `“${state.partial}”` : state.listening ? s.listening : failure
+  }
+
+  private voiceError(code: string): string {
+    const s = this.strings
+    if (code === 'not-allowed') return s.micDenied
+    if (code === 'service-not-allowed') return s.speechServiceOff
+    if (code === 'audio-capture') return s.micMissing
+    if (code === 'network') return s.voiceNetwork
+    return s.voiceFailed
   }
 }
 
@@ -889,6 +900,7 @@ type VoiceLike = {
     speaking: boolean
     partial: string
     output: 'auto' | 'voice' | 'text'
+    error?: { code: string }
   }
   subscribe(listener: () => void): () => void
   listen(options?: { until?: 'silence' | 'stop' }): Promise<void>

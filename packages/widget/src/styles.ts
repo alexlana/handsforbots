@@ -145,6 +145,7 @@ header button[hidden] { display: none; }
 .chips button:hover { background: var(--h4b-soft); }
 .partial { font-size: 13px; color: var(--h4b-muted); font-style: italic; padding: 4px 14px 0; }
 .partial:empty { display: none; }
+.partial.failed { font-style: normal; }
 
 form { display: flex; gap: 6px; padding: 10px 12px 12px; border-top: 1px solid var(--h4b-border); background: var(--h4b-bg); align-items: center; }
 form input { flex: 1; min-width: 0; border: 1px solid var(--h4b-border); background: var(--h4b-surface); border-radius: 99px; padding: 9px 14px; outline: none; }

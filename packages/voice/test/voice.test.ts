@@ -332,11 +332,14 @@ describe('providers', () => {
     expect(v.getState()).toMatchObject({ stt: 'browser', listening: true })
   })
 
-  it('stops trying when the microphone is not allowed', async () => {
+  it('stops trying when the microphone is not allowed, and reports it on the error event', async () => {
     const denied = fakeSTT('mic', { failWith: new SpeechError('not-allowed') })
     const other = fakeSTT('other')
-    const { voice: v } = await setup({ stt: [denied.provider, other.provider] })
+    const { h4b, voice: v } = await setup({ stt: [denied.provider, other.provider] })
+    const errors: { error: unknown; source: string }[] = []
+    h4b.on('error', (payload) => void errors.push(payload))
     await v.listen()
+    expect(errors).toEqual([{ error: expect.objectContaining({ code: 'not-allowed' }), source: 'voice' }])
     expect(v.getState()).toMatchObject({ listening: false, error: expect.objectContaining({ code: 'not-allowed' }) })
     expect(other.sessions).toHaveLength(0)
   })

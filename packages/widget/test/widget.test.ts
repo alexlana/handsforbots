@@ -283,6 +283,40 @@ describe('<h4b-chat>', () => {
     ;(root.querySelector('.speaker') as HTMLButtonElement).click()
     expect(voice.setOutput).toHaveBeenCalledWith('text')
   })
+
+  it('tells the user why listening failed, by error code', async () => {
+    document.body.innerHTML = ''
+    const listeners = new Set<() => void>()
+    let state: Record<string, unknown> = { supported: { stt: true, tts: false }, mode: 'push-to-talk', listening: false, speaking: false, partial: '', output: 'auto' }
+    const update = (patch: Record<string, unknown>) => {
+      state = { ...state, ...patch }
+      listeners.forEach((l) => l())
+    }
+    const voice = {
+      getState: () => state,
+      subscribe: (l: () => void) => (listeners.add(l), () => listeners.delete(l)),
+      listen: vi.fn(),
+      stop: vi.fn(),
+      toggle: vi.fn(),
+      setOutput: vi.fn(),
+      cancelSpeech: vi.fn(),
+    }
+    const h4b = createH4B({ plugins: [widget({ startOpen: true, language: 'en', strings: { micDenied: 'Unblock the mic' } })] })
+    await h4b.start()
+    h4b.provide('voice' as never, voice as never)
+    const partial = document.querySelector('h4b-chat')!.shadowRoot!.querySelector('.partial')!
+
+    update({ error: { code: 'not-allowed' } })
+    expect(partial.textContent).toBe('Unblock the mic')
+    update({ error: { code: 'service-not-allowed' } })
+    expect(partial.textContent).toContain('dictation')
+    update({ error: { code: 'unknown' } })
+    expect(partial.textContent).toBe('Voice is not available right now.')
+    update({ listening: true, error: undefined })
+    expect(partial.textContent).toBe('Listening…')
+    update({ listening: false })
+    expect(partial.textContent).toBe('')
+  })
 })
 
 describe('<h4b-chat> media', () => {
