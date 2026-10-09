@@ -84,6 +84,25 @@ React/Vue: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`,
 
 Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Details and pitfalls: `references/runtime.md`.
 
+## Voice with your own microphone UI
+
+`voice({ stt, tts?, language })` from `@handsforbots/voice` provides the `voice` service; `stt` takes a provider or a list tried in order (`webSpeechSTT()`, `httpSTT({ url })`, …). Bind the UI to `getState()` + `subscribe()` (React: `useStore(useH4B().get('voice'))`; Vue: `useStore(useService('voice'))`).
+
+| Need | Call |
+|---|---|
+| Click to talk, sent on the first pause | `voice.listen()` |
+| Hold to talk across pauses, one message on release | `voice.listen({ until: 'stop' })`, then `voice.stop()` |
+| Discard what was said (trash button) | `voice.cancel()` |
+| Live transcript | `getState().partial` (in hold-to-talk: everything said so far) |
+
+- Show the microphone only when `getState().supported.stt` is true. `webSpeechSTT` is unsupported outside a secure context (plain `http`), so there is no need to check `isSecureContext` to decide that.
+- Pick the help text from `getState().error?.code`: `not-allowed` means the microphone was denied (site permission); `service-not-allowed` means the microphone is fine but the browser's speech service is off (e.g. dictation disabled in Safari), which has different steps. The widget does not show these errors: the app's UI must.
+- Put a cloud provider after `webSpeechSTT()` when dictation being off should not stop the user: `service-not-allowed`, `network`, `audio-capture` and `not-supported` fall back to the next provider; `not-allowed` does not.
+- Message size limits are the app's job, not the plugin's: watch `partial.length` and call `voice.stop()` at your backend's limit.
+- On Android, `webSpeechSTT()` listens one utterance per session and restarts while the user holds (Chrome repeats words in its continuous mode). Test hold-to-talk on a real Android device; `webSpeechSTT({ continuous: true })` restores the browser's continuous mode.
+
+Provider options: `docs/en-us/plugins.md#voice`.
+
 ## Writing a plugin
 
 `definePlugin({ name, inject?, provides?, config?, apply(ctx, config) })`. Register everything through `ctx` (`registerAction`, `on`, `intercept`, `provide`, `addMatcher`, `capture`, `effect`, `onDispose`) so it is undone on dispose. Don't import other plugins at runtime: `ctx.get('voice')` and react to `service.provided` / `service.removed`. Extend `Services`, `Events` and `Hooks` with declaration merging for types. Full guide: `docs/en-us/writing-plugins.md`.
