@@ -53,7 +53,10 @@ export type TextToSpeech = {
 
 export type SpeechErrorCode =
   | 'not-supported'
+  /** The user or the page denied the microphone. */
   | 'not-allowed'
+  /** The microphone is fine, but the browser's speech service is off or blocked (e.g. dictation disabled in Safari). */
+  | 'service-not-allowed'
   | 'no-speech'
   | 'audio-capture'
   | 'network'
@@ -71,6 +74,11 @@ export class SpeechError extends Error {
 
   /** Errors where trying the next provider makes sense. */
   get recoverable(): boolean {
-    return this.code === 'network' || this.code === 'not-supported' || this.code === 'audio-capture'
+    return (
+      this.code === 'network' ||
+      this.code === 'not-supported' ||
+      this.code === 'audio-capture' ||
+      this.code === 'service-not-allowed'
+    )
   }
 }

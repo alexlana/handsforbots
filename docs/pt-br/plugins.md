@@ -127,11 +127,11 @@ Dentro de `<CopilotKitProvider>` e `<H4BProvider>`: `useCopilotKitBridge({ agent
 
 ## voice
 
-`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true, bargeInChars?: 4, voiceName? })`. `stt`/`tts` recebem um provedor ou uma lista (testados em ordem, com troca em erro de rede ou suporte).
+`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true, bargeInChars?: 4, voiceName? })`. `stt`/`tts` recebem um provedor ou uma lista (testados em ordem, com troca em erro de rede ou suporte e quando o serviço de fala do navegador está desligado).
 
 | Provedor | Observações |
 |----------|-------------|
-| `webSpeechSTT()`, `webSpeechTTS({ voice?, rate?, pitch? })` | APIs do navegador; textos longos são divididos em frases |
+| `webSpeechSTT({ continuous? })`, `webSpeechTTS({ voice?, rate?, pitch? })` | APIs do navegador; textos longos são divididos em frases |
 | `httpSTT({ url, headers?, parse?, silenceMs? })`, `httpTTS({ url })` | Seu backend faz proxy para qualquer provedor em nuvem (chaves ficam no servidor); detecção simples de fala para mãos-livres |
 | `websocketSTT({ url, sampleRate?, onOpen?, parse, finish? })` | Envia PCM 16 bits em streaming; `url` pode ser uma função que busca um token temporário |
 | `voskSTT({ url })` | Servidor Vosk próprio |
@@ -141,6 +141,9 @@ Serviço: `listen({ until? })`, `stop()`, `cancel()`, `toggle()`, `setMode()`, `
 
 - `stop()` encerra a escuta e ainda envia o que foi dito; `cancel()` encerra e descarta a fala (nada é enviado, nem uma transcrição final que o provedor entregue depois).
 - No push-to-talk a fala termina na primeira pausa por padrão (bom para clicar e falar). `listen({ until: 'stop' })` é segurar para falar: o reconhecimento continua entre pausas (reiniciando se o navegador encerrar a sessão), `partial` mostra tudo o que foi dito até ali e uma única mensagem sai no `stop()`. O botão de microfone do widget e o atalho `talk` do teclado usam esse modo.
+- `getState().error.code` é um destes: `not-supported`, `not-allowed` (o microfone foi negado), `service-not-allowed` (o microfone está liberado, mas o serviço de fala do navegador está desligado ou bloqueado, como o ditado desativado no Safari; o próximo provedor da lista é tentado), `no-speech`, `audio-capture`, `network`, `unknown`. Use-o para mostrar a ajuda certa ao usuário.
+- O `webSpeechSTT` se declara sem suporte fora de um contexto seguro (`http` simples), então `supported.stt` é `false` nesse caso, a não ser que outro provedor funcione.
+- `webSpeechSTT({ continuous: 'auto' })` (padrão) usa o reconhecimento contínuo do navegador no segurar para falar e no mãos-livres, menos no Android, onde o Chrome repete o que já foi dito nesse modo: ali cada sessão ouve uma fala e o serviço de voz inicia a seguinte, então uma palavra dita bem na troca pode se perder. `continuous: true` força o modo contínuo do navegador e `false` o desliga em todos os aparelhos.
 
 ## keyboard
 

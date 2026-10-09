@@ -341,6 +341,32 @@ describe('providers', () => {
     expect(other.sessions).toHaveLength(0)
   })
 
+  it('falls back when the speech service is off but the microphone is fine', async () => {
+    const browser = fakeSTT('browser')
+    const cloud = fakeSTT('cloud')
+    const { voice: v } = await setup({ stt: [browser.provider, cloud.provider] })
+    await v.listen()
+    browser.last().handlers.onError(new SpeechError('service-not-allowed'))
+    browser.last().handlers.onEnd()
+    expect(cloud.sessions).toHaveLength(1)
+    expect(v.getState()).toMatchObject({ stt: 'cloud', listening: true, error: undefined })
+  })
+
+  it('reports a disabled speech service and stops retrying when there is no fallback', async () => {
+    vi.useFakeTimers()
+    const stt = fakeSTT()
+    const { voice: v } = await setup({ stt: stt.provider })
+    await v.listen({ until: 'stop' })
+    stt.last().handlers.onError(new SpeechError('service-not-allowed'))
+    stt.last().handlers.onEnd()
+    await vi.advanceTimersByTimeAsync(300)
+    expect(stt.sessions).toHaveLength(1)
+    expect(v.getState()).toMatchObject({
+      listening: false,
+      error: expect.objectContaining({ code: 'service-not-allowed' }),
+    })
+  })
+
   it('reports no support when nothing is available', async () => {
     const { voice: v } = await setup({ stt: fakeSTT('x', { supported: false }).provider })
     expect(v.getState().supported).toEqual({ stt: false, tts: false })
@@ -372,14 +398,54 @@ describe('web speech wrapper', () => {
     rec.onresult({ resultIndex: 0, results: [result('olá mun', false)] })
     rec.onresult({ resultIndex: 0, results: [result(' olá mundo ', true, 0.93)] })
     rec.onerror({ error: 'not-allowed' })
+    rec.onerror({ error: 'service-not-allowed' })
     rec.onerror({ error: 'aborted' })
     rec.onend()
 
     expect(handlers.onPartial).toHaveBeenCalledWith('olá mun')
     expect(handlers.onFinal).toHaveBeenCalledWith('olá mundo', { confidence: 0.93 })
-    expect(handlers.onError).toHaveBeenCalledOnce()
+    expect(handlers.onError).toHaveBeenCalledTimes(2)
     expect(handlers.onError.mock.calls[0]![0]).toMatchObject({ code: 'not-allowed' })
+    expect(handlers.onError.mock.calls[1]![0]).toMatchObject({ code: 'service-not-allowed', recoverable: true })
     expect(handlers.onEnd).toHaveBeenCalled()
+    delete (window as any).webkitSpeechRecognition
+  })
+
+  it('is unsupported outside a secure context', () => {
+    ;(window as any).webkitSpeechRecognition = class {}
+    const secure = Object.getOwnPropertyDescriptor(window, 'isSecureContext')
+    Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true })
+    expect(webSpeechSTT().isSupported()).toBe(false)
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    expect(webSpeechSTT().isSupported()).toBe(true)
+    if (secure) Object.defineProperty(window, 'isSecureContext', secure)
+    else delete (window as any).isSecureContext
+    delete (window as any).webkitSpeechRecognition
+  })
+
+  it('listens one utterance per session on Android instead of using continuous recognition', () => {
+    const instances: any[] = []
+    ;(window as any).webkitSpeechRecognition = class {
+      start = vi.fn()
+      constructor() {
+        instances.push(this)
+      }
+    }
+    const handlers = { onFinal: vi.fn(), onError: vi.fn(), onEnd: vi.fn() }
+    const agent = vi
+      .spyOn(navigator, 'userAgent', 'get')
+      .mockReturnValue('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/129.0 Mobile Safari/537.36')
+
+    const auto = webSpeechSTT()
+    expect(auto.capabilities.continuous).toBe(false)
+    auto.listen({ language: 'pt-BR', continuous: true }, handlers)
+    expect(instances.at(-1).continuous).toBe(false)
+    webSpeechSTT({ continuous: true }).listen({ language: 'pt-BR', continuous: true }, handlers)
+    expect(instances.at(-1).continuous).toBe(true)
+
+    agent.mockRestore()
+    webSpeechSTT({ continuous: false }).listen({ language: 'pt-BR', continuous: true }, handlers)
+    expect(instances.at(-1).continuous).toBe(false)
     delete (window as any).webkitSpeechRecognition
   })
 

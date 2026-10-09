@@ -201,11 +201,15 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
               return
             }
             active = undefined
-            if (failed?.code === 'not-allowed') wantListening = false
+            const hasFallback = !!failed?.recoverable && sttIndex < sttProviders.length - 1
+            // Asking again cannot help: the user has to change a permission or a setting first.
+            if (failed?.code === 'not-allowed' || (failed?.code === 'service-not-allowed' && !hasFallback)) {
+              wantListening = false
+            }
             // Hold-to-talk outlives the browser's session: start another until release.
             const keepHolding = !!entry.held && entry.held === holding && wantListening && !pausedForSpeech
             set({ listening: keepHolding, partial: keepHolding && entry.held ? heldText(entry.held) : '' })
-            if (failed?.recoverable && sttIndex < sttProviders.length - 1) {
+            if (hasFallback) {
               sttIndex++
               if (wantListening) void startSession()
               else if (entry.held) release(entry.held)

@@ -10,7 +10,7 @@ function recognitionCtor(): RecognitionCtor | undefined {
 
 const ERROR_CODES: Record<string, SpeechErrorCode> = {
   'not-allowed': 'not-allowed',
-  'service-not-allowed': 'not-allowed',
+  'service-not-allowed': 'service-not-allowed',
   'no-speech': 'no-speech',
   'audio-capture': 'audio-capture',
   network: 'network',
@@ -18,18 +18,34 @@ const ERROR_CODES: Record<string, SpeechErrorCode> = {
   'language-not-supported': 'not-supported',
 }
 
+const isAndroid = () => typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent ?? '')
+
+export type WebSpeechSTTOptions = {
+  /**
+   * Whether to use the browser's own continuous recognition when the voice
+   * service asks to keep listening (hold-to-talk, hands-free). `auto`
+   * (default): yes, except on Android, where Chrome repeats what was already
+   * said in that mode; there each session hears one utterance and the voice
+   * service starts the next one. `false` does that everywhere.
+   */
+  continuous?: 'auto' | boolean
+}
+
 /** Browser speech recognition (Web Speech API). Quality and privacy depend on the browser vendor. */
-export function webSpeechSTT(): SpeechToText {
+export function webSpeechSTT(sttOptions: WebSpeechSTTOptions = {}): SpeechToText {
+  const mode = sttOptions.continuous ?? 'auto'
+  const nativeContinuous = () => (mode === 'auto' ? !isAndroid() : mode)
   return {
     name: 'webspeech',
-    capabilities: { partials: true, continuous: true, offline: false },
-    isSupported: () => recognitionCtor() !== undefined,
+    capabilities: { partials: true, continuous: nativeContinuous(), offline: false },
+    // Outside a secure context the API exists but every session fails as a denied permission.
+    isSupported: () => recognitionCtor() !== undefined && window.isSecureContext !== false,
     listen(options, handlers) {
       const Ctor = recognitionCtor()
       if (!Ctor) throw new SpeechError('not-supported', 'Web Speech recognition is not available')
       const recognition = new Ctor()
       recognition.lang = options.language
-      recognition.continuous = options.continuous
+      recognition.continuous = options.continuous && nativeContinuous()
       recognition.interimResults = true
       recognition.maxAlternatives = 1
 

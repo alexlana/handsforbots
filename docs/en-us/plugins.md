@@ -127,11 +127,11 @@ Inside both `<CopilotKitProvider>` and `<H4BProvider>`: `useCopilotKitBridge({ a
 
 ## voice
 
-`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true, bargeInChars?: 4, voiceName? })`. `stt`/`tts` take a provider or a list (tried in order, falling back on network/support errors).
+`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true, bargeInChars?: 4, voiceName? })`. `stt`/`tts` take a provider or a list (tried in order, falling back on network/support errors and when the browser's speech service is off).
 
 | Provider | Notes |
 |----------|-------|
-| `webSpeechSTT()`, `webSpeechTTS({ voice?, rate?, pitch? })` | Browser APIs; long texts are split into sentences |
+| `webSpeechSTT({ continuous? })`, `webSpeechTTS({ voice?, rate?, pitch? })` | Browser APIs; long texts are split into sentences |
 | `httpSTT({ url, headers?, parse?, silenceMs? })`, `httpTTS({ url })` | Your backend proxies any cloud provider (keys stay server-side); simple voice activity detection for hands-free |
 | `websocketSTT({ url, sampleRate?, onOpen?, parse, finish? })` | Streams 16-bit PCM; `url` can be a function that fetches a short-lived token |
 | `voskSTT({ url })` | Self-hosted Vosk server |
@@ -141,6 +141,9 @@ Service: `listen({ until? })`, `stop()`, `cancel()`, `toggle()`, `setMode()`, `s
 
 - `stop()` ends listening and still sends what was said; `cancel()` ends it and discards the utterance (nothing is sent, including a final transcript the provider delivers late).
 - Push-to-talk ends on the first pause by default (good for click-to-talk). `listen({ until: 'stop' })` is hold-to-talk: recognition keeps going across pauses (restarting if the browser ends its session), `partial` shows everything said so far, and one message goes out on `stop()`. The widget's mic button and the keyboard `talk` shortcut use it.
+- `getState().error.code` is one of `not-supported`, `not-allowed` (the microphone was denied), `service-not-allowed` (the microphone is fine but the browser's speech service is off or blocked, e.g. dictation disabled in Safari; the next provider in the list is tried), `no-speech`, `audio-capture`, `network`, `unknown`. Use it to show the right help to the user.
+- `webSpeechSTT` reports itself as unsupported outside a secure context (plain `http`), so `supported.stt` is `false` there unless another provider works.
+- `webSpeechSTT({ continuous: 'auto' })` (default) uses the browser's continuous recognition for hold-to-talk and hands-free, except on Android, where Chrome repeats what was already said in that mode: there each session hears one utterance and the voice service starts the next, so a word spoken right at the restart can be lost. `continuous: true` forces the browser's continuous mode, `false` turns it off everywhere.
 
 ## keyboard
 
