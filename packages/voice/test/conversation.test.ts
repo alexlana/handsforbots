@@ -307,3 +307,40 @@ describe('httpEndOfTurn', () => {
     await expect(provider.predict(input, signal)).rejects.toThrow('500')
   })
 })
+
+describe('websocketSTT end of turn', () => {
+  it('declares the capability and passes the service decision to onFinal', async () => {
+    const { websocketSTT } = await import('../src/index.js')
+    const sockets: any[] = []
+    class FakeSocket {
+      static OPEN = 1
+      readyState = 0
+      constructor() {
+        sockets.push(this)
+      }
+      send() {}
+      close() {}
+    }
+    vi.stubGlobal('WebSocket', FakeSocket)
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) } })
+    try {
+      const provider = websocketSTT({
+        url: 'wss://stt',
+        endOfTurn: true,
+        parse: (data) => JSON.parse(String(data)),
+      })
+      expect(provider.capabilities.endOfTurn).toBe(true)
+      const onFinal = vi.fn()
+      await provider.listen({ language: 'pt-BR', continuous: true }, { onFinal, onError: vi.fn(), onEnd: vi.fn() })
+      sockets[0].onmessage({ data: JSON.stringify({ final: 'eu queria', endOfTurn: false }) })
+      sockets[0].onmessage({ data: JSON.stringify({ final: 'saber o preço', endOfTurn: true }) })
+      expect(onFinal.mock.calls).toEqual([
+        ['eu queria', { confidence: undefined, endOfTurn: false }],
+        ['saber o preço', { confidence: undefined, endOfTurn: true }],
+      ])
+      expect(websocketSTT({ url: 'x', parse: () => null }).capabilities.endOfTurn).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})

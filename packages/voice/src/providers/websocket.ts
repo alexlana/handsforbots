@@ -1,7 +1,16 @@
 import { SpeechError, type SpeechToText } from '../types.js'
 import { capturePcm16, closeStream, openMicrophone } from './media.js'
 
-export type StreamingResult = { partial?: string; final?: string; confidence?: number } | null | undefined
+export type StreamingResult =
+  | {
+      partial?: string
+      final?: string
+      confidence?: number
+      /** With `endOfTurn: true` in the options: whether this final ends the user's turn. */
+      endOfTurn?: boolean
+    }
+  | null
+  | undefined
 
 export type WebSocketSTTOptions = {
   name?: string
@@ -15,6 +24,12 @@ export type WebSocketSTTOptions = {
   parse(data: string | ArrayBuffer): StreamingResult
   /** Tells the server the audio ended (e.g. send EOF). */
   finish?(socket: WebSocket): void
+  /**
+   * The service detects the end of the turn itself (AssemblyAI, Soniox…):
+   * `parse` marks finals with `endOfTurn`, and the voice plugin waits for it
+   * instead of a silence timer or an end-of-turn model.
+   */
+  endOfTurn?: boolean
 }
 
 /** Streams PCM16 microphone audio over a WebSocket. Base for streaming cloud and self-hosted STT. */
@@ -22,7 +37,7 @@ export function websocketSTT(options: WebSocketSTTOptions): SpeechToText {
   const sampleRate = options.sampleRate ?? 16000
   return {
     name: options.name ?? 'websocket',
-    capabilities: { partials: true, continuous: true, offline: false, audio: true },
+    capabilities: { partials: true, continuous: true, offline: false, audio: true, endOfTurn: !!options.endOfTurn },
     remote: true,
     isSupported: () =>
       typeof WebSocket !== 'undefined' && typeof AudioWorkletNode !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
@@ -61,7 +76,7 @@ export function websocketSTT(options: WebSocketSTTOptions): SpeechToText {
         const result = options.parse(event.data)
         if (result?.partial) handlers.onPartial?.(result.partial)
         if (result?.final?.trim()) {
-          handlers.onFinal(result.final.trim(), { confidence: result.confidence })
+          handlers.onFinal(result.final.trim(), { confidence: result.confidence, endOfTurn: result.endOfTurn })
           if (!listenOptions.continuous) void graceful()
         }
       }
