@@ -410,6 +410,7 @@ describe('<h4b-chat> queued messages', () => {
       },
     }
     const { h4b, $, $$ } = await mount({ startOpen: true }, transport)
+    h4b.setInput({ whileBusy: 'queue' })
     type($('#chat_input'), 'primeira')
     await tick(5)
     type($('#chat_input'), 'segunda')
@@ -422,5 +423,23 @@ describe('<h4b-chat> queued messages', () => {
     await tick()
     expect($$('.msg.queued')).toHaveLength(0)
     expect($$('.msg.user').map((e) => e.textContent)).toEqual(['primeira', 'segunda'])
+  })
+
+  it('marks a reply cut short by an interruption', async () => {
+    const transport: any = {
+      name: 'hanging',
+      async *run(_request: TurnRequest, signal: AbortSignal) {
+        yield { type: 'message.delta', messageId: 'a1', delta: 'começando' }
+        await new Promise((r) => signal.addEventListener('abort', r))
+      },
+    }
+    const { h4b, $ } = await mount({ startOpen: true }, transport)
+    h4b.send('oi')
+    await h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+    await h4b.interrupt()
+    await tick()
+    const reply = $('.msg.assistant')
+    expect(reply.classList.contains('interrupted')).toBe(true)
+    expect(reply.title).toBe('Interrupted')
   })
 })

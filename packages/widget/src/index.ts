@@ -462,6 +462,8 @@ export class H4BChatElement extends BaseElement {
     textElement.innerHTML = text ? renderMarkdown(text) : ''
     textElement.hidden = !text
     element.classList.toggle('streaming', !!message.streaming)
+    element.classList.toggle('interrupted', !!message.interrupted)
+    element.title = message.interrupted ? s.interrupted : ''
     element.classList.toggle('rich', rich.length > 0)
     const media = this.region(element, 'media')
     for (const part of message.parts) {

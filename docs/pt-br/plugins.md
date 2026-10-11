@@ -38,13 +38,14 @@ const h4b = createH4B({
   matchThreshold?: 0.75,     // confiança mínima para comandos diretos
   maxActionRoundtrips?: 5,   // idas e voltas assistente ↔ ações por turno
   onError?: (error, source) => void,
+  input?: { whileBusy?: 'interrupt' | 'queue' | 'merge' | { [modality]: … } | (signal) => … }, // o que a entrada faz com o assistente ocupado (veja Conceitos)
   memory?: { … } | false,    // veja memory
   consent?: { rules?, region?, initial?, manage?, channel? }, // veja Consentimento
 })
 await h4b.start()
 ```
 
-API principal: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). O `withConsent(plugin, finalidade | false)` condiciona um plugin a uma finalidade de consentimento, ou o deixa sempre livre. Guia: [Consentimento](./consent.md).
+API principal: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `interrupt()`, `setInput()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). O `withConsent(plugin, finalidade | false)` condiciona um plugin a uma finalidade de consentimento, ou o deixa sempre livre. Guia: [Consentimento](./consent.md).
 
 ## transport-agui
 

@@ -8,6 +8,7 @@ import { API_VERSION, PluginContext, purposeOf, type Plugin } from './plugin.js'
 import type {
   ActionInvocation,
   Events,
+  InterruptPoint,
   Hooks,
   Interceptor,
   Services,
@@ -25,6 +26,8 @@ import type {
   Match,
   Matcher,
   Message,
+  Modality,
+  Part,
   Route,
   Signal,
   SignalInput,
@@ -33,7 +36,18 @@ import type {
   ToolMessage,
   TurnRequest,
   UserMessage,
+  WhileBusy,
 } from './types.js'
+import { textOf } from './util.js'
+
+/** What conversational triggers do while the kernel is busy (ADR 0011). */
+export type InputOptions = {
+  /**
+   * One policy for every conversational modality, one per modality (missing
+   * ones use `interrupt`) or a function. Other modalities always queue.
+   */
+  whileBusy?: WhileBusy | Partial<Record<Modality, WhileBusy>> | ((signal: Signal) => WhileBusy)
+}
 
 export type H4BOptions = {
   plugins?: Plugin<any>[]
@@ -58,6 +72,12 @@ export type H4BOptions = {
    * `h4b.consent.set()`. Absent = no gating (everything counts as granted).
    */
   consent?: ConsentOptions
+  /**
+   * What a typed or spoken message does when it arrives while a turn runs.
+   * Default: it interrupts the reply in progress, and resumes the turn when no
+   * reply came out yet (ADR 0011). Change it at runtime with `setInput()`.
+   */
+  input?: InputOptions
 }
 
 export type H4BSnapshot = {
@@ -69,7 +89,23 @@ export type H4BSnapshot = {
   turn?: TurnStatus
   /** Triggers waiting for the running turn (UIs can show them right away). */
   queued: Signal[]
+  /** The input policy in force. */
+  input: InputOptions
 }
+
+/** The job being processed, as far as interruption and resumption need it. */
+type Current = {
+  kind: 'signal' | 'push' | 'action'
+  signal?: Signal
+  turnId?: string
+  route?: Route
+  /** Something came out of the turn (text, a call, a render…): it can no longer be resumed. */
+  output: boolean
+  resumed?: boolean
+}
+
+/** Modalities the input policy applies to. */
+const CONVERSATIONAL = new Set<Modality>(['text', 'transcript', 'audio'])
 
 type RoundState = {
   turnId: string
@@ -110,6 +146,8 @@ export class H4B {
   private queue: Job[] = []
   private running = false
   private controller?: AbortController
+  private current?: Current
+  private input: InputOptions
   private turn?: TurnStatus
   private snapshotCache?: H4BSnapshot
   private subscribers = new Set<() => void>()
@@ -144,6 +182,7 @@ export class H4B {
       },
     )
     for (const action of options.actions ?? []) this.actions.register(action)
+    this.input = { ...options.input }
     this.consentManager = new ConsentManager(options.consent, async () => {
       this.emit('consent.changed', this.consentManager.snapshot())
       await this.reconcileConsent()
@@ -476,6 +515,7 @@ export class H4B {
       busy: this.running,
       turn: this.turn,
       queued: this.queue.flatMap((job) => (job.kind === 'signal' ? [job.signal] : [])),
+      input: this.input,
     }
     return this.snapshotCache
   }
@@ -524,9 +564,91 @@ export class H4B {
         this.storeContext(signal)
       }
     } else {
-      this.enqueue({ kind: 'signal', signal })
+      this.admit(signal)
     }
     return signal
+  }
+
+  /** Changes the input policy (ADR 0011); applies to the next triggers. */
+  setInput(input: InputOptions) {
+    this.input = { ...this.input, ...input }
+    this.invalidate()
+  }
+
+  private policyOf(signal: Signal): WhileBusy {
+    if (!CONVERSATIONAL.has(signal.modality)) return 'queue'
+    if (signal.whileBusy) return signal.whileBusy
+    const rule = this.input.whileBusy ?? 'interrupt'
+    if (typeof rule === 'string') return rule
+    if (typeof rule === 'object') return rule[signal.modality] ?? 'interrupt'
+    try {
+      return rule(signal)
+    } catch (error) {
+      this.emit('error', { error, source: 'input.whileBusy' })
+      return 'interrupt'
+    }
+  }
+
+  /**
+   * A transport turn that its own policy lets later input cut or resume.
+   * While the route is unknown, input just queues: `runTurn` absorbs it if
+   * the route turns out to be the transport (never a command or a capture).
+   */
+  private interruptible(current = this.current): current is Current & { signal: Signal } {
+    return (
+      current?.kind === 'signal' &&
+      !!current.signal &&
+      !current.resumed &&
+      current.route === 'transport' &&
+      this.policyOf(current.signal) !== 'queue'
+    )
+  }
+
+  /** Leading queued triggers that may join `signal` (ADR 0011), removed from the queue. */
+  private takeJoinable(signal: Signal): Signal[] {
+    if (!CONVERSATIONAL.has(signal.modality) || this.policyOf(signal) === 'queue') return []
+    const taken: Signal[] = []
+    while (true) {
+      const next = this.queue[0]
+      if (next?.kind !== 'signal' || this.policyOf(next.signal) === 'queue') break
+      taken.push(next.signal)
+      this.queue.shift()
+    }
+    if (taken.length > 0) this.invalidate()
+    return taken
+  }
+
+  /** Queues a trigger, or joins it to one not answered yet, per the input policy. */
+  private admit(signal: Signal) {
+    const policy = this.running ? this.policyOf(signal) : 'queue'
+    if (policy === 'queue') return this.enqueue({ kind: 'signal', signal })
+
+    const last = this.queue.at(-1)
+    if (last?.kind === 'signal' && this.policyOf(last.signal) !== 'queue') {
+      const merged = mergeSignals(last.signal, signal)
+      this.queue[this.queue.length - 1] = { kind: 'signal', signal: merged }
+      this.emit('signal.merged', { signal: merged, from: [last.signal, signal], resumed: false })
+      if (policy === 'interrupt' && this.interruptible()) void this.interrupt()
+      this.invalidate()
+      return
+    }
+
+    const current = this.current
+    if (this.interruptible(current) && !current.output) {
+      // Nothing came out yet: run the turn again with both inputs as one message.
+      current.resumed = true
+      const merged = mergeSignals(current.signal, signal)
+      const turnId = current.turnId
+      if (turnId) this.conversation.removeWhere((m) => m.turnId === turnId)
+      this.controller?.abort()
+      this.queue.unshift({ kind: 'signal', signal: merged })
+      this.emit('signal.merged', { signal: merged, from: [current.signal, signal], resumed: true })
+      this.invalidate()
+      return
+    }
+
+    if (policy === 'interrupt' && this.interruptible(current)) void this.interrupt()
+    this.enqueue({ kind: 'signal', signal })
   }
 
   /** Shortcut for a text trigger. */
@@ -539,6 +661,8 @@ export class H4B {
     const signalInput: SignalInput =
       typeof input === 'string' ? { modality: 'text', parts: [{ type: 'text', text: input }], source: 'host' } : input
     const id = signalInput.id ?? createId('sig')
+    // Its result is awaited: never merged with other input unless asked.
+    signalInput.whileBusy ??= 'queue'
     const finished = this.when(
       'turn.status',
       (status) => status.signal?.id === id && FINAL_PHASES.includes(status.phase),
@@ -634,6 +758,52 @@ export class H4B {
     this.controller?.abort()
   }
 
+  /**
+   * Interrupts the reply (barge-in, "stop and send"): aborts the running job
+   * and marks the assistant message in progress as `interrupted`, cut where
+   * the `interrupt.before` interceptors say the user stopped getting it (by
+   * default, everything shown). When idle, it cuts the last assistant message
+   * only if an interceptor says part of it was not delivered (e.g. speech).
+   */
+  async interrupt(options: { clearQueue?: boolean } = {}): Promise<void> {
+    // A turn still producing its reply (not one that finished and is being saved).
+    const turnId = this.running ? this.current?.turnId : undefined
+    const busy = !!turnId && this.turn?.turnId === turnId && !FINAL_PHASES.includes(this.turn.phase)
+    const messages = this.conversation.messages
+    const target = [...messages]
+      .reverse()
+      .find((m): m is AssistantMessage => m.role === 'assistant' && (!busy || m.turnId === turnId))
+    const cut = busy && !!target
+    if (target && cut) this.conversation.update<AssistantMessage>(target.id, (m) => ({ ...m, interrupted: true }))
+    if (this.running || options.clearQueue) this.abort(options)
+    if (!target) {
+      this.emit('turn.interrupted', { turnId })
+      return
+    }
+
+    const text = textOf(target)
+    let point: InterruptPoint | null = { messageId: target.id, turnId: target.turnId, text, keep: text.length }
+    try {
+      if (this.hasInterceptors('interrupt.before')) point = await this.runHooks('interrupt.before', point)
+    } catch (error) {
+      this.emit('error', { error, source: 'hook:interrupt.before' })
+    }
+    const keep = point ? Math.max(0, Math.min(text.length, Math.floor(point.keep))) : text.length
+    if (!cut && keep >= text.length) {
+      this.emit('turn.interrupted', { turnId })
+      return
+    }
+
+    const message = this.conversation.find(target.id) as AssistantMessage | undefined
+    if (!message) return
+    const parts = cutText(message.parts, keep)
+    const removed = parts.length === 0 && !message.toolCalls?.length
+    if (removed) this.conversation.removeWhere((m) => m.id === message.id)
+    else this.conversation.update<AssistantMessage>(message.id, (m) => ({ ...m, parts, interrupted: true, streaming: false }))
+    this.emit('turn.interrupted', { turnId: message.turnId, messageId: message.id, kept: text.slice(0, keep), removed })
+    await this.persist()
+  }
+
   /** Starts a new thread and clears stored history. */
   async reset(threadId?: string) {
     this.abort({ clearQueue: true })
@@ -658,6 +828,7 @@ export class H4B {
     try {
       while (this.queue.length > 0) {
         const job = this.queue.shift()!
+        this.current = { kind: job.kind, signal: job.kind === 'signal' ? job.signal : undefined, output: false }
         this.invalidate()
         if (job.kind === 'signal') await this.runTurn(job.signal)
         else if (job.kind === 'push') await this.runPush(job)
@@ -665,6 +836,7 @@ export class H4B {
       }
     } finally {
       this.running = false
+      this.current = undefined
       this.invalidate()
     }
   }
@@ -680,20 +852,39 @@ export class H4B {
     const controller = new AbortController()
     this.controller = controller
     let route: Route | undefined
+    let raw = incoming
     let signal = incoming
+    if (this.current?.signal === incoming) this.current.turnId = turnId
     this.setStatus(turnId, 'received', undefined, signal)
 
     try {
-      const accepted = await this.runHooks('signal.before', signal)
-      if (!accepted) {
-        this.setStatus(turnId, 'aborted', undefined, signal, 'Dropped by signal.before interceptor')
+      let capture: CaptureHandler | undefined
+      let match: Match | undefined
+      while (true) {
+        const accepted = await this.runHooks('signal.before', raw)
+        if (!accepted) {
+          this.setStatus(turnId, 'aborted', undefined, raw, 'Dropped by signal.before interceptor')
+          return
+        }
+        signal = { ...accepted, id: raw.id }
+        capture = await this.findCapture(signal)
+        match = capture ? undefined : await this.findMatch(signal)
+        route = capture ? 'capture' : match ? 'direct' : 'transport'
+        if (route !== 'transport' || controller.signal.aborted) break
+        // Input that arrived while this one was being routed joins it.
+        const joinable = this.takeJoinable(raw)
+        if (joinable.length === 0) break
+        const merged = joinable.reduce(mergeSignals, raw)
+        this.emit('signal.merged', { signal: merged, from: [raw, ...joinable], resumed: false })
+        raw = merged
+        if (this.current?.turnId === turnId) this.current.signal = merged
+      }
+      // Interrupted before it started.
+      if (controller.signal.aborted) {
+        this.setStatus(turnId, 'aborted', route, signal)
         return
       }
-      signal = { ...accepted, id: incoming.id }
-
-      const capture = await this.findCapture(signal)
-      const match = capture ? undefined : await this.findMatch(signal)
-      route = capture ? 'capture' : match ? 'direct' : 'transport'
+      if (this.current?.turnId === turnId) this.current.route = route
       this.appendUser(signal, route, turnId)
       this.setStatus(turnId, 'acting', route, signal)
 
@@ -929,11 +1120,15 @@ export class H4B {
       case 'message.start':
         this.ensureAssistant(round, stimulus.messageId)
         break
-      case 'message.delta':
-        conversation.appendText(this.ensureAssistant(round, stimulus.messageId), stimulus.delta)
+      case 'message.delta': {
+        const id = this.ensureAssistant(round, stimulus.messageId)
+        if ((conversation.find(id) as AssistantMessage).interrupted) return
+        conversation.appendText(id, stimulus.delta)
         break
+      }
       case 'message.part': {
         const id = this.ensureAssistant(round, stimulus.messageId)
+        if ((conversation.find(id) as AssistantMessage).interrupted) return
         conversation.update<AssistantMessage>(id, (m) => ({ ...m, parts: [...m.parts, stimulus.part] }))
         break
       }
@@ -983,6 +1178,9 @@ export class H4B {
         round.error = stimulus.message
         return // the turn error path emits the error stimulus
     }
+    if (this.current?.turnId === turnId && stimulus.type !== 'message.start' && stimulus.type !== 'message.end') {
+      this.current.output = true
+    }
     this.emit('stimulus', { turnId, stimulus })
   }
 
@@ -1018,3 +1216,35 @@ export class H4B {
   }
 }
 
+/** Joins two triggers into one message: the later one's identity, both inputs. */
+function mergeSignals(first: Signal, second: Signal): Signal {
+  const parts: Part[] = [...first.parts]
+  for (const part of second.parts) {
+    const last = parts.at(-1)
+    if (last?.type === 'text' && part.type === 'text') {
+      // Speech continues a sentence; typed messages are separate lines.
+      const glue = second.modality === 'text' && first.modality === 'text' ? '\n' : ' '
+      parts[parts.length - 1] = { type: 'text', text: `${last.text}${glue}${part.text}` }
+    } else {
+      parts.push(part)
+    }
+  }
+  const mergedFrom = [...((first.meta?.mergedFrom as string[] | undefined) ?? []), first.id]
+  return { ...second, parts, meta: { ...first.meta, ...second.meta, mergedFrom } }
+}
+
+/** Keeps the first `keep` characters of the text parts; other parts stay. */
+function cutText(parts: Part[], keep: number): Part[] {
+  let left = keep
+  const result: Part[] = []
+  for (const part of parts) {
+    if (part.type !== 'text') {
+      result.push(part)
+      continue
+    }
+    const text = part.text.slice(0, Math.max(0, left))
+    left -= part.text.length
+    if (text) result.push({ type: 'text', text })
+  }
+  return result
+}

@@ -38,13 +38,14 @@ const h4b = createH4B({
   matchThreshold?: 0.75,     // minimum confidence for direct commands
   maxActionRoundtrips?: 5,   // assistant ↔ client action loops per turn
   onError?: (error, source) => void,
+  input?: { whileBusy?: 'interrupt' | 'queue' | 'merge' | { [modality]: … } | (signal) => … }, // what typed/spoken input does while busy (see Concepts)
   memory?: { … } | false,    // see memory
   consent?: { rules?, region?, initial?, manage?, channel? }, // see Consent
 })
 await h4b.start()
 ```
 
-Main API: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). `withConsent(plugin, purpose | false)` gates a plugin on a consent purpose, or never gates it. Guide: [Consent](./consent.md).
+Main API: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `interrupt()`, `setInput()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). `withConsent(plugin, purpose | false)` gates a plugin on a consent purpose, or never gates it. Guide: [Consent](./consent.md).
 
 ## transport-agui
 

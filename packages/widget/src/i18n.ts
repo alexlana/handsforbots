@@ -10,6 +10,8 @@ export type Strings = {
   done: string
   error: string
   aborted: string
+  /** Tooltip on a reply cut short by the user. */
+  interrupted: string
   directAction: string
   assistantAction: string
   agentAction: string
@@ -61,6 +63,7 @@ const pt: Strings = {
   done: 'Pronto',
   error: 'Algo deu errado',
   aborted: 'Cancelado',
+  interrupted: 'Interrompida',
   directAction: '⚡ ação direta',
   assistantAction: '🤖 executou',
   agentAction: '🌐 agente externo executou',
@@ -110,6 +113,7 @@ export const STRINGS: Record<string, Strings> = {
     done: 'Done',
     error: 'Something went wrong',
     aborted: 'Cancelled',
+    interrupted: 'Interrupted',
     directAction: '⚡ direct action',
     assistantAction: '🤖 ran',
     agentAction: '🌐 external agent ran',

@@ -52,7 +52,24 @@ export type Signal = {
   key?: string
   meta?: Record<string, unknown>
   timestamp: number
+  /**
+   * What to do if this trigger arrives while the kernel is busy, overriding
+   * the kernel's input policy (`H4BOptions.input`).
+   */
+  whileBusy?: WhileBusy
 }
+
+/**
+ * What a conversational trigger (`text`, `transcript`, `audio`) does when it
+ * arrives while the kernel is busy (ADR 0011).
+ * - `queue`: waits for the running turn and for what is already queued.
+ * - `interrupt`: cancels the reply in progress and becomes the next turn.
+ * - `merge`: joins a trigger that was not answered yet; otherwise waits.
+ *
+ * With `interrupt` and `merge`, a running turn that has produced no output
+ * yet is resumed: aborted and run again with both inputs as one message.
+ */
+export type WhileBusy = 'queue' | 'interrupt' | 'merge'
 
 export type SignalInput = Omit<Signal, 'id' | 'timestamp' | 'kind'> & {
   id?: string
@@ -94,6 +111,8 @@ export type AssistantMessage = {
   route?: Route
   /** True while text is still streaming. */
   streaming?: boolean
+  /** Cut short by `h4b.interrupt()`: the text holds only what was shown or spoken. */
+  interrupted?: boolean
   createdAt: number
 }
 

@@ -76,13 +76,14 @@ React/Vue: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`,
 | Fire and forget input | `h4b.send(text)` / `h4b.signal({...})` |
 | Run an action as the user, recorded in history | `await h4b.runAction(name, args)` (never throws; returns `{ result }` or `{ error }`) |
 | Deliver stimuli outside a turn (server push, "report ready") | `await h4b.push([...])` |
+| Stop the reply, keeping what was shown (stop button, barge-in) | `h4b.interrupt()` |
 | Cancel the running turn / clear the queue | `h4b.abort()` / `h4b.abort({ clearQueue: true })` |
 | New conversation, clear storage | `await h4b.reset()` |
 | Observe | `h4b.on(event, fn)`, `await h4b.when(event, predicate, { timeout })` |
 | Transform or veto | `h4b.intercept('signal.before' | 'request.before' | 'action.before' | 'stimulus.before', fn)` |
 | Bind a UI | `h4b.subscribe(fn)` + `h4b.getSnapshot()`, or `@handsforbots/react` hooks / `@handsforbots/vue` composables |
 
-Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Details and pitfalls: `references/runtime.md`.
+Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Typed and spoken messages are the exception: by default one sent during a reply interrupts it (the reply keeps what was shown, `interrupted: true`), and one sent before any reply came out is joined with the pending message. Choose with `createH4B({ input: { whileBusy: 'interrupt' | 'merge' | 'queue' } })` or `h4b.setInput()` at runtime; `ask()` always queues. Details and pitfalls: `references/runtime.md`.
 
 ## Voice with your own microphone UI
 

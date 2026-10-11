@@ -253,7 +253,7 @@ describe('transport route', () => {
         yield { type: 'message.delta', messageId: `a-${seen.length}`, delta: 'ok' }
       },
     }
-    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)], input: { whileBusy: 'queue' } }).start()
     h4b.send('1')
     h4b.send('2')
     await idle(h4b)
@@ -463,5 +463,153 @@ describe('rich content', () => {
     const ui = assistant.flatMap((m) => (m as any).parts.filter((p: any) => p.name === 'ui').map((p: any) => p.value.component))
     expect(ui).toEqual(['card', 'gallery'])
     expect(rendered).toEqual(['card', 'map', 'gallery'])
+  })
+})
+
+describe('input while busy (ADR 0011)', () => {
+  /** A transport whose turns wait for `release`, optionally after some first text. */
+  function gated(first?: string) {
+    const requests: TurnRequest[] = []
+    const releases: (() => void)[] = []
+    const transport: Transport = {
+      name: 'gated',
+      async *run(request, signal) {
+        requests.push(structuredClone(request))
+        const n = requests.length
+        if (first) yield { type: 'message.delta', messageId: `a${n}`, delta: first }
+        await new Promise<void>((resolve) => {
+          releases.push(resolve)
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        })
+        if (!signal.aborted) yield { type: 'message.delta', messageId: `a${n}`, delta: ` fim ${n}` }
+      },
+    }
+    const release = async () => {
+      const deadline = Date.now() + 5000
+      while (releases.length === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 1))
+      releases.shift()!()
+    }
+    return { transport, requests, release }
+  }
+  const started = (h4b: ReturnType<typeof createH4B>, n: number) =>
+    h4b.when('turn.status', (s) => s.phase === 'acting' && s.route === 'transport' && --n === 0)
+
+  it('joins messages sent while the first is still being routed into one turn', async () => {
+    const transport = scripted([[{ type: 'message.delta', messageId: 'a', delta: 'ok' }]])
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    h4b.send('oi')
+    h4b.send('tudo bem?')
+    await idle(h4b)
+    expect(transport.requests).toHaveLength(1)
+    expect(h4b.messages.filter((m) => m.role === 'user').map(textOf)).toEqual(['oi\ntudo bem?'])
+  })
+
+  it('resumes a turn that produced nothing yet: aborts it and runs both inputs as one', async () => {
+    const { transport, requests, release } = gated()
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    const merged = vi.fn()
+    h4b.on('signal.merged', merged)
+    const turn = started(h4b, 1)
+    h4b.signal({ modality: 'transcript', parts: [{ type: 'text', text: 'eu queria' }], source: 'voice' })
+    await turn
+    h4b.signal({ modality: 'transcript', parts: [{ type: 'text', text: 'saber o preço' }], source: 'voice' })
+    await release()
+    await release()
+    await idle(h4b)
+    expect(requests).toHaveLength(2)
+    expect(requests[1]!.messages.map((m) => `${m.role}:${textOf(m)}`)).toEqual(['user:eu queria saber o preço'])
+    expect(merged).toHaveBeenCalledWith(expect.objectContaining({ resumed: true }))
+    expect(h4b.messages.map((m) => `${m.role}:${textOf(m)}`)).toEqual(['user:eu queria saber o preço', 'assistant: fim 2'])
+  })
+
+  it('interrupts a reply in progress by default: keeps what was shown, marked', async () => {
+    const { transport, requests, release } = gated('começando')
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    const interrupted = vi.fn()
+    h4b.on('turn.interrupted', interrupted)
+    const turn = started(h4b, 1)
+    h4b.send('primeira')
+    await turn
+    await h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+    h4b.send('segunda')
+    await release()
+    await release()
+    await idle(h4b)
+    expect(requests).toHaveLength(2)
+    const [, assistant] = h4b.messages
+    expect(assistant).toMatchObject({ role: 'assistant', interrupted: true, streaming: false })
+    expect(textOf(assistant!)).toBe('começando')
+    expect(h4b.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+    expect(interrupted).toHaveBeenCalledWith(expect.objectContaining({ messageId: assistant!.id, kept: 'começando' }))
+  })
+
+  it('merge waits for the reply in progress and joins what arrives meanwhile', async () => {
+    const { transport, requests, release } = gated('começando')
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)], input: { whileBusy: 'merge' } }).start()
+    const turn = started(h4b, 1)
+    h4b.send('primeira')
+    await turn
+    await h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+    h4b.send('segunda')
+    h4b.send('terceira')
+    expect(h4b.getSnapshot().queued.map((s) => textOf(s.parts))).toEqual(['segunda\nterceira'])
+    await release()
+    await release()
+    await idle(h4b)
+    expect(requests).toHaveLength(2)
+    expect(h4b.messages.map((m) => `${m.role}:${textOf(m)}`)).toEqual([
+      'user:primeira',
+      'assistant:começando fim 1',
+      'user:segunda\nterceira',
+      'assistant:começando fim 2',
+    ])
+    expect(h4b.messages.some((m) => m.role === 'assistant' && m.interrupted)).toBe(false)
+  })
+
+  it('policy can change at runtime and per modality; other modalities always queue', async () => {
+    const { transport, requests, release } = gated('começando')
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    h4b.setInput({ whileBusy: { text: 'queue' } })
+    expect(h4b.getSnapshot().input.whileBusy).toEqual({ text: 'queue' })
+    const turn = started(h4b, 1)
+    h4b.send('primeira')
+    await turn
+    h4b.send('segunda')
+    h4b.signal({ modality: 'gui-event', parts: [{ type: 'text', text: 'clique' }], source: 'gui' })
+    expect(h4b.getSnapshot().queued).toHaveLength(2)
+    for (let i = 0; i < 3; i++) await release()
+    await idle(h4b)
+    expect(requests).toHaveLength(3)
+    expect(h4b.messages.some((m) => m.role === 'assistant' && m.interrupted)).toBe(false)
+  })
+
+  it('ask() is never merged unless asked', async () => {
+    const { transport, release } = gated()
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    const turn = started(h4b, 1)
+    h4b.send('primeira')
+    await turn
+    const answer = h4b.ask('pergunta do host')
+    await release()
+    await release()
+    const result = await answer
+    expect(result.status.phase).toBe('done')
+    expect(textOf(result.messages[0]!)).toBe('pergunta do host')
+  })
+
+  it('interrupt() when idle cuts the last reply where interceptors say it stopped', async () => {
+    const transport = scripted([[{ type: 'message.delta', messageId: 'a', delta: 'Olá, mundo' }]])
+    const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+    await h4b.ask('oi')
+    // Nothing says part of it was missed: untouched.
+    await h4b.interrupt()
+    expect(h4b.messages.at(-1)).not.toHaveProperty('interrupted')
+    const off = h4b.intercept('interrupt.before', (point) => ({ ...point, keep: 4 }))
+    await h4b.interrupt()
+    expect(h4b.messages.at(-1)).toMatchObject({ interrupted: true, parts: [{ type: 'text', text: 'Olá,' }] })
+    off()
+    h4b.intercept('interrupt.before', (point) => ({ ...point, keep: 0 }))
+    await h4b.interrupt()
+    expect(h4b.messages.map((m) => m.role)).toEqual(['user'])
   })
 })

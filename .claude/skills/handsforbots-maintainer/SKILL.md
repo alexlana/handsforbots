@@ -54,6 +54,7 @@ Rode `pnpm test` e `pnpm typecheck` antes de todo commit. O estado de base é tu
 Se mudar algum destes, atualize `docs/*/history.md`, `docs/*/concepts.md`, `skills/handsforbots*/` e esta lista no mesmo commit (e acrescente ou ajuste o teste):
 
 - Turnos, `runAction` e `push` passam por **uma fila**, em ordem; `getSnapshot().queued` lista só sinais.
+- Entrada com o kernel ocupado (ADR 0011): `whileBusy` (`interrupt` padrão, `merge`, `queue`; por modalidade, função ou no próprio sinal; `setInput()` em runtime) vale só para triggers `text`/`transcript`/`audio`. Turno `transport` sem saída ainda (`Current.output`) é retomado: as mensagens do turno saem do histórico e o sinal unido vai para a frente da fila; enquanto a rota é desconhecida, a entrada só enfileira e o `runTurn` a absorve se a rota for `transport` (rodando `signal.before` de novo no sinal unido). `interrupt()` marca `interrupted`, corta pelo `interrupt.before` (padrão: tudo exibido), remove a mensagem se não sobrar nada; deltas que chegam depois numa mensagem interrompida são ignorados. `ask()` usa `queue`.
 - `runAction` grava mensagem `assistant` com `toolCalls` (rota `direct` ou `agent`) + mensagem `tool` com `result` ou `error`, inclusive quando falha; persiste ao fim do job.
 - Ação com `destructive: true` sem serviço `confirm` é recusada.
 - Ação só com `parameters` (sem `input`) não tem os argumentos validados em runtime.

@@ -120,6 +120,7 @@ header button[hidden] { display: none; }
 .msg.assistant { align-self: flex-start; background: var(--h4b-bg); border: 1px solid var(--h4b-border); border-bottom-left-radius: 4px; }
 .msg img { display: block; max-width: 100%; border-radius: 10px; margin-top: 4px; }
 .msg.streaming::after { content: '▍'; animation: blink 1s steps(2) infinite; opacity: .6; }
+.msg.interrupted::after { content: ' …'; opacity: .6; }
 .msg.pending { display: none; }
 .msg.queued { opacity: .55; }
 .msg.rich { max-width: 100%; }

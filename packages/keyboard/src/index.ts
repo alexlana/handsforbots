@@ -82,8 +82,9 @@ export const keyboard = definePlugin<KeyboardOptions | undefined>({
         const busy = ctx.app.busy
         const speaking = voice?.getState().speaking
         if (!busy && !speaking) return // let Escape do its usual job
+        // Interrupt first: the voice tells it how much of the reply was spoken.
+        void ctx.app.interrupt()
         voice?.cancelSpeech()
-        if (busy) ctx.app.abort()
         ctx.emit('keyboard.interrupt', { source: 'shortcut' })
         return
       }

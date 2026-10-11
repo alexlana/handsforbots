@@ -1,4 +1,4 @@
-export { createH4B, H4B, type H4BOptions, type H4BSnapshot } from './kernel.js'
+export { createH4B, H4B, type H4BOptions, type H4BSnapshot, type InputOptions } from './kernel.js'
 export {
   definePlugin,
   PluginContext,
@@ -32,6 +32,7 @@ export type {
   Events,
   Hooks,
   Interceptor,
+  InterruptPoint,
   Services,
   TurnPhase,
   TurnResult,

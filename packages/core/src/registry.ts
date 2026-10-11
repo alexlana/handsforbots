@@ -68,6 +68,21 @@ export interface Hooks {
    * shares objects with the conversation on screen. `null` skips this save.
    */
   'storage.before': SessionSnapshot
+  /**
+   * When `h4b.interrupt()` cuts an assistant message: set `keep` to how many
+   * characters of `text` the user actually got (e.g. what was spoken). The
+   * default keeps everything shown. `null` leaves the message untouched.
+   */
+  'interrupt.before': InterruptPoint
+}
+
+export type InterruptPoint = {
+  messageId: string
+  turnId?: string
+  /** The message's text so far. */
+  text: string
+  /** Characters of `text` to keep. */
+  keep: number
 }
 
 export type Interceptor<T> = (value: T) => T | null | undefined | void | Promise<T | null | undefined | void>
@@ -87,5 +102,9 @@ export interface Events {
   'plugin.disposed': { name: string }
   /** Consent decisions, region or rule set changed. */
   'consent.changed': ConsentSnapshot
+  /** `h4b.interrupt()` ran. `messageId` is absent when no assistant message was cut. */
+  'turn.interrupted': { turnId?: string; messageId?: string; kept?: string; removed?: boolean }
+  /** Triggers were joined into `signal` (ADR 0011); `resumed`: the running turn was restarted with it. */
+  'signal.merged': { signal: Signal; from: Signal[]; resumed: boolean }
   error: { error: unknown; source: string }
 }

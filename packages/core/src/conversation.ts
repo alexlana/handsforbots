@@ -75,6 +75,14 @@ export class Conversation {
     return next
   }
 
+  /** Removes the messages that match, if any. */
+  removeWhere(predicate: (message: Message) => boolean) {
+    const kept = this._messages.filter((m) => !predicate(m))
+    if (kept.length === this._messages.length) return
+    this._messages = kept
+    this.onMessages(this._messages)
+  }
+
   appendText(messageId: string, delta: string) {
     this.update<AssistantMessage>(messageId, (message) => {
       const parts = [...message.parts]

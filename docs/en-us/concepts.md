@@ -32,7 +32,7 @@ Every trigger is resolved by one route, recorded on its messages and turn status
 | `agent` | An external agent (WebMCP) ran an action. |
 | `push` | The backend sent stimuli outside a turn (WebSocket, long jobs). |
 
-Turns run one at a time, in order. Each has a status: `received → acting → done | error | aborted`. UIs should render both fast (direct) and slow (LLM) routes with the same states, holding each briefly so instant commands don't flicker. The widget does this for you.
+Turns run one at a time, in order. Each has a status: `received → acting → done | error | aborted`. What a typed or spoken message does when it arrives while a turn runs is the input policy (below). UIs should render both fast (direct) and slow (LLM) routes with the same states, holding each briefly so instant commands don't flicker. The widget does this for you.
 
 ## Actions
 
@@ -43,6 +43,22 @@ An action is a capability of your GUI: name, description, input schema (Standard
 - **Validation** happens before the handler; invalid calls return an error to the caller, they never throw into your UI.
 - `call.render(component, props)` lets a handler show rich content in the reply (e.g. a gallery).
 
+## Input while busy
+
+Like the voice mode of mainstream assistants, a message typed or spoken while the assistant is replying **interrupts** the reply by default: the reply stops (the transport gets the abort), the assistant message keeps only what was shown, marked `interrupted: true`, and the new message becomes the next turn. If nothing came out of the running turn yet, it is **resumed** instead: aborted and run again with both inputs as one user message (one backend call instead of two). Messages sent in a quick sequence are joined the same way.
+
+```ts
+createH4B({ input: { whileBusy: 'interrupt' } })      // default
+h4b.setInput({ whileBusy: 'queue' })                  // change at runtime: wait for the running turn
+h4b.setInput({ whileBusy: { text: 'merge', transcript: 'interrupt' } }) // per modality
+h4b.signal({ modality: 'text', parts, source: 'x', whileBusy: 'queue' }) // per signal
+```
+
+- `queue`: waits its turn. `interrupt`: cuts the reply in progress. `merge`: joins a message not answered yet, without cutting the reply.
+- Only `text`, `transcript` and `audio` triggers follow the policy; GUI events, commands, actions and pushes always queue, and direct commands (menu) and captures are never joined. `ask()` queues unless told otherwise, since its result is awaited.
+- `h4b.interrupt()` does the same cut on demand (stop button, Escape, barge-in). When idle it only cuts the last reply if a `interrupt.before` interceptor says part of it was not delivered (the voice plugin reports what was spoken). Events: `turn.interrupted`, `signal.merged`.
+- Backends must accept truncated assistant messages and use the history they receive, not one of their own, and should stop generating when the request is aborted.
+
 ## Synchronous and asynchronous
 
 | Mechanism | Purpose | Does the flow wait? |
@@ -52,14 +68,15 @@ An action is a capability of your GUI: name, description, input schema (Standard
 | Service contract | Do the work: transport, actions, matchers, storage, confirmation | Yes |
 | Awaitable host API | Use H4B like a function | Yes |
 
-All accept sync or async functions. Interception points: `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` (what is saved; see [Consent](./consent.md)).
+All accept sync or async functions. Interception points: `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` (what is saved; see [Consent](./consent.md)), `interrupt.before` (how much of an interrupted reply the user got).
 
 ```ts
 const { status, messages } = await h4b.ask('show late orders')   // awaits the turn
 await h4b.runAction('open_order', { id: '1042' })                // through the queue, recorded
 await h4b.push([{ type: 'message.delta', messageId: 'x', delta: 'Your report is ready.' }]) // outside a turn
 await h4b.when('turn.status', (s) => s.phase === 'done')         // wait for an event
-h4b.abort()                                                      // cancel the running turn (barge-in)
+h4b.interrupt()                                                  // stop the reply, keep what was shown (barge-in)
+h4b.abort()                                                      // cancel the running turn, touching nothing
 ```
 
 ## Plugins and services
