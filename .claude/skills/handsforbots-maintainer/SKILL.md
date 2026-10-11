@@ -23,6 +23,8 @@ Monorepo pnpm (Node 20+, pnpm 10) com um kernel headless em TypeScript e um paco
 | `packages/memory`, `storage-local`, `storage-backend`, `tab-sync`, `consent`, `observability`, `testkit` | Infra; `consent` tem presets de regras, carregador, região e `redact`; `testkit` tem a suíte de conformidade de transportes |
 | `packages/semantic-event-observability` | Biblioteca JS independente, testada com `node:test` |
 | `docs/en-us`, `docs/pt-br` | Documentação pública espelhada |
+| `NOTICE.md`, `docs/pt-br/NOTICE.md`, `docs/*/references.md` | Bibliotecas de terceiros (uso e licença) e bibliografia (especificações, algoritmos, leis, inspirações) |
+| `test/` | Verificações do repositório (`third-party.test.ts`) |
 | `skills/` | Skills para quem **integra** o H4B (copiadas para `.claude/skills` do projeto consumidor) |
 | `examples/react-agui`, `examples/vite` | Exemplos (React + AG-UI com agente simulado; Rasa + widget via Docker) |
 
@@ -47,6 +49,7 @@ Rode `pnpm test` e `pnpm typecheck` antes de todo commit. O estado de base é tu
 - **Todo comportamento tem teste.** Testes que dependem de tempo esperam condições (`eventually`, `waitForIdle`, `h4b.when`), nunca atrasos fixos. Use `jsdom` só quando precisar de DOM. Transportes novos passam pela `transportConformance` do `testkit`.
 - Erros de listeners, storage e matchers vão para `emit('error', { error, source })`, nunca quebram o turno. `runAction` nunca lança.
 - Segurança (ADR 0005, `docs/*/security.md`): só ações registradas executam; nada de `eval`/`window[...]`; chaves nunca no navegador; renderizadores tratam props como não confiáveis.
+- **Créditos no mesmo commit.** Pacote de terceiros novo (em `package.json` ou carregado pelo hospedeiro, como `vosk-browser`) ou código copiado: linha em `NOTICE.md` e `docs/pt-br/NOTICE.md` com uso e licença (o `test/third-party.test.ts` cobra os pacotes dos `package.json`). Especificação, algoritmo, artigo, lei ou desenho de outro projeto: linha em `docs/en-us/references.md` e `docs/pt-br/references.md`, com citação num comentário do código. Confira a licença no `package.json` do pacote instalado.
 - Commits em Conventional Commits, em inglês, terminando com ponto: `feat(core): ...`, `fix(widget): ...`, `docs: ...`, `test(...)`, `chore: ...`. `feat!:` para quebra de API.
 
 ## Contratos que a documentação e as skills afirmam

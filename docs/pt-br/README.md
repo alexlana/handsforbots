@@ -46,6 +46,8 @@ await h4b.start()
 - [Segurança](./security.md)
 - [Desenvolvimento](./development.md)
 - [Migrando da v1](./migrating-from-v1.md)
+- [Referências](./references.md): especificações, artigos, leis e projetos que o H4B implementa ou em que se apoia
+- [Projetos de terceiros](./NOTICE.md): bibliotecas e licenças
 - [Roadmap](../../ROADMAP.md) (arquitetura, decisões, estado)
 
 ## Exemplos
@@ -55,4 +57,4 @@ await h4b.start()
 
 ## Agradecimentos
 
-Aos autores [destes projetos de terceiros](./NOTICE.md).
+Aos autores [destes projetos de terceiros](./NOTICE.md) e dos [trabalhos em que nos apoiamos](./references.md).

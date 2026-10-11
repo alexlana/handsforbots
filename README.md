@@ -54,6 +54,8 @@ await h4b.start()
 - [Security](./docs/en-us/security.md)
 - [Development](./docs/en-us/development.md)
 - [Migrating from v1](./docs/en-us/migrating-from-v1.md)
+- [References](./docs/en-us/references.md): specs, papers, laws and projects H4B implements or builds on
+- [Third-party projects](./NOTICE.md): libraries and licenses
 - [Roadmap](./ROADMAP.md) (architecture, decisions, status; Portuguese)
 
 ## Examples
@@ -63,4 +65,4 @@ await h4b.start()
 
 ## Acknowledgment
 
-Grateful for the authors of [these third-party projects](./NOTICE.md).
+Grateful for the authors of [these third-party projects](./NOTICE.md) and of the [work we build on](./docs/en-us/references.md).

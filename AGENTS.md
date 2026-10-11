@@ -20,4 +20,5 @@
 - Architecture and decisions: `ROADMAP.md`, `docs/adr/`. Conventions, layout and the contracts the docs rely on: `.claude/skills/handsforbots-maintainer/SKILL.md`.
 - Public behavior changes update `docs/en-us` **and** `docs/pt-br` in the same commit, plus `skills/` when integrators are affected.
 - Every behavior has a test; time-dependent tests wait for conditions, never fixed delays.
+- Credit what we use, in the same commit: third-party packages and copied code in `NOTICE.md` + `docs/pt-br/NOTICE.md` (use and license; `test/third-party.test.ts` enforces the packages); specs, algorithms, papers, laws and borrowed designs in `docs/en-us/references.md` + `docs/pt-br/references.md`, cited in a code comment too.
 - Commits: Conventional Commits in English, ending with a period (`feat(core): ...`, `docs: ...`).
