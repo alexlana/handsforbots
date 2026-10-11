@@ -12,6 +12,7 @@ export const weather = definePlugin<WeatherOptions>({
   inject: ['transport'],           // mount after these services exist
   provides: [],                    // services this plugin provides (checked after apply)
   // config: z.object({ apiUrl: z.string().url() }),  // optional Standard Schema validation
+  // consent: 'analytics',          // mount only while this purpose is granted; erase(app, config) cleans an earlier visit (see Consent)
   apply(ctx, options) {
     ctx.registerAction({
       name: 'show_weather',
@@ -51,7 +52,7 @@ export const weather = definePlugin<WeatherOptions>({
 | `capture(handler, { accepts })` | Take some trigger signals for yourself (see `guided`) |
 | `signal(input)` | Send input (source defaults to the plugin name) |
 | `effect(setup)` / `onDispose(fn)` | Resources with cleanup |
-| `onRevoke(fn)` | Runs after the plugin was unmounted because its consent purpose was withdrawn: delete what it kept. Declare the purpose with `definePlugin({ consent: 'persistence', … })` (see [Consent](./consent.md)) |
+| `onRevoke(fn)` | Runs after the plugin was unmounted because its consent purpose was withdrawn: delete what it kept. Declare the purpose with `definePlugin({ consent: 'persistence', … })`. For what an earlier visit left when the purpose is `denied`, `apply` doesn't run: use `definePlugin({ erase(app, config) })` (see [Consent](./consent.md#gating-other-plugins)) |
 | `app` | The H4B instance (`ask`, `runAction`, `push`, `messages`…) |
 
 ## Typed services and events

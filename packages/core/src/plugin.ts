@@ -22,6 +22,13 @@ export type PluginDefinition<C> = {
    */
   consent?: string
   apply(ctx: PluginContext, config: C): void | Promise<void>
+  /**
+   * Erases what an earlier visit stored, without mounting the plugin: the
+   * kernel calls it (once per start) when the consent purpose is denied and the
+   * rules erase on revoke. `apply` never runs while the purpose is not granted,
+   * so a gated plugin without `erase` is simply left alone.
+   */
+  erase?(app: H4B, config: C): void | Promise<void>
 }
 
 export type Plugin<C = unknown> = {

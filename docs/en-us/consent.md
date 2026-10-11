@@ -74,7 +74,7 @@ h4b.consent.subscribe(render)    // or h4b.on('consent.changed', …)
 | `pending` (no decision yet) | Storage is not mounted, so nothing is written: no key cookie, no `localStorage`, no request to your server. The conversation lives in memory |
 | Granted | Storage mounts. If nothing was typed yet, the stored conversation is restored. Otherwise the conversation on screen is kept and saved, replacing the stored one |
 | Withdrawn (`denied`, or back to `pending`) | Storage unmounts and everything it kept is erased: the conversation under every retention, the key cookie (or `DELETE` to `backendKey`), the retention choice, and the conversation id (after a `DELETE` to `storage-backend`). The conversation on screen stays |
-| `denied` on a later visit | Leftovers from an earlier visit are erased the same way |
+| `denied` on a later visit | Leftovers from an earlier visit are erased the same way, without mounting the plugin: nothing in its setup runs |
 | Another tab decides | The decision arrives through the BroadcastChannel and the same steps run there |
 | Page closed | What was only in memory is gone. With `tab-sync`, the conversation lives on while any tab of the site is open |
 
@@ -153,6 +153,22 @@ plugins: [
 ```
 
 Plugin authors set a default with `definePlugin({ consent: 'purpose', … })`, and clean up with `ctx.onRevoke(fn)`, which runs after the plugin was unmounted because consent was withdrawn (never on `stop()`). When the plugin provided `storage`, the kernel has already called `clear()`. `h4b.use(plugin)` follows consent the same way.
+
+While its purpose is not granted, a gated plugin's `apply` never runs, so an exporter, timer or listener in it never starts. To erase what an earlier visit left when the purpose comes back `denied`, give the plugin `erase(app, config)`: the kernel calls it once per `start()`, without mounting, with the validated config. A gated plugin without `erase` is left alone while denied.
+
+```ts
+export const visits = definePlugin<{ key: string }>({
+  name: 'visits',
+  consent: 'analytics',
+  apply(ctx, { key }) {
+    localStorage.setItem(key, String(Date.now()))
+    ctx.onRevoke(() => localStorage.removeItem(key)) // withdrawn during this visit
+  },
+  erase(_app, { key }) {
+    localStorage.removeItem(key) // denied on a later visit
+  },
+})
+```
 
 ## Human review with anonymization
 

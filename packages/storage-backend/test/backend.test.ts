@@ -141,6 +141,20 @@ describe('storage-backend with consent', () => {
     expect(h4b.messages).toHaveLength(2)
   })
 
+  it('erases what an earlier visit kept when denied, without mounting', async () => {
+    const { fetch, conversations, calls } = server()
+    const first = await consented(fetch, { persistence: true })
+    await first.ask('oi')
+    await waitForIdle(first)
+    expect(conversations.size).toBe(1)
+    calls.length = 0
+    const second = await consented(fetch, { persistence: false })
+    expect(calls.map((c) => c.method)).toEqual(['DELETE'])
+    expect(conversations.size).toBe(0)
+    expect(localStorage.getItem('h4b:conversation-id')).toBeNull()
+    expect(second.get('storage')).toBeUndefined()
+  })
+
   it('never mints a conversation id just to erase', async () => {
     const { fetch, calls } = server()
     await consented(fetch, { persistence: false })

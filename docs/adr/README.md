@@ -13,5 +13,6 @@ Registro curto das decisões da v2: contexto, decisão e consequências. Para mu
 | [0007](./0007-sem-compatibilidade-v1.md) | Sem compatibilidade com a v1 | Aceita |
 | [0008](./0008-persistencia-e-abas.md) | Persistência com prazo garantido (chave que expira, backend) e abas configuráveis | Aceita |
 | [0009](./0009-memoria.md) | Política de memória (turnos enviados, guardados e compactados) como plugin montado por padrão | Aceita |
-| [0010](./0010-consentimento.md) | Consentimento por finalidade, com regras declarativas por região, apagando o storage ao revogar | Aceita |
+| [0010](./0010-consentimento.md) | Consentimento por finalidade, com regras declarativas por região, apagando o storage ao revogar | Aceita (sobras: ver 0012) |
 | [0011](./0011-interrupcao-e-fim-de-turno.md) | Interrupção e retomada no core (texto e voz), fim de turno plugável e barge-in completo na voz | Aceita |
+| [0012](./0012-apagar-sobras-sem-montar.md) | Apagar sobras de consentimento negado sem montar o plugin (substitui parte do 0010) | Aceita |

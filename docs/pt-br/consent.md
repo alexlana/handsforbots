@@ -74,7 +74,7 @@ h4b.consent.subscribe(render)    // ou h4b.on('consent.changed', …)
 | `pending` (ninguém decidiu ainda) | O storage não é montado, então nada é gravado: nem cookie da chave, nem `localStorage`, nem requisição ao seu servidor. A conversa vive na memória |
 | Concedido | O storage monta. Se nada foi digitado ainda, a conversa guardada é restaurada. Senão, a conversa da tela é mantida e salva no lugar da guardada |
 | Retirado (`denied`, ou de volta a `pending`) | O storage desmonta e tudo o que ele guardava é apagado: a conversa em todas as retenções, o cookie da chave (ou `DELETE` no `backendKey`), a escolha de retenção e o id da conversa (depois de um `DELETE` no `storage-backend`). A conversa na tela continua |
-| `denied` numa visita seguinte | Sobras de uma visita anterior são apagadas do mesmo jeito |
+| `denied` numa visita seguinte | Sobras de uma visita anterior são apagadas do mesmo jeito, sem montar o plugin: nada do setup dele roda |
 | Outra aba decide | A decisão chega pelo BroadcastChannel e os mesmos passos rodam lá |
 | Página fechada | O que estava só na memória some. Com o `tab-sync`, a conversa continua enquanto houver alguma aba do site aberta |
 
@@ -153,6 +153,22 @@ plugins: [
 ```
 
 Quem escreve plugins define um padrão com `definePlugin({ consent: 'finalidade', … })` e faz a limpeza com `ctx.onRevoke(fn)`, que roda depois de o plugin ser desmontado porque o consentimento foi retirado (nunca no `stop()`). Quando o plugin fornecia `storage`, o kernel já terá chamado o `clear()`. O `h4b.use(plugin)` segue o consentimento do mesmo jeito.
+
+Enquanto a finalidade não está concedida, o `apply` de um plugin condicionado nunca roda, então um exporter, timer ou listener dele nunca começa. Para apagar o que uma visita anterior deixou quando a finalidade volta `denied`, dê ao plugin um `erase(app, config)`: o kernel o chama uma vez por `start()`, sem montar, com o config validado. Um plugin condicionado sem `erase` fica intocado enquanto negado.
+
+```ts
+export const visitas = definePlugin<{ chave: string }>({
+  name: 'visitas',
+  consent: 'analytics',
+  apply(ctx, { chave }) {
+    localStorage.setItem(chave, String(Date.now()))
+    ctx.onRevoke(() => localStorage.removeItem(chave)) // retirado durante esta visita
+  },
+  erase(_app, { chave }) {
+    localStorage.removeItem(chave) // negado numa visita seguinte
+  },
+})
+```
 
 ## Revisão humana com anonimização
 

@@ -25,6 +25,7 @@ function memoryStore() {
     saves: 0,
     clears: 0,
     revoked: 0,
+    erases: 0,
     plugin: definePlugin({
       name: 'fake-storage',
       provides: ['storage'],
@@ -44,6 +45,10 @@ function memoryStore() {
         ctx.onRevoke(() => {
           store.revoked++
         })
+      },
+      erase() {
+        store.erases++
+        store.saved = null
       },
     }),
   }
@@ -143,6 +148,36 @@ describe('consent', () => {
     expect(store.saved).toBeNull()
     expect(mounted(second)).toBe(false)
     expect(second.messages).toHaveLength(0)
+  })
+
+  it('erases leftovers without ever running apply while denied', async () => {
+    const applied: string[] = []
+    const erased: unknown[] = []
+    const exporter = definePlugin<{ endpoint: string }>({
+      name: 'exporter',
+      consent: 'analytics',
+      apply(_ctx, config) {
+        applied.push(config.endpoint) // e.g. an observability exporter starting
+      },
+      erase(app, config) {
+        erased.push([app.consent.state('analytics'), config])
+      },
+    })
+    const quiet = definePlugin({ name: 'quiet', consent: 'analytics', apply: () => void applied.push('quiet') })
+    const mountedNames: string[] = []
+    const h4b = createH4B({
+      plugins: [exporter({ endpoint: '/otel' }), quiet()],
+      memory: false,
+      consent: { channel: false, initial: { analytics: 'denied' } },
+    })
+    h4b.on('plugin.mounted', ({ name }) => void mountedNames.push(name))
+    await h4b.start()
+    await h4b.consent.set({ analytics: 'denied' })
+    expect(applied).toEqual([])
+    expect(mountedNames).toEqual([])
+    expect(erased).toEqual([['denied', { endpoint: '/otel' }]])
+    await h4b.consent.set({ analytics: true })
+    expect(applied).toEqual(['/otel', 'quiet'])
   })
 
   it('keeps what was stored when the rules say eraseOnRevoke: false', async () => {

@@ -291,10 +291,9 @@ export class H4B {
           } else if (state !== 'granted' && mounted) {
             await this.revoke(plugin, purpose)
           } else if (state === 'denied' && !mounted && !this.erased.has(plugin) && this.consentManager.erases(purpose)) {
-            // Stored on an earlier visit: mount it just to erase what it kept.
-            if (this.missing(plugin).length > 0) continue
-            await this.mount(plugin)
-            await this.revoke(plugin, purpose)
+            // Stored on an earlier visit: erase it without mounting, so `apply` never runs while denied.
+            this.erased.add(plugin)
+            await plugin.definition.erase?.(this, await this.configOf(plugin))
           }
         } catch (error) {
           this.emit('error', { error, source: 'consent' })
@@ -360,14 +359,7 @@ export class H4B {
         `[h4b] plugin "${definition.name}" targets API ${apiVersion}, kernel provides ${API_VERSION}`,
       )
     }
-    let config = plugin.config
-    if (definition.config) {
-      try {
-        config = await validate(definition.config, plugin.config ?? {})
-      } catch (error) {
-        throw new Error(`[h4b] invalid config for plugin "${definition.name}": ${(error as Error).message}`)
-      }
-    }
+    const config = await this.configOf(plugin)
     const ctx = new PluginContext(this, definition.name)
     this.mounted.set(plugin, { ctx, inject: definition.inject ?? [] })
     try {
@@ -385,6 +377,16 @@ export class H4B {
       }
     }
     this.emit('plugin.mounted', { name: definition.name })
+  }
+
+  private async configOf(plugin: Plugin<any>): Promise<unknown> {
+    const { definition } = plugin
+    if (!definition.config) return plugin.config
+    try {
+      return await validate(definition.config, plugin.config ?? {})
+    } catch (error) {
+      throw new Error(`[h4b] invalid config for plugin "${definition.name}": ${(error as Error).message}`)
+    }
   }
 
   private async unmount(plugin: Plugin<any>) {

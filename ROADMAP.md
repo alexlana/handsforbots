@@ -563,6 +563,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-10-11 | Sobras de consentimento negado apagadas pelo `erase` do plugin, sem montá-lo: o `apply` nunca roda sem a finalidade (ADR 0012) |
 | 2026-10-07 | Consentimento por finalidade com regras declarativas por região, apagando o storage ao revogar; pacote `consent` com presets e anonimização (ADR 0010); guia de consentimento; skill `handsforbots-consent` |
 | 2026-10-07 | Política de memória: pacote `memory` montado por padrão, turnos enviados/guardados, compactação (ADR 0009); guia de persistência, memória e privacidade; skill `handsforbots-persistence` |
 | 2026-10-06 | Persistência com chave que expira, `storage-backend`, retenção escolhível, modos do `tab-sync` (ADR 0008); revisão de XSS como prioridade P0 |

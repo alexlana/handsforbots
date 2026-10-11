@@ -94,6 +94,10 @@ export const storageLocal = definePlugin<LocalStorageOptions | undefined>({
     ctx.onDispose(() => clearInterval(timer))
     ctx.onRevoke(() => storage.forget())
   },
+  // Denied on a later visit: drop what an earlier one kept, without mounting.
+  async erase(_app, options = {}) {
+    await createLocalStorage(options).forget()
+  },
 })
 
 export function createLocalStorage(options: LocalStorageOptions = {}): LocalStorage {

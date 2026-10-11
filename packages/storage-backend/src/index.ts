@@ -84,6 +84,16 @@ export const storageBackend = definePlugin<BackendStorageOptions>({
     })
     ctx.onRevoke(() => storage.forget())
   },
+  // Denied on a later visit: delete what an earlier one kept, without mounting.
+  async erase(app, options) {
+    const consent = app.consent
+    const storage = createBackendStorage({
+      consentPurposes: () => consent.purposes.filter((p) => consent.granted(p)),
+      ...options,
+    })
+    await storage.clear()
+    storage.forget()
+  },
 })
 
 /**

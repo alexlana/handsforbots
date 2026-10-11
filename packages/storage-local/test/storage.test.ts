@@ -195,6 +195,28 @@ describe('storage-local with consent', () => {
     expect(h4b.messages).toHaveLength(2)
   })
 
+  it('erases what an earlier visit kept when denied, without mounting', async () => {
+    const consented = async (initial: Record<string, boolean>) => {
+      const h4b = createH4B({
+        consent: { channel: false, initial },
+        plugins: [storageLocal({ userChoices: ['tab'] })],
+      })
+      h4b.provide('transport', echo)
+      return h4b.start()
+    }
+    const first = await consented({ persistence: true })
+    await say(first, 'oi')
+    await first.get('retention')!.set('tab')
+    await first.get('retention')!.set('key')
+    expect(localStorage.getItem('h4b:conversation')).not.toBeNull()
+    const interval = vi.spyOn(globalThis, 'setInterval')
+    const second = await consented({ persistence: false })
+    expect(second.get('storage')).toBeUndefined()
+    expect(interval).not.toHaveBeenCalled() // apply (and its sweep timer) never ran
+    expect(localStorage.length).toBe(0)
+    expect(document.cookie).not.toMatch(/h4b-key=/)
+  })
+
   it('asks the key server to drop the key on revoke', async () => {
     const methods: string[] = []
     const fetch = vi.fn(async (_url: unknown, init: RequestInit = {}) => {

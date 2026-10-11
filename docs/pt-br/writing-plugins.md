@@ -12,6 +12,7 @@ export const weather = definePlugin<WeatherOptions>({
   inject: ['transport'],           // monta depois que esses serviços existirem
   provides: [],                    // serviços que este plugin fornece (conferido após o apply)
   // config: z.object({ apiUrl: z.string().url() }),  // validação opcional com Standard Schema
+  // consent: 'analytics',          // monta só com a finalidade concedida; erase(app, config) limpa uma visita anterior (veja Consentimento)
   apply(ctx, options) {
     ctx.registerAction({
       name: 'show_weather',
@@ -51,7 +52,7 @@ export const weather = definePlugin<WeatherOptions>({
 | `capture(handler, { accepts })` | Pegar alguns sinais para si (veja `guided`) |
 | `signal(entrada)` | Enviar entrada (a origem é o nome do plugin) |
 | `effect(setup)` / `onDispose(fn)` | Recursos com limpeza |
-| `onRevoke(fn)` | Roda depois de o plugin ser desmontado porque a finalidade de consentimento dele foi retirada: apague o que ele guardou. Declare a finalidade com `definePlugin({ consent: 'persistence', … })` (veja [Consentimento](./consent.md)) |
+| `onRevoke(fn)` | Roda depois de o plugin ser desmontado porque a finalidade de consentimento dele foi retirada: apague o que ele guardou. Declare a finalidade com `definePlugin({ consent: 'persistence', … })`. Para o que uma visita anterior deixou quando a finalidade está `denied`, o `apply` não roda: use `definePlugin({ erase(app, config) })` (veja [Consentimento](./consent.md)) |
 | `app` | A instância do H4B (`ask`, `runAction`, `push`, `messages`…) |
 
 ## Serviços e eventos tipados
