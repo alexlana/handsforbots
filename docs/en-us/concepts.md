@@ -59,6 +59,8 @@ h4b.signal({ modality: 'text', parts, source: 'x', whileBusy: 'queue' }) // per 
 - `h4b.interrupt()` does the same cut on demand (stop button, Escape, barge-in). When idle it only cuts the last reply if a `interrupt.before` interceptor says part of it was not delivered (the voice plugin reports what was spoken). Events: `turn.interrupted`, `signal.merged`.
 - Backends must accept truncated assistant messages and use the history they receive, not one of their own, and should stop generating when the request is aborted.
 
+Full guide, including continuous voice conversation: [Interruption and voice conversation](./conversation.md).
+
 ## Synchronous and asynchronous
 
 | Mechanism | Purpose | Does the flow wait? |

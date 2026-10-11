@@ -12,6 +12,7 @@ Verified against `packages/core/src/kernel.ts`, `actions.ts`, the transports and
 | `matchThreshold` | `0.75` | Minimum confidence for a direct-command match (menu). |
 | `maxActionRoundtrips` | `5` | Assistant ↔ client action rounds per turn before the turn errors. |
 | `onError` | `console.error` | Receives listener, storage, matcher and turn errors with a `source`. |
+| `input` | `{ whileBusy: 'interrupt' }` | What typed/spoken triggers do while a turn runs: `interrupt`, `merge`, `queue`, per modality or a function. Change with `setInput()`; read from `getSnapshot().input`. See below. |
 | `memory` | `{ send: 20, keep: 100, compact: 'local' }` | The memory plugin, mounted automatically. `false` unplugs it; a `memory(...)` in `plugins` replaces it. See below. |
 
 ## The queue
@@ -21,6 +22,8 @@ Signals (triggers), `runAction` and `push` are jobs processed **one at a time, i
 - A `runAction` or `push` issued during a slow LLM turn runs only after it. If the GUI must react instantly, change it in your code first.
 - `getSnapshot().queued` lists queued **signals** only (so UIs can show pending user messages), not actions or pushes.
 - `abort()` cancels the running job; `abort({ clearQueue: true })` also drops the queue. `reset()` does both and clears storage.
+- Exception (ADR 0011): `text`, `transcript` and `audio` triggers follow `whileBusy`. Default `interrupt`: the running transport turn is cut with `interrupt()`; if it produced no output yet it is resumed instead (its messages removed, both signals joined, run again first). `merge` joins the last queued trigger without cutting. Triggers arriving while the running one is still being routed queue, and are joined only if its route is `transport` (`signal.before` runs again on the joined signal). Direct commands and captures are never joined; `ask()` defaults to `queue`; a signal can carry its own `whileBusy`.
+- `interrupt({ clearQueue? })` aborts, marks the running turn's assistant message `interrupted: true`, cuts its text at the `interrupt.before` result (default: all of it), removes it if empty, emits `turn.interrupted`. Idle, it only cuts if an interceptor lowers `keep`. Later deltas to an interrupted message are ignored.
 - Context signals are not jobs: they apply immediately (after `signal.before` interceptors, if any).
 
 ## Routing a trigger
@@ -71,7 +74,7 @@ await h4b.push([
 
 ## Events (notifications; never block the flow)
 
-`signal`, `context.changed`, `turn.status` (`received → acting → done | error | aborted`, with `route`), `stimulus`, `messages.changed` (fires on every streamed delta), `state.changed`, `action.invoked`, `service.provided`, `service.removed`, `plugin.mounted`, `plugin.disposed`, `error`. A failing listener never breaks others; its error goes to `onError`.
+`signal`, `context.changed`, `turn.status` (`received → acting → done | error | aborted`, with `route`), `stimulus`, `messages.changed` (fires on every streamed delta), `state.changed`, `action.invoked`, `service.provided`, `service.removed`, `plugin.mounted`, `plugin.disposed`, `consent.changed`, `turn.interrupted`, `signal.merged`, `error` (plus plugin events such as `voice.decision`). A failing listener never breaks others; its error goes to `onError`.
 
 ## Storage and tabs
 

@@ -49,11 +49,13 @@ await h4b.start()
 - [Plugins](./docs/en-us/plugins.md): every package and its options
 - [Writing plugins](./docs/en-us/writing-plugins.md)
 - [History](./docs/en-us/history.md): reading it, recording GUI decisions, timelines
+- [Interruption and voice conversation](./docs/en-us/conversation.md): messages sent while the assistant answers, stop buttons, open-microphone conversation, end-of-turn models, barge-in
 - [Persistence, memory and privacy](./docs/en-us/persistence.md): what is sent, kept and stored, encryption, retention, tabs
 - [Consent](./docs/en-us/consent.md): working with your consent tool, rule sets per legislation and region, erasing on revoke, anonymization for human review
 - [Security](./docs/en-us/security.md)
 - [Development](./docs/en-us/development.md)
 - [Migrating from v1](./docs/en-us/migrating-from-v1.md)
+- [References](./docs/en-us/references.md): libraries, services and papers behind the decisions
 - [Roadmap](./ROADMAP.md) (architecture, decisions, status; Portuguese)
 
 ## Examples

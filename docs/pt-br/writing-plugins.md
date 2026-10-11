@@ -46,7 +46,7 @@ export const weather = definePlugin<WeatherOptions>({
 | `provide(key, serviço)` / `get(key)` / `require(key)` | Serviços por chave estável |
 | `registerAction(definição)` | Ações (removidas no descarte) |
 | `on(evento, listener)` / `emit(evento, payload)` | Notificações |
-| `intercept(hook, fn, prioridade?)` | `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before` |
+| `intercept(hook, fn, prioridade?)` | `signal.before`, `request.before`, `action.before`, `stimulus.before`, `storage.before`, `interrupt.before` (quanto de uma resposta interrompida chegou à pessoa; veja [Interrupção](./conversation.md#interromper-sob-demanda)) |
 | `addMatcher(matcher)` | Reconhecimento de comandos diretos (veja `menu`) |
 | `capture(handler, { accepts })` | Pegar alguns sinais para si (veja `guided`) |
 | `signal(entrada)` | Enviar entrada (a origem é o nome do plugin) |

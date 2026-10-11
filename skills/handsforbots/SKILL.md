@@ -1,6 +1,6 @@
 ---
 name: handsforbots
-description: Integrate Hands for Bots v2 (H4B, @handsforbots/* packages) into a web app - create the kernel with createH4B, pick a transport (AG-UI, Rasa, HTTP/UniversalLLM, OpenAI-compatible, Vercel AI SDK, CopilotKit), declare GUI actions the assistant, the user and browser agents can trigger, send context signals, add the <h4b-chat> widget or React/Vue bindings, voice, menu, guided tours, storage and tab sync, and write plugins. Use whenever code imports @handsforbots/*, calls createH4B, h4b.actions.register, h4b.signal/ask/runAction/push, or the user mentions Hands for Bots, H4B or HfB. For the conversation history (h4b.messages, recording GUI decisions, timelines), also load handsforbots-history. For consent tools, cookie banners, LGPD/GDPR or anonymization, also load handsforbots-consent.
+description: Integrate Hands for Bots v2 (H4B, @handsforbots/* packages) into a web app - create the kernel with createH4B, pick a transport (AG-UI, Rasa, HTTP/UniversalLLM, OpenAI-compatible, Vercel AI SDK, CopilotKit), declare GUI actions the assistant, the user and browser agents can trigger, send context signals, add the <h4b-chat> widget or React/Vue bindings, voice, menu, guided tours, storage and tab sync, and write plugins. Use whenever code imports @handsforbots/*, calls createH4B, h4b.actions.register, h4b.signal/ask/runAction/push, or the user mentions Hands for Bots, H4B or HfB. For the conversation history (h4b.messages, recording GUI decisions, timelines), also load handsforbots-history. For consent tools, cookie banners, LGPD/GDPR or anonymization, also load handsforbots-consent. For messages sent while the assistant answers, stop buttons or continuous voice conversation (hands-free, end of turn, barge-in), also load handsforbots-conversation.
 ---
 
 # Hands for Bots v2 — integration
@@ -80,10 +80,10 @@ React/Vue: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`,
 | Cancel the running turn / clear the queue | `h4b.abort()` / `h4b.abort({ clearQueue: true })` |
 | New conversation, clear storage | `await h4b.reset()` |
 | Observe | `h4b.on(event, fn)`, `await h4b.when(event, predicate, { timeout })` |
-| Transform or veto | `h4b.intercept('signal.before' | 'request.before' | 'action.before' | 'stimulus.before', fn)` |
+| Transform or veto | `h4b.intercept('signal.before' | 'request.before' | 'action.before' | 'stimulus.before' | 'storage.before' | 'interrupt.before', fn)` |
 | Bind a UI | `h4b.subscribe(fn)` + `h4b.getSnapshot()`, or `@handsforbots/react` hooks / `@handsforbots/vue` composables |
 
-Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Typed and spoken messages are the exception: by default one sent during a reply interrupts it (the reply keeps what was shown, `interrupted: true`), and one sent before any reply came out is joined with the pending message. Choose with `createH4B({ input: { whileBusy: 'interrupt' | 'merge' | 'queue' } })` or `h4b.setInput()` at runtime; `ask()` always queues. Details and pitfalls: `references/runtime.md`.
+Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Typed and spoken messages are the exception: by default one sent during a reply interrupts it (the reply keeps what was shown, `interrupted: true`), and one sent before any reply came out is joined with the pending message. Choose with `createH4B({ input: { whileBusy: 'interrupt' | 'merge' | 'queue' } })` or `h4b.setInput()` at runtime; `ask()` queues unless given `whileBusy`. Full rules: the `handsforbots-conversation` skill. Details and pitfalls: `references/runtime.md`.
 
 ## Voice with your own microphone UI
 
@@ -94,7 +94,7 @@ Everything goes through **one queue**: turns, `runAction` and `push` run one at 
 | Click to talk, sent on the first pause | `voice.listen()` |
 | Hold to talk across pauses, one message on release | `voice.listen({ until: 'stop' })`, then `voice.stop()` |
 | Discard what was said (trash button) | `voice.cancel()` |
-| Continuous conversation: open mic, sent when the user stops talking, talking over the bot interrupts it | `voice({ mode: 'hands-free', endOfTurn?: httpEndOfTurn({ url }) })`, then `voice.listen()` |
+| Continuous conversation: open mic, sent when the user stops talking, talking over the bot interrupts it | `voice({ mode: 'hands-free', endOfTurn?: httpEndOfTurn({ url }) })`, then `voice.listen()` (details: `handsforbots-conversation` skill) |
 | Hands-free "send now" / "trash" | `voice.endTurn()` / `voice.discardTurn()` |
 | Draw the conversation state | `getState().phase` (`listening`, `userSpeaking`, `waitingEndOfTurn` until `endOfTurnAt`, `botSpeaking`), `interrupted` |
 | Live transcript | `getState().partial` (in hold-to-talk: everything said so far) |

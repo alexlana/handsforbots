@@ -22,7 +22,7 @@ Monorepo pnpm (Node 20+, pnpm 10) com um kernel headless em TypeScript e um paco
 | `packages/core/src/consent.ts` | `h4b.consent` (`ConsentManager`): finalidades, regras por região, canal entre abas; o kernel monta/desmonta plugins condicionados |
 | `packages/memory`, `storage-local`, `storage-backend`, `tab-sync`, `consent`, `observability`, `testkit` | Infra; `consent` tem presets de regras, carregador, região e `redact`; `testkit` tem a suíte de conformidade de transportes |
 | `packages/semantic-event-observability` | Biblioteca JS independente, testada com `node:test` |
-| `docs/en-us`, `docs/pt-br` | Documentação pública espelhada |
+| `docs/en-us`, `docs/pt-br` | Documentação pública espelhada; `references.md` guarda bibliotecas e bibliografia por tema |
 | `skills/` | Skills para quem **integra** o H4B (copiadas para `.claude/skills` do projeto consumidor) |
 | `examples/react-agui`, `examples/vite` | Exemplos (React + AG-UI com agente simulado; Rasa + widget via Docker) |
 
@@ -76,6 +76,7 @@ Toda mudança de comportamento público atualiza no mesmo commit:
 1. `docs/en-us/<página>.md` **e** `docs/pt-br/<página>.md`, com as mesmas seções e exemplos (exemplos em pt-br podem ter nomes em português).
 2. Os sumários em `README.md` e `docs/pt-br/README.md` quando a página é nova.
 3. `docs/*/plugins.md` para opções de pacote; `ROADMAP.md` para estado de implementação; um ADR para decisões de arquitetura.
-4. `skills/` quando muda algo que quem integra precisa saber. As skills só afirmam comportamentos verificados no código: confirme de novo antes de editar.
+4. `docs/*/references.md` quando a decisão se apoia em bibliotecas, serviços, artigos ou produtos de fora: link, o que é, para que serve no H4B, data de acesso, e números marcados como do fornecedor. O ADR aponta para a seção.
+5. `skills/` quando muda algo que quem integra precisa saber (interrupção e voz: `skills/handsforbots-conversation`). As skills só afirmam comportamentos verificados no código: confirme de novo antes de editar.
 
 Escreva o que o código faz hoje. Exemplos de código na documentação devem compilar: quando houver dúvida, copie o trecho para um arquivo temporário em `packages/core/test/` (importando de `../src/index.js`), rode `pnpm --filter @handsforbots/core typecheck` e apague o arquivo.

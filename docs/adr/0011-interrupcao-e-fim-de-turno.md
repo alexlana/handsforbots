@@ -21,4 +21,6 @@
 - `VoiceState` ganha `phase` (`idle` | `listening` | `userSpeaking` | `waitingEndOfTurn` | `botSpeaking`), `interrupted` e `endOfTurnAt` (horário, não tempo restante, para a UI não renderizar a cada tick).
 - Provedores declaram se o áudio ou o texto saem da página (`remote`) e uma finalidade de consentimento (`consent`, ADR 0010); a voz pula provedores com finalidade não concedida. Mostrar o aviso e guardar o aceite é do app.
 
+**Referências.** Bibliotecas, serviços e artigos consultados, com data de acesso e os números dos fornecedores: [docs/pt-br/references.md](../pt-br/references.md#interrupção-fim-de-turno-e-barge-in). Guia para quem integra: [docs/pt-br/conversation.md](../pt-br/conversation.md).
+
 **Consequências.** O padrão muda de fila para interrupção: quem dependia da fila passa `whileBusy: 'queue'`. O histórico pode conter mensagens do assistente truncadas e marcadas, e backends devem aceitá-las e usar o histórico recebido. `bargeInChars` sai. O H4B não escolhe, treina nem embute modelo de fim de turno; números de latência e acerto (inclusive em português) dependem do provedor e precisam ser medidos por quem o usa. O comportamento do Web Speech com a fala do próprio bot (eco) e os limites do microfone aberto no Safari só se confirmam testando nos aparelhos.

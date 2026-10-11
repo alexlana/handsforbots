@@ -59,6 +59,8 @@ h4b.signal({ modality: 'text', parts, source: 'x', whileBusy: 'queue' }) // por 
 - `h4b.interrupt()` faz o mesmo corte sob demanda (botão de parar, Escape, barge-in). Sem turno rodando, só corta a última resposta se um interceptador `interrupt.before` disser que parte dela não chegou à pessoa (o plugin de voz informa o que foi falado). Eventos: `turn.interrupted`, `signal.merged`.
 - Backends devem aceitar mensagens do assistente truncadas e usar o histórico que recebem, não um próprio, e devem parar de gerar quando a requisição é abortada.
 
+Guia completo, incluindo a conversa contínua por voz: [Interrupção e conversa por voz](./conversation.md).
+
 ## Síncrono e assíncrono
 
 | Mecanismo | Para quê | O fluxo espera? |
