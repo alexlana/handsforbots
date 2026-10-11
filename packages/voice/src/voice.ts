@@ -1,24 +1,40 @@
-import { definePlugin, textOf, type PluginContext } from '@handsforbots/core'
-import { SpeechError, type SpeechToText, type SttSession, type TextToSpeech } from './types.js'
+import { definePlugin, textOf, type AssistantMessage, type PluginContext } from '@handsforbots/core'
+import {
+  SpeechError,
+  type EndOfTurn,
+  type SpeechToText,
+  type SttSession,
+  type TextToSpeech,
+  type TurnHistoryEntry,
+} from './types.js'
 
 export type VoiceMode = 'push-to-talk' | 'hands-free'
 export type InputModality = 'keyboard' | 'voice'
 /** `auto`: answer with voice when the user spoke, with text when they typed. */
 export type OutputPreference = 'auto' | 'voice' | 'text'
+/** What the conversation is doing, for UIs to draw (ADR 0011). */
+export type VoicePhase = 'idle' | 'listening' | 'userSpeaking' | 'waitingEndOfTurn' | 'botSpeaking'
 
 export type VoiceState = {
   supported: { stt: boolean; tts: boolean }
   mode: VoiceMode
+  phase: VoicePhase
   listening: boolean
   speaking: boolean
-  /** Live transcript while the user speaks. */
+  /** Live transcript while the user speaks (hands-free: the whole pending turn). */
   partial: string
+  /** When the pending hands-free turn will be sent if the user stays quiet (epoch ms). */
+  endOfTurnAt?: number
+  /** The user talked over the last reply and cut it short. Cleared when the next reply starts. */
+  interrupted: boolean
   /** Modality of the user's last trigger. */
   lastInput: InputModality
   output: OutputPreference
   /** Active providers. */
   stt?: string
   tts?: string
+  /** End-of-turn provider in use, if any. */
+  endOfTurn?: string
   error?: SpeechError
 }
 
@@ -32,6 +48,35 @@ export type ListenOptions = {
   until?: 'silence' | 'stop'
 }
 
+/** How long hands-free waits before sending what the user said (ms). */
+export type TurnTiming = {
+  /** Without an end-of-turn provider (or when it fails): wait this long after the last words. Default 800. */
+  silence?: number
+  /** With a provider: ask it after this pause. Default 300. */
+  minSilence?: number
+  /** With a provider that says "not finished": send anyway after this pause. Default 2000. */
+  maxSilence?: number
+  /** Probability from which the provider's answer counts as "finished". Default 0.5. */
+  threshold?: number
+  /** Longest wait for the provider's answer; past it, silence decides. Default 600. */
+  timeout?: number
+  /** Seconds of audio kept for audio providers. Default 8. */
+  audioSeconds?: number
+}
+
+export type BargeInOptions = {
+  /** Words a live transcript needs before it interrupts (a final result always can). Default 2. */
+  minWords?: number
+  /** Backchannels that never interrupt ("aham", "ok"…). Default: a list for the language. */
+  ignore?: string[]
+}
+
+export type VoiceDecision =
+  | { kind: 'interrupt'; text: string }
+  | { kind: 'ignore'; text: string; reason: 'backchannel' | 'too-short' }
+  | { kind: 'end-of-turn'; text: string; reason: 'stt' | 'model' | 'silence' | 'max-silence' | 'manual'; probability?: number }
+  | { kind: 'end-of-turn-unavailable'; provider: string; reason: string }
+
 export type VoiceService = {
   getState(): VoiceState
   subscribe(listener: () => void): () => void
@@ -41,9 +86,17 @@ export type VoiceService = {
   stop(): void
   /** Stop listening and discard the current utterance: nothing is sent. */
   cancel(): void
+  /** Hands-free: send the pending turn now, without waiting for the silence. */
+  endTurn(): void
+  /** Hands-free: discard the pending turn and keep listening. */
+  discardTurn(): void
   toggle(): Promise<void>
   setMode(mode: VoiceMode): void
   setOutput(output: OutputPreference): void
+  /** Turns the end-of-turn model on (a provider) or off (`null`: silence only). */
+  setEndOfTurn(provider: EndOfTurn | null): void
+  /** Changes timings and barge-in at runtime. */
+  configure(options: { turn?: TurnTiming; bargeIn?: boolean | BargeInOptions }): void
   speak(text: string): Promise<void>
   cancelSpeech(): void
 }
@@ -51,6 +104,10 @@ export type VoiceService = {
 declare module '@handsforbots/core' {
   interface Services {
     voice: VoiceService
+  }
+  interface Events {
+    /** Why the voice interrupted, ignored or ended a turn (for logs and debugging). */
+    'voice.decision': VoiceDecision
   }
 }
 
@@ -62,14 +119,40 @@ export type VoiceOptions = {
   language?: string
   mode?: VoiceMode
   output?: OutputPreference
-  /** Interrupt speech when the user starts talking. Default true. */
-  bargeIn?: boolean
-  /** Partial transcript length that counts as the user talking over the bot. Default 4. */
-  bargeInChars?: number
+  /**
+   * Talking over the bot interrupts it: the speech stops, the reply is
+   * cancelled and cut where it was heard. Default true.
+   */
+  bargeIn?: boolean | BargeInOptions
+  /** Hands-free: decides whether a pause ends the turn. Without it, silence alone does. */
+  endOfTurn?: EndOfTurn | null
+  turn?: TurnTiming
   voiceName?: string
 }
 
 const toArray = <T>(value: T | T[] | undefined): T[] => (value === undefined ? [] : Array.isArray(value) ? value : [value])
+
+const BACKCHANNELS: Record<string, string[]> = {
+  pt: ['aham', 'uhum', 'hum', 'hm', 'hmm', 'ah', 'ahn', 'é', 'tá', 'ta', 'ok', 'okay', 'sei', 'certo', 'entendi', 'beleza'],
+  en: ['uh huh', 'uh-huh', 'mhm', 'mm', 'hmm', 'hm', 'uh', 'um', 'ah', 'yeah', 'yep', 'ok', 'okay', 'right', 'sure', 'i see'],
+  es: ['ajá', 'aja', 'mhm', 'eh', 'ah', 'vale', 'ok', 'claro', 'ya'],
+}
+
+const normalize = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[.,!?¡¿…;:"]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+const wordsOf = (text: string) => normalize(text).split(' ').filter(Boolean)
+
+/** End of the first complete sentence in `text` after `from`, or -1. */
+function sentenceEnd(text: string, from: number): number {
+  const pattern = /[.!?…]+["')\]]*(?=\s)|\n/g
+  pattern.lastIndex = from
+  const match = pattern.exec(text)
+  return match ? match.index + match[0].length : -1
+}
 
 export const voice = definePlugin<VoiceOptions | undefined>({
   name: 'voice',
@@ -90,15 +173,40 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     options.language || (typeof document !== 'undefined' && document.documentElement.lang) || 'en-US'
   const sttProviders = await supportedOf(toArray(options.stt))
   const ttsProviders = await supportedOf(toArray(options.tts))
-  const bargeIn = options.bargeIn ?? true
-  const bargeInChars = options.bargeInChars ?? 4
+  const allowed = (provider: { consent?: string }) => !provider.consent || ctx.app.consent.granted(provider.consent)
+
+  let bargeIn = options.bargeIn !== false
+  let bargeInOptions: BargeInOptions = typeof options.bargeIn === 'object' ? options.bargeIn : {}
+  let timing: TurnTiming = { ...options.turn }
+  const ms = {
+    silence: () => timing.silence ?? 800,
+    minSilence: () => timing.minSilence ?? 300,
+    maxSilence: () => timing.maxSilence ?? 2000,
+    threshold: () => timing.threshold ?? 0.5,
+    timeout: () => timing.timeout ?? 600,
+  }
+  const backchannels = () =>
+    new Set((bargeInOptions.ignore ?? BACKCHANNELS[language.slice(0, 2).toLowerCase()] ?? BACKCHANNELS.en!).map(normalize))
+
+  const phaseOf = (s: VoiceState): VoicePhase =>
+    s.listening && s.partial && s.endOfTurnAt === undefined
+      ? 'userSpeaking'
+      : s.endOfTurnAt !== undefined
+        ? 'waitingEndOfTurn'
+        : s.speaking
+          ? 'botSpeaking'
+          : s.listening
+            ? 'listening'
+            : 'idle'
 
   let state: VoiceState = {
     supported: { stt: sttProviders.length > 0, tts: ttsProviders.length > 0 },
     mode: options.mode ?? 'push-to-talk',
+    phase: 'idle',
     listening: false,
     speaking: false,
     partial: '',
+    interrupted: false,
     lastInput: 'keyboard',
     output: options.output ?? 'auto',
     stt: sttProviders[0]?.name,
@@ -106,15 +214,210 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   }
   const listeners = new Set<() => void>()
   const set = (patch: Partial<VoiceState>) => {
-    state = { ...state, ...patch }
+    const next = { ...state, ...patch }
+    state = { ...next, phase: phaseOf(next) }
     for (const listener of listeners) listener()
   }
+  const decide = (decision: VoiceDecision) => ctx.emit('voice.decision', decision)
 
   /** Shows the error in the state (for the UI) and on the kernel bus (for the developer). */
   const fail = (error: SpeechError, patch: Partial<VoiceState> = {}) => {
     set({ ...patch, error })
     ctx.emit('error', { error, source: 'voice' })
   }
+
+  /* ---------------------------------------------------------------------- */
+  /* End-of-turn model                                                      */
+  /* ---------------------------------------------------------------------- */
+
+  let endOfTurn: EndOfTurn | undefined
+  /** Ready to be asked: supported and loaded. */
+  let endOfTurnReady = false
+  const setEndOfTurn = async (provider: EndOfTurn | null | undefined) => {
+    endOfTurn = provider ?? undefined
+    endOfTurnReady = false
+    set({ endOfTurn: endOfTurn?.name })
+    if (!provider) return
+    try {
+      if (!(await provider.isSupported())) throw new Error('not supported')
+      await provider.load?.()
+      if (endOfTurn === provider) endOfTurnReady = true
+    } catch (error) {
+      if (endOfTurn === provider) decide({ kind: 'end-of-turn-unavailable', provider: provider.name, reason: (error as Error)?.message ?? 'failed' })
+    }
+  }
+  void setEndOfTurn(options.endOfTurn)
+
+  /** Recent microphone audio, for audio models. */
+  let audioFrames: Float32Array[] = []
+  let audioRate = 16000
+  const keepAudio = (samples: Float32Array, sampleRate: number) => {
+    if (endOfTurn?.input !== 'audio') return
+    audioRate = sampleRate
+    audioFrames.push(samples)
+    const max = (timing.audioSeconds ?? 8) * sampleRate
+    let total = audioFrames.reduce((sum, f) => sum + f.length, 0)
+    while (total - audioFrames[0]!.length >= max) total -= audioFrames.shift()!.length
+  }
+  const recentAudio = () => {
+    const samples = new Float32Array(audioFrames.reduce((sum, f) => sum + f.length, 0))
+    let offset = 0
+    for (const frame of audioFrames) {
+      samples.set(frame, offset)
+      offset += frame.length
+    }
+    return { samples, sampleRate: audioRate }
+  }
+
+  const historyFor = (turns: number): TurnHistoryEntry[] =>
+    ctx.app.messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({ role: m.role as TurnHistoryEntry['role'], text: textOf(m) }))
+      .filter((m) => m.text)
+      .slice(-turns)
+
+  /* ---------------------------------------------------------------------- */
+  /* Hands-free turn: finals accumulate until the end of the turn           */
+  /* ---------------------------------------------------------------------- */
+
+  type Turn = { texts: string[]; live: string; confidence?: number; stt?: string; lastFinalAt: number }
+  let turn: Turn = { texts: [], live: '', lastFinalAt: 0 }
+  let turnTimer: ReturnType<typeof setTimeout> | undefined
+  let askTimer: ReturnType<typeof setTimeout> | undefined
+  let asking: AbortController | undefined
+  const cache = new Map<string, number>()
+  /** The user already cut the reply during this turn. */
+  let bargedIn = false
+  /** Live words sent before the recognizer finalized them: their late final is dropped. */
+  let sentLive = ''
+
+  const turnText = (live = turn.live) => [...turn.texts, live].filter(Boolean).join(' ')
+  const clearTurnTimers = () => {
+    clearTimeout(turnTimer)
+    clearTimeout(askTimer)
+    asking?.abort()
+    asking = undefined
+  }
+
+  const sendTurn = (reason: Extract<VoiceDecision, { kind: 'end-of-turn' }>['reason'], probability?: number) => {
+    clearTurnTimers()
+    const text = turnText('')
+    const done = turn
+    turn = { texts: [], live: turn.live, lastFinalAt: 0 }
+    bargedIn = false
+    set({ endOfTurnAt: undefined, partial: turn.live })
+    if (!text) return
+    decide({ kind: 'end-of-turn', text, reason, probability })
+    ctx.signal({
+      modality: 'transcript',
+      parts: [{ type: 'text', text }],
+      source: 'voice',
+      meta: { confidence: done.confidence, stt: done.stt, language },
+    })
+  }
+
+  const discardPending = () => {
+    clearTurnTimers()
+    turn = { texts: [], live: '', lastFinalAt: 0 }
+    bargedIn = false
+    set({ endOfTurnAt: undefined, partial: '' })
+  }
+
+  /** Waits after a final result, asking the model if there is one. */
+  const scheduleEndOfTurn = (sttDecides: boolean) => {
+    clearTurnTimers()
+    const at = turn.lastFinalAt
+    const model =
+      !sttDecides && endOfTurn && endOfTurnReady && allowed(endOfTurn) && (endOfTurn.input === 'text' || audioFrames.length > 0)
+        ? endOfTurn
+        : undefined
+    const wait = (delay: number, reason: 'silence' | 'max-silence') => {
+      clearTimeout(turnTimer)
+      const deadline = at + delay
+      set({ endOfTurnAt: deadline })
+      turnTimer = setTimeout(() => sendTurn(reason), Math.max(0, deadline - Date.now()))
+    }
+    if (!model) return wait(sttDecides ? ms.maxSilence() : ms.silence(), sttDecides ? 'max-silence' : 'silence')
+
+    wait(ms.maxSilence(), 'max-silence')
+    askTimer = setTimeout(async () => {
+      const text = turnText('')
+      const controller = new AbortController()
+      asking = controller
+      let probability = cache.get(text)
+      if (probability === undefined) {
+        const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, ms.timeout()))
+        const prediction = Promise.resolve()
+          .then(() =>
+            model.predict(
+              {
+                partial: text,
+                history: historyFor(model.historyTurns ?? 6),
+                language,
+                audio: model.input === 'audio' ? recentAudio() : undefined,
+              },
+              controller.signal,
+            ),
+          )
+          .catch((error) => {
+            if (!controller.signal.aborted) ctx.emit('error', { error, source: `voice:end-of-turn:${model.name}` })
+            return undefined
+          })
+        probability = await Promise.race([prediction, timeout])
+        if (probability !== undefined) {
+          cache.clear()
+          cache.set(text, probability)
+        }
+      }
+      if (controller.signal.aborted || asking !== controller) return
+      asking = undefined
+      if (probability === undefined) {
+        controller.abort()
+        wait(ms.silence(), 'silence') // the model failed or is slow: silence decides
+      } else if (probability >= ms.threshold()) {
+        sendTurn('model', probability)
+      }
+    }, Math.max(0, at + ms.minSilence() - Date.now()))
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Barge-in                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  /** The bot is answering: speaking, or showing a reply as it streams. */
+  const botAnswering = () => {
+    if (state.speaking) return true
+    if (!ctx.app.busy) return false
+    const last = ctx.app.messages.at(-1)
+    return last?.role === 'assistant' && !!last.streaming && !!textOf(last)
+  }
+
+  /**
+   * Whether speech heard while the bot answers should cut it. Returns false
+   * for text to drop (a backchannel over the bot).
+   */
+  const bargeInCheck = (text: string, final: boolean): 'interrupted' | 'ignored' | 'pending' | 'none' => {
+    if (!bargeIn || bargedIn || !botAnswering()) return 'none'
+    const words = wordsOf(text)
+    if (words.length === 0) return 'pending'
+    const ignore = backchannels()
+    if (ignore.has(words.join(' ')) || words.every((w) => ignore.has(w))) {
+      if (final) decide({ kind: 'ignore', text, reason: 'backchannel' })
+      return final ? 'ignored' : 'pending'
+    }
+    if (!final && words.length < (bargeInOptions.minWords ?? 2)) return 'pending'
+    bargedIn = true
+    decide({ kind: 'interrupt', text })
+    // Interrupt first: the interceptor reads how much was spoken before speech stops.
+    void ctx.app.interrupt()
+    service.cancelSpeech()
+    set({ interrupted: true })
+    return 'interrupted'
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Recognition sessions                                                   */
+  /* ---------------------------------------------------------------------- */
 
   let sttIndex = 0
   /** A hold-to-talk press: finals accumulate until release, then go out as one signal. */
@@ -132,8 +435,6 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   let holding: Held | undefined
   let wantListening = false
   let pausedForSpeech = false
-  let speechController: AbortController | undefined
-  let speechQueue: Promise<void> = Promise.resolve()
   let restartTimer: ReturnType<typeof setTimeout> | undefined
 
   const heldText = (held: Held, partial?: string) => [...held.texts, partial].filter(Boolean).join(' ')
@@ -153,48 +454,101 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     })
   }
 
+  const nextProvider = () => {
+    while (sttIndex < sttProviders.length && !allowed(sttProviders[sttIndex]!)) sttIndex++
+    return sttProviders[sttIndex]
+  }
+  const hasFallbackAfter = () => sttProviders.slice(sttIndex + 1).some(allowed)
+
   const startSession = async (): Promise<void> => {
-    const provider = sttProviders[sttIndex]
+    const provider = nextProvider()
     if (!provider) {
       fail(new SpeechError('not-supported', 'No speech recognition available'), { listening: false })
       wantListening = false
       if (holding) release(holding)
       return
     }
+    const handsFree = state.mode === 'hands-free'
     const entry: Active = { stopping: false, held: holding }
     active = entry
     const isCurrent = () => active === entry
-    set({ listening: true, error: undefined, stt: provider.name, partial: entry.held ? heldText(entry.held) : '' })
+    set({
+      listening: true,
+      error: undefined,
+      stt: provider.name,
+      partial: entry.held ? heldText(entry.held) : handsFree ? turnText() : '',
+    })
     let failed: SpeechError | undefined
     try {
       entry.session = await provider.listen(
-        { language, continuous: state.mode === 'hands-free' || !!entry.held },
+        { language, continuous: handsFree || !!entry.held },
         {
           onPartial(text) {
             if (!isCurrent() || entry.stopping) return
-            set({ partial: entry.held ? heldText(entry.held, text) : text })
-            if (bargeIn && state.speaking && text.length >= bargeInChars) service.cancelSpeech()
+            if (entry.held) return set({ partial: heldText(entry.held, text) })
+            bargeInCheck(text, false)
+            if (!handsFree) return set({ partial: text })
+            turn.live = text
+            if (!text.trim()) return set({ partial: turnText() })
+            // The user keeps talking: the pending turn waits for the next final result,
+            // or goes out with these words if the recognizer never delivers one.
+            if (turn.texts.length > 0) {
+              clearTurnTimers()
+              turnTimer = setTimeout(() => service.endTurn(), ms.maxSilence())
+            }
+            set({ partial: turnText(), endOfTurnAt: undefined })
           },
           onFinal(text, meta) {
             if (entry.discarded) return
-            // A stopped session may still deliver the last utterance: keep it.
-            if (isCurrent()) set({ partial: '' })
-            if (state.speaking && bargeIn) service.cancelSpeech()
+            const trimmed = text.trim()
             const held = entry.held
             if (held) {
-              if (held.done || !text.trim()) return
-              held.texts.push(text.trim())
+              if (isCurrent()) set({ partial: '' })
+              if (held.done || !trimmed) return
+              if (bargeInCheck(trimmed, true) === 'ignored') return
+              held.texts.push(trimmed)
               held.stt = provider.name
               if (meta?.confidence !== undefined) held.confidence = Math.min(held.confidence ?? 1, meta.confidence)
               if (isCurrent() && !entry.stopping) set({ partial: heldText(held) })
               return
             }
-            ctx.signal({
-              modality: 'transcript',
-              parts: [{ type: 'text', text }],
-              source: 'voice',
-              meta: { confidence: meta?.confidence, stt: provider.name, language },
-            })
+            if (!trimmed) return
+            if (sentLive) {
+              const duplicate = normalize(trimmed) === sentLive
+              sentLive = ''
+              if (duplicate) return
+            }
+            if (bargeInCheck(trimmed, true) === 'ignored') {
+              if (handsFree) turn.live = ''
+              if (isCurrent()) set({ partial: handsFree ? turnText() : '' })
+              return
+            }
+            if (!handsFree) {
+              // A stopped session may still deliver the last utterance: keep it.
+              if (isCurrent()) set({ partial: '' })
+              ctx.signal({
+                modality: 'transcript',
+                parts: [{ type: 'text', text: trimmed }],
+                source: 'voice',
+                meta: { confidence: meta?.confidence, stt: provider.name, language },
+              })
+              return
+            }
+            turn.texts.push(trimmed)
+            turn.live = ''
+            turn.stt = provider.name
+            turn.lastFinalAt = Date.now()
+            if (meta?.confidence !== undefined) turn.confidence = Math.min(turn.confidence ?? 1, meta.confidence)
+            set({ partial: turnText() })
+            const sttDecides = !!provider.capabilities.endOfTurn
+            if (entry.stopping || !wantListening || (sttDecides && meta?.endOfTurn === true)) {
+              sendTurn(sttDecides && meta?.endOfTurn ? 'stt' : 'manual')
+            } else {
+              scheduleEndOfTurn(sttDecides)
+            }
+          },
+          onAudio(samples, sampleRate) {
+            if (isCurrent() && !entry.stopping) keepAudio(samples, sampleRate)
           },
           onError(error) {
             failed = error
@@ -207,14 +561,18 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
               return
             }
             active = undefined
-            const hasFallback = !!failed?.recoverable && sttIndex < sttProviders.length - 1
+            const hasFallback = !!failed?.recoverable && hasFallbackAfter()
             // Asking again cannot help: the user has to change a permission or a setting first.
             if (failed?.code === 'not-allowed' || (failed?.code === 'service-not-allowed' && !hasFallback)) {
               wantListening = false
             }
             // Hold-to-talk outlives the browser's session: start another until release.
             const keepHolding = !!entry.held && entry.held === holding && wantListening && !pausedForSpeech
-            set({ listening: keepHolding, partial: keepHolding && entry.held ? heldText(entry.held) : '' })
+            turn.live = ''
+            set({
+              listening: keepHolding,
+              partial: keepHolding && entry.held ? heldText(entry.held) : handsFree ? turnText() : '',
+            })
             if (hasFallback) {
               sttIndex++
               if (wantListening) void startSession()
@@ -231,6 +589,8 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
               restartTimer = setTimeout(() => wantListening && !active && void startSession(), 250)
             } else if (state.mode === 'push-to-talk') {
               wantListening = false
+            } else if (!wantListening && turn.texts.length > 0) {
+              sendTurn('manual')
             }
           },
         },
@@ -239,7 +599,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       const speechError = error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message)
       if (isCurrent()) active = undefined
       fail(speechError, { listening: false })
-      if (speechError.recoverable && sttIndex < sttProviders.length - 1) {
+      if (speechError.recoverable && hasFallbackAfter()) {
         sttIndex++
         return startSession()
       }
@@ -247,6 +607,81 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       if (entry.held) release(entry.held)
     }
   }
+
+  /* ---------------------------------------------------------------------- */
+  /* Speech output, sentence by sentence                                    */
+  /* ---------------------------------------------------------------------- */
+
+  let speechController: AbortController | undefined
+  let speechQueue: Promise<void> = Promise.resolve()
+  /** Chunks queued and not finished: `speaking` stays on between sentences. */
+  let chunksLeft = 0
+  /** Per assistant message being spoken: characters queued and characters already spoken. */
+  type Track = { speak: boolean; queued: number; spoken: number }
+  const tracks = new Map<string, Track>()
+
+  const speakChunk = (text: string, onSpoken?: () => void): Promise<void> => {
+    const provider = ttsProviders.find(allowed)
+    if (!provider || !text.trim()) {
+      onSpoken?.()
+      return Promise.resolve()
+    }
+    const controller = (speechController ??= new AbortController())
+    chunksLeft++
+    speechQueue = speechQueue.then(async () => {
+      if (controller.signal.aborted) return
+      set({ speaking: true, tts: provider.name })
+      // Without barge-in the mic would hear the bot: pause recognition while speaking.
+      if (!bargeIn && active?.session) {
+        pausedForSpeech = true
+        active.session.abort()
+      }
+      try {
+        await provider.speak(text, { language, voice: options.voiceName, signal: controller.signal })
+        if (!controller.signal.aborted) onSpoken?.()
+      } catch (error) {
+        fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
+      } finally {
+        chunksLeft = Math.max(0, chunksLeft - 1)
+        if (chunksLeft === 0 || controller.signal.aborted) set({ speaking: false })
+        if (pausedForSpeech) {
+          pausedForSpeech = false
+          if (wantListening && state.mode === 'hands-free') void startSession()
+        }
+      }
+    })
+    return speechQueue
+  }
+
+  /** Speaks the complete sentences of an assistant message as they stream in (`end`: the rest too). */
+  const follow = (messageId: string, end: boolean) => {
+    const message = ctx.app.conversation.find(messageId)
+    if (message?.role !== 'assistant') return
+    let track = tracks.get(messageId)
+    if (!track) {
+      const speak = state.output === 'voice' || (state.output === 'auto' && state.lastInput === 'voice')
+      track = { speak, queued: 0, spoken: 0 }
+      tracks.set(messageId, track)
+      if (tracks.size > 8) tracks.delete(tracks.keys().next().value!)
+      if (state.interrupted) set({ interrupted: false })
+    }
+    if (!track.speak || (message as AssistantMessage).interrupted) return
+    const text = textOf(message)
+    const current = track
+    // One chunk per sentence, so an interruption knows which sentences were heard.
+    while (current.queued < text.length) {
+      const sentence = sentenceEnd(text, current.queued)
+      const until = sentence > current.queued ? sentence : end ? text.length : -1
+      if (until < 0) return
+      const chunk = text.slice(current.queued, until)
+      current.queued = until
+      void speakChunk(chunk, () => (current.spoken = until))
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Service                                                                */
+  /* ---------------------------------------------------------------------- */
 
   const service: VoiceService = {
     getState: () => state,
@@ -269,8 +704,16 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       holding =
         options.until === 'stop' && state.mode === 'push-to-talk' ? { texts: [], done: false } : undefined
       wantListening = true
-      // Talking while the bot speaks is a barge-in.
-      if (state.speaking) service.cancelSpeech()
+      // Pressing to talk while the bot answers is a barge-in.
+      if (bargeIn && botAnswering()) {
+        bargedIn = true
+        decide({ kind: 'interrupt', text: '' })
+        void ctx.app.interrupt()
+        service.cancelSpeech()
+        set({ interrupted: true })
+      } else if (state.speaking) {
+        service.cancelSpeech()
+      }
       await startSession()
     },
     stop() {
@@ -280,10 +723,11 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       const press = holding
       holding = undefined
       // The mic turns off for the user right away; the provider flushes in the background.
-      set({ listening: false, partial: '' })
+      set({ listening: false, partial: state.mode === 'hands-free' ? turnText('') : '' })
       if (!entry || entry.stopping) {
         // Released between two sessions of a hold-to-talk press.
         if (press) release(press)
+        if (turn.texts.length > 0) sendTurn('manual')
         return
       }
       entry.stopping = true
@@ -294,12 +738,14 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           active = undefined
         }
         if (entry.held) release(entry.held)
+        if (turn.texts.length > 0) sendTurn('manual')
       }, 3000)
     },
     cancel() {
       wantListening = false
       clearTimeout(restartTimer)
       if (holding) release(holding, false)
+      discardPending()
       const entry = active
       active = undefined
       set({ listening: false, partial: '' })
@@ -308,6 +754,27 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       if (entry.held) release(entry.held, false)
       clearTimeout(entry.killTimer)
       entry.session?.abort()
+    },
+    endTurn() {
+      if (turn.texts.length > 0 || turn.live) {
+        // Words still being recognized go out too.
+        sentLive = normalize(turn.live)
+        turn.texts.push(...(turn.live ? [turn.live] : []))
+        turn.live = ''
+        sendTurn('manual')
+      }
+    },
+    discardTurn() {
+      discardPending()
+      if (state.mode !== 'hands-free') return
+      // Drop what the recognizer is still holding as well.
+      const entry = active
+      if (entry && !entry.stopping) {
+        entry.discarded = true
+        active = undefined
+        entry.session?.abort()
+        if (wantListening) restartTimer = setTimeout(() => wantListening && !active && void startSession(), 250)
+      }
     },
     async toggle() {
       if (state.listening || wantListening) service.stop()
@@ -324,37 +791,27 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       set({ output })
       if (output === 'text') service.cancelSpeech()
     },
+    setEndOfTurn(provider) {
+      void setEndOfTurn(provider)
+    },
+    configure(change) {
+      if (change.turn) timing = { ...timing, ...change.turn }
+      if (change.bargeIn !== undefined) {
+        bargeIn = change.bargeIn !== false
+        if (typeof change.bargeIn === 'object') bargeInOptions = { ...bargeInOptions, ...change.bargeIn }
+      }
+    },
     speak(text) {
-      const provider = ttsProviders[0]
-      if (!provider || !text.trim()) return Promise.resolve()
-      const controller = (speechController ??= new AbortController())
-      speechQueue = speechQueue.then(async () => {
-        if (controller.signal.aborted) return
-        set({ speaking: true, tts: provider.name })
-        // Without barge-in the mic would hear the bot: pause recognition while speaking.
-        if (!bargeIn && active?.session) {
-          pausedForSpeech = true
-          active.session.abort()
-        }
-        try {
-          await provider.speak(text, { language, voice: options.voiceName, signal: controller.signal })
-        } catch (error) {
-          fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
-        } finally {
-          set({ speaking: false })
-          if (pausedForSpeech) {
-            pausedForSpeech = false
-            if (wantListening && state.mode === 'hands-free') void startSession()
-          }
-        }
-      })
-      return speechQueue
+      return speakChunk(text)
     },
     cancelSpeech() {
       speechController?.abort()
       speechController = undefined
-      ttsProviders[0]?.cancel()
+      ttsProviders.find(allowed)?.cancel()
       speechQueue = Promise.resolve()
+      chunksLeft = 0
+      // Messages already queued stop being spoken; their `spoken` count stays.
+      for (const track of tracks.values()) track.speak = false
       if (state.speaking) set({ speaking: false })
     },
   }
@@ -366,13 +823,18 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     else if (signal.modality === 'text') set({ lastInput: 'keyboard' })
   })
 
-  // Output follows input: speak finished assistant messages when appropriate.
+  // Output follows input: speak assistant replies sentence by sentence as they arrive.
   ctx.on('stimulus', ({ stimulus }) => {
-    if (stimulus.type !== 'message.end') return
-    const shouldSpeak = state.output === 'voice' || (state.output === 'auto' && state.lastInput === 'voice')
-    if (!shouldSpeak) return
-    const message = ctx.app.conversation.find(stimulus.messageId)
-    if (message?.role === 'assistant') void service.speak(textOf(message))
+    if (stimulus.type === 'message.delta' || stimulus.type === 'message.part') follow(stimulus.messageId, false)
+    else if (stimulus.type === 'message.end') follow(stimulus.messageId, true)
+  })
+
+  // An interrupted reply keeps only what was spoken.
+  ctx.intercept('interrupt.before', (point) => {
+    const track = tracks.get(point.messageId)
+    if (!track || track.queued === 0) return
+    if (track.spoken >= point.text.length) return
+    return { ...point, keep: Math.min(point.keep, track.spoken) }
   })
 
   // A new turn from the keyboard makes pending speech obsolete.
@@ -384,6 +846,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     wantListening = false
     if (holding) release(holding, false)
     clearTimeout(restartTimer)
+    clearTurnTimers()
     active?.session?.abort()
     service.cancelSpeech()
     listeners.clear()

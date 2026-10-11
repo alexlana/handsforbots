@@ -26,6 +26,7 @@ export function httpSTT(options: HttpSTTOptions): SpeechToText {
   return {
     name: options.name ?? 'http',
     capabilities: { partials: false, continuous: true, offline: false },
+    remote: true,
     isSupported: () =>
       typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined',
     async listen(listenOptions, handlers) {

@@ -38,6 +38,8 @@ export function webSpeechSTT(sttOptions: WebSpeechSTTOptions = {}): SpeechToText
   return {
     name: 'webspeech',
     capabilities: { partials: true, continuous: nativeContinuous(), offline: false },
+    // Browsers such as Chrome send the audio to their speech service.
+    remote: true,
     // Outside a secure context the API exists but every session fails as a denied permission.
     isSupported: () => recognitionCtor() !== undefined && window.isSecureContext !== false,
     listen(options, handlers) {

@@ -45,7 +45,8 @@ export function voskBrowserSTT(options: VoskBrowserOptions): SpeechToText & { pr
 
   return {
     name: 'vosk-browser',
-    capabilities: { partials: true, continuous: true, offline: true },
+    capabilities: { partials: true, continuous: true, offline: true, audio: true },
+    remote: false,
     isSupported: () =>
       typeof WebAssembly === 'object' && typeof AudioWorkletNode !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
     preload: async () => void (await loadModel()),
@@ -83,6 +84,7 @@ export function voskBrowserSTT(options: VoskBrowserOptions): SpeechToText & { pr
           })
           recognizer.on('error', (message) => handlers.onError(new SpeechError('unknown', String(message?.error ?? 'Vosk error'))))
         }
+        handlers.onAudio?.(frame, sampleRate)
         recognizer.acceptWaveformFloat(frame, sampleRate)
       })
 

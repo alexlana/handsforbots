@@ -5,6 +5,10 @@ export type SttCapabilities = {
   offline?: boolean
   /** Can keep listening across utterances (hands-free). */
   continuous?: boolean
+  /** Marks final results with `endOfTurn` (the service detects the end of the turn itself). */
+  endOfTurn?: boolean
+  /** Delivers the microphone audio through `onAudio` (for audio end-of-turn models). */
+  audio?: boolean
 }
 
 export type SttListenOptions = {
@@ -15,7 +19,13 @@ export type SttListenOptions = {
 
 export type SttHandlers = {
   onPartial?(text: string): void
-  onFinal(text: string, meta?: { confidence?: number }): void
+  /**
+   * `endOfTurn`: providers with `capabilities.endOfTurn` say whether the user
+   * finished the turn (true) or only paused (false).
+   */
+  onFinal(text: string, meta?: { confidence?: number; endOfTurn?: boolean }): void
+  /** Raw microphone audio, mono, from providers with `capabilities.audio`. */
+  onAudio?(samples: Float32Array, sampleRate: number): void
   onError(error: SpeechError): void
   /** The session ended (stop, silence, error or provider limit). */
   onEnd(): void
@@ -32,6 +42,10 @@ export type SttSession = {
 export type SpeechToText = {
   name: string
   capabilities: SttCapabilities
+  /** Audio or text leaves the page (cloud service, or the browser's own speech service). */
+  remote?: boolean
+  /** Consent purpose required to use it (ADR 0010); skipped while not granted. */
+  consent?: string
   isSupported(): boolean | Promise<boolean>
   listen(options: SttListenOptions, handlers: SttHandlers): SttSession | Promise<SttSession>
 }
@@ -45,6 +59,8 @@ export type SpeakOptions = {
 /** Text-to-speech provider: browser or cloud. */
 export type TextToSpeech = {
   name: string
+  remote?: boolean
+  consent?: string
   isSupported(): boolean | Promise<boolean>
   /** Resolves when speech finishes or is cancelled. */
   speak(text: string, options: SpeakOptions): Promise<void>
@@ -81,4 +97,38 @@ export class SpeechError extends Error {
       this.code === 'service-not-allowed'
     )
   }
+}
+
+/** A turn of the recent conversation, as end-of-turn models see it. */
+export type TurnHistoryEntry = { role: 'user' | 'assistant'; text: string }
+
+export type EndOfTurnInput = {
+  /** What the user said so far in this turn. */
+  partial: string
+  /** Recent turns, oldest first, at most `historyTurns`. */
+  history: TurnHistoryEntry[]
+  language: string
+  /** The last seconds of microphone audio (only for `input: 'audio'`). */
+  audio?: { samples: Float32Array; sampleRate: number }
+}
+
+/**
+ * Decides whether the user finished speaking or only paused (ADR 0011): a
+ * text classifier (LiveKit turn-detector, a BERT model, a typed-decision model,
+ * the backend's LLM) or an audio one (Pipecat Smart Turn). Returns the
+ * probability that the turn is over; the voice plugin turns it into a wait.
+ */
+export type EndOfTurn = {
+  name: string
+  input: 'text' | 'audio'
+  /** How many recent turns `predict` gets. Default 6. */
+  historyTurns?: number
+  /** The text or audio leaves the page. */
+  remote?: boolean
+  /** Consent purpose required to use it (ADR 0010); silence only while not granted. */
+  consent?: string
+  isSupported(): boolean | Promise<boolean>
+  /** Loads a model on demand; the plugin uses silence alone until it resolves. */
+  load?(): Promise<void>
+  predict(input: EndOfTurnInput, signal: AbortSignal): number | Promise<number>
 }

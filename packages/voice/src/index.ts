@@ -1,10 +1,14 @@
 export {
   voice,
   createVoice,
+  type BargeInOptions,
   type InputModality,
   type ListenOptions,
   type OutputPreference,
+  type TurnTiming,
+  type VoiceDecision,
   type VoiceMode,
+  type VoicePhase,
   type VoiceOptions,
   type VoiceService,
   type VoiceState,
@@ -13,5 +17,6 @@ export { webSpeechSTT, webSpeechTTS, splitSentences, type WebSpeechSTTOptions, t
 export { httpSTT, httpTTS, type HttpSTTOptions, type HttpTTSOptions } from './providers/http.js'
 export { websocketSTT, voskSTT, type StreamingResult, type WebSocketSTTOptions } from './providers/websocket.js'
 export { voskBrowserSTT, type VoskBrowserModule, type VoskBrowserOptions } from './providers/vosk-browser.js'
+export { httpEndOfTurn, type HttpEndOfTurnOptions } from './providers/end-of-turn.js'
 export { captureFloat, capturePcm16, detectEndOfSpeech, openMicrophone } from './providers/media.js'
 export * from './types.js'

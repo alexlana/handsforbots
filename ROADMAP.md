@@ -231,7 +231,7 @@ Pontos de interceptação: `signal.before`, `request.before`, `action.before` (v
 - **Streaming** (SSE, AG-UI): o stream entrega estímulos conforme chegam.
 - **Fora de turno** (WebSocket, jobs longos, mensagens proativas): o transporte implementa `connect()` ou o host chama `h4b.push(stimuli)`. Os estímulos entram na mesma fila dos turnos, então a ordem é preservada.
 
-Turnos são processados um por vez, em ordem de chegada. `h4b.abort()` cancela o turno atual (barge-in), e todo transporte e ação recebe um `AbortSignal`.
+Turnos são processados um por vez, em ordem de chegada. Mensagens digitadas ou faladas com o kernel ocupado seguem a política de entrada (ADR 0011): por padrão interrompem a resposta, ou se juntam ao turno que ainda não respondeu. `h4b.interrupt()` corta a resposta guardando o que foi exibido ou falado, `h4b.abort()` só cancela, e todo transporte e ação recebe um `AbortSignal`.
 
 ### 2.5 Router: menu, captura e transporte
 
@@ -382,7 +382,7 @@ Nada fica de fora: tudo vira plugin, serviço do kernel ou é aposentado com sub
 |------|----------|----------|
 | 0 | Decisões registradas neste documento e em [ADRs](./docs/adr/README.md); kernel próprio com semântica Cordis (0.3) | — |
 | 1 | Monorepo TS (pnpm, TS 7, vitest); `core` (plugins, Sinal/Estímulo, router, ações, interceptadores, captura seletiva, `ask`/`push`/`runAction`, conteúdo rico); `transport-agui` (SSE próprio); `react`; `testkit` com suíte de conformidade de transportes | — |
-| 2 | `voice` (Web Speech, HTTP, WebSocket, Vosk remoto, Vosk WASM offline; push-to-talk, segurar para falar com pausas, `cancel()` que descarta a fala, mãos-livres, saída segue entrada, barge-in); `keyboard`; `vue` | Provedor de nuvem de referência (adapter genérico pronto) |
+| 2 | `voice` (Web Speech, HTTP, WebSocket, Vosk remoto, Vosk WASM offline; push-to-talk, segurar para falar com pausas, `cancel()` que descarta a fala, mãos-livres com fim de turno plugável, saída segue entrada falada frase a frase, barge-in completo; ADR 0011); `keyboard`; `vue` | Provedor de nuvem de referência (adapter genérico pronto) |
 | 3 | `menu` (explícito, padrão, fuzzy); `copilotkit` (modo A); estados unificados com duração mínima no `widget`; latência percebida por rota (`h4b_first_response_ms`) no `observability`; mensagens na fila visíveis; ponte CopilotKit validada contra o runtime real (agente self-managed) | Validar com um runtime CopilotKit remoto (CopilotRuntime) |
 | 4 | `expose-webmcp`; `mcp-apps` (host de `ui://` em iframe com sandbox, validado no Chrome); `inputs` (câmera com foto e quadros de vídeo, arquivos, eventos da GUI, sensores); `ui.render` persistido + renderizadores no widget | Transporte `realtime` (fala-a-fala via WebRTC): é baseado em sessão, precisa coordenar com o plugin `voice` e devolver resultados de ações pelo data channel; fica para quando houver um provedor e uma chave para validar |
 | 5 | `transport-rasa`, `transport-http` (genérico + UniversalLLM + compatível com OpenAI/Ollama), `transport-ai-sdk` (validado contra o `streamText` real), `assistant-ui` (runtime real), `widget`, `guided` (tours, destaques, `show_section`, `image_gallery`), `storage-local`, `tab-sync`, `observability`; exemplo Rasa na v2; **v1 removida**; documentação v2 (en-us / pt-br). Substituibilidade provada: AG-UI ↔ AI SDK ↔ Rasa ↔ HTTP passam na mesma suíte; CopilotKit ↔ assistant-ui ↔ widget como superfícies; exemplo Rasa validado no Docker com o Rasa real | — |

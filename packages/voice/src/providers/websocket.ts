@@ -22,7 +22,8 @@ export function websocketSTT(options: WebSocketSTTOptions): SpeechToText {
   const sampleRate = options.sampleRate ?? 16000
   return {
     name: options.name ?? 'websocket',
-    capabilities: { partials: true, continuous: true, offline: false },
+    capabilities: { partials: true, continuous: true, offline: false, audio: true },
+    remote: true,
     isSupported: () =>
       typeof WebSocket !== 'undefined' && typeof AudioWorkletNode !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
     async listen(listenOptions, handlers) {
@@ -48,6 +49,7 @@ export function websocketSTT(options: WebSocketSTTOptions): SpeechToText {
         try {
           stopCapture = await capturePcm16(stream, sampleRate, (chunk) => {
             if (socket.readyState === WebSocket.OPEN) socket.send(chunk)
+            if (handlers.onAudio) handlers.onAudio(Float32Array.from(new Int16Array(chunk), (v) => v / 0x8000), sampleRate)
           })
         } catch (error) {
           handlers.onError(new SpeechError('audio-capture', (error as Error)?.message))
