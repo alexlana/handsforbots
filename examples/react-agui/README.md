@@ -29,6 +29,7 @@ No API key or Docker needed: a deterministic **mock AG-UI agent** ([agent/mockAg
 - **🎤 button**: hold to talk (push-to-talk) or toggle (hands-free). Same with **Alt+M** on the keyboard.
 - **Output follows input**: spoken questions get spoken answers; typed ones stay silent. Change it in the "Saída" selector.
 - **Barge-in**: start talking (or press **Esc**) while the bot speaks to interrupt it. Esc also cancels a running turn.
+- **Echo**: with speakers, the microphone hears the bot. The echo filter (on by default) drops what repeats the bot's own words, so it does not interrupt itself. To test it, pick hands-free, turn headphones off and ask something with a long answer: the browser console logs every `[voice]` decision (`ignore` with `reason: 'echo'` is the filter at work). Compare with `echo: false` in `main.tsx`.
 - Uses the browser's Web Speech API. To use a cloud provider instead (or as a fallback), change only `main.tsx`:
 
 ```ts

@@ -1,8 +1,11 @@
 import { definePlugin, textOf, type AssistantMessage, type PluginContext } from '@handsforbots/core'
+import { textEchoFilter } from './providers/echo.js'
 import {
   SpeechError,
+  type EchoFilter,
   type EndOfTurn,
   type SpeechToText,
+  type SpokenSentence,
   type SttSession,
   type TextToSpeech,
   type TurnHistoryEntry,
@@ -35,6 +38,8 @@ export type VoiceState = {
   tts?: string
   /** End-of-turn provider in use, if any. */
   endOfTurn?: string
+  /** Echo filter in use, if any. */
+  echo?: string
   error?: SpeechError
 }
 
@@ -73,7 +78,7 @@ export type BargeInOptions = {
 
 export type VoiceDecision =
   | { kind: 'interrupt'; text: string }
-  | { kind: 'ignore'; text: string; reason: 'backchannel' | 'too-short' }
+  | { kind: 'ignore'; text: string; reason: 'backchannel' | 'too-short' | 'echo' }
   | { kind: 'end-of-turn'; text: string; reason: 'stt' | 'model' | 'silence' | 'max-silence' | 'manual'; probability?: number }
   | { kind: 'end-of-turn-unavailable'; provider: string; reason: string }
 
@@ -95,6 +100,8 @@ export type VoiceService = {
   setOutput(output: OutputPreference): void
   /** Turns the end-of-turn model on (a provider) or off (`null`: silence only). */
   setEndOfTurn(provider: EndOfTurn | null): void
+  /** Replaces the echo filter, or turns it off (`null`). */
+  setEcho(filter: EchoFilter | null): void
   /** Changes timings and barge-in at runtime. */
   configure(options: { turn?: TurnTiming; bargeIn?: boolean | BargeInOptions }): void
   speak(text: string): Promise<void>
@@ -126,6 +133,12 @@ export type VoiceOptions = {
   bargeIn?: boolean | BargeInOptions
   /** Hands-free: decides whether a pause ends the turn. Without it, silence alone does. */
   endOfTurn?: EndOfTurn | null
+  /**
+   * Drops what the microphone hears of the bot's own speech, so it neither
+   * interrupts nor answers itself. Default `textEchoFilter()`; `false` turns it
+   * off; pass your own `EchoFilter` to replace it.
+   */
+  echo?: EchoFilter | false
   turn?: TurnTiming
   voiceName?: string
 }
@@ -212,6 +225,8 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     stt: sttProviders[0]?.name,
     tts: ttsProviders[0]?.name,
   }
+  let echo: EchoFilter | undefined = options.echo === false ? undefined : (options.echo ?? textEchoFilter())
+  state.echo = echo?.name
   const listeners = new Set<() => void>()
   const set = (patch: Partial<VoiceState>) => {
     const next = { ...state, ...patch }
@@ -381,6 +396,31 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   }
 
   /* ---------------------------------------------------------------------- */
+  /* Echo: the bot's own speech coming back through the microphone          */
+  /* ---------------------------------------------------------------------- */
+
+  /** Sentences spoken recently, oldest first. */
+  let speech: SpokenSentence[] = []
+  const recentSpeech = () => {
+    const since = Date.now() - (echo?.tail ?? 2000)
+    speech = speech.filter((s) => s.endedAt === undefined || s.endedAt >= since)
+    return speech
+  }
+
+  /** What the user said in `text`, without the bot's voice ('' when it was all echo). */
+  const withoutEcho = (text: string, final: boolean): string => {
+    if (!echo || !text.trim()) return text
+    const recent = recentSpeech()
+    if (recent.length === 0) return text
+    try {
+      return echo.filter({ text, final, speech: [...recent], language })
+    } catch (error) {
+      ctx.emit('error', { error, source: `voice:echo:${echo.name}` })
+      return text
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* Barge-in                                                               */
   /* ---------------------------------------------------------------------- */
 
@@ -483,8 +523,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       entry.session = await provider.listen(
         { language, continuous: handsFree || !!entry.held },
         {
-          onPartial(text) {
+          onPartial(heard) {
             if (!isCurrent() || entry.stopping) return
+            const text = withoutEcho(heard, false)
             if (entry.held) return set({ partial: heldText(entry.held, text) })
             bargeInCheck(text, false)
             if (!handsFree) return set({ partial: text })
@@ -500,7 +541,14 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           },
           onFinal(text, meta) {
             if (entry.discarded) return
-            const trimmed = text.trim()
+            const heard = text.trim()
+            const trimmed = withoutEcho(heard, true).trim()
+            if (heard && !trimmed) {
+              decide({ kind: 'ignore', text: heard, reason: 'echo' })
+              if (handsFree && !entry.held) turn.live = ''
+              if (isCurrent()) set({ partial: entry.held ? heldText(entry.held) : handsFree ? turnText() : '' })
+              return
+            }
             const held = entry.held
             if (held) {
               if (isCurrent()) set({ partial: '' })
@@ -631,6 +679,8 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     speechQueue = speechQueue.then(async () => {
       if (controller.signal.aborted) return
       set({ speaking: true, tts: provider.name })
+      const sentence: SpokenSentence = { text, startedAt: Date.now() }
+      recentSpeech().push(sentence)
       // Without barge-in the mic would hear the bot: pause recognition while speaking.
       if (!bargeIn && active?.session) {
         pausedForSpeech = true
@@ -642,6 +692,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       } catch (error) {
         fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
       } finally {
+        sentence.endedAt ??= Date.now()
         chunksLeft = Math.max(0, chunksLeft - 1)
         if (chunksLeft === 0 || controller.signal.aborted) set({ speaking: false })
         if (pausedForSpeech) {
@@ -794,6 +845,10 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     setEndOfTurn(provider) {
       void setEndOfTurn(provider)
     },
+    setEcho(filter) {
+      echo = filter ?? undefined
+      set({ echo: echo?.name })
+    },
     configure(change) {
       if (change.turn) timing = { ...timing, ...change.turn }
       if (change.bargeIn !== undefined) {
@@ -810,6 +865,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       ttsProviders.find(allowed)?.cancel()
       speechQueue = Promise.resolve()
       chunksLeft = 0
+      // What was playing can still reach the recognizer for a moment.
+      const now = Date.now()
+      for (const sentence of speech) sentence.endedAt ??= now
       // Messages already queued stop being spoken; their `spoken` count stays.
       for (const track of tracks.values()) track.speak = false
       if (state.speaking) set({ speaking: false })

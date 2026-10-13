@@ -132,3 +132,37 @@ export type EndOfTurn = {
   load?(): Promise<void>
   predict(input: EndOfTurnInput, signal: AbortSignal): number | Promise<number>
 }
+
+/** A sentence the bot spoke (or is speaking), as echo filters see it. */
+export type SpokenSentence = {
+  text: string
+  /** When the speech started (epoch ms). */
+  startedAt: number
+  /** When it ended; absent while it is still being spoken. */
+  endedAt?: number
+}
+
+export type EchoInput = {
+  /** What the recognizer heard. */
+  text: string
+  /** A final result (true) or a live transcript (false). */
+  final: boolean
+  /** What the bot said recently, oldest first: the sentence being spoken and those that ended within `tail`. Never empty. */
+  speech: SpokenSentence[]
+  language: string
+}
+
+/**
+ * Removes the bot's own voice from what the microphone heard: with speakers,
+ * the reply comes back through the recognizer and would interrupt or answer the
+ * bot. The voice plugin asks it while the bot speaks and for `tail` ms after,
+ * for every live transcript and final result, before barge-in and the turn see
+ * them. Must be synchronous: it runs on every partial.
+ */
+export type EchoFilter = {
+  name: string
+  /** How long after a sentence ends it is still passed in `speech` (ms). Default 2000. */
+  tail?: number
+  /** Returns what the user said: `text` itself, a shorter text, or '' when it was all echo. */
+  filter(input: EchoInput): string
+}

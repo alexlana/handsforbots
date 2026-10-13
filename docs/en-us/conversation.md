@@ -93,6 +93,7 @@ Speaking again before that keeps the turn open. If the recognizer shows words bu
 | Discard and close the microphone | `voice.cancel()` |
 | Model on/off at runtime | `voice.setEndOfTurn(provider \| null)` |
 | Timings and barge-in at runtime | `voice.configure({ turn, bargeIn })` |
+| Replace or turn off the echo filter at runtime | `voice.setEcho(filter \| null)` |
 
 ### End-of-turn providers
 
@@ -156,6 +157,37 @@ Speech over the bot interrupts it when the bot is speaking or streaming a reply 
 
 `bargeIn: false` turns this off and pauses recognition while the bot speaks, so the microphone does not hear it.
 
+### Echo filter
+
+With speakers, the bot's voice comes back through the microphone, and the recognizer transcribes it as if the user had spoken: the bot interrupts or answers itself. Browser echo cancellation does not always help, because it only removes sound it knows was played: speech from `speechSynthesis` comes out of the operating system, outside the browser's audio path. This happens even on good hardware (a laptop's speakers sit a few centimeters from its microphone).
+
+So the voice plugin passes everything heard while the bot speaks, and for a moment after (`tail`), through an **echo filter** before barge-in and the turn see it. The default, `textEchoFilter()`, compares words, not audio, so it works with any recognizer, Web Speech included:
+
+- a text is echo when at least `threshold` (default 0.6) of its words repeat what the bot said, in runs of at least `minRun` (default 2) consecutive words in the same order; case, accents and punctuation are ignored, and words of 4 letters or more may have one wrong letter;
+- the decision is all or nothing: echo is dropped (`voice.decision` `{ kind: 'ignore', reason: 'echo' }`), anything else is kept whole, so a user who quotes the bot while talking over it is never cut short;
+- a single word always passes: it cannot be told apart from the user saying the same word;
+- the bot's sentences count while spoken and for `tail` ms after (default 2000), because recognizers deliver results late; after that the user may repeat the bot freely.
+
+It is a replaceable piece, like the end-of-turn provider:
+
+```ts
+import { voice, textEchoFilter, type EchoFilter } from '@handsforbots/voice'
+
+voice({ stt, tts, mode: 'hands-free' })                                    // textEchoFilter() by default
+voice({ stt, tts, mode: 'hands-free', echo: textEchoFilter({ threshold: 0.5, tail: 1500 }) })
+voice({ stt, tts, mode: 'hands-free', echo: false })                       // off (e.g. headphones only)
+
+const mine: EchoFilter = {
+  name: 'mine',
+  tail: 2000,
+  // speech: the sentences being spoken and those that ended within `tail`, oldest first
+  filter: ({ text, final, speech, language }) => (looksLikeTheBot(text, speech) ? '' : text),
+}
+h4b.get('voice').setEcho(mine) // or null to turn it off
+```
+
+`filter` returns what the user said: the text itself, a shorter text, or `''` when it was all echo. It runs on every live transcript, so it must be synchronous and fast; if it throws, the error goes to `h4b.on('error')` (`source: 'voice:echo:<name>'`) and the text is kept. `getState().echo` names the filter in use.
+
 ### Speech output
 
 Replies are spoken **sentence by sentence as they stream**, so the bot starts talking before the reply ends, and an interruption knows which sentences were heard. Output follows input (`output: 'auto'`): spoken replies after speech, text after typing.
@@ -173,13 +205,13 @@ Replies are spoken **sentence by sentence as they stream**, so the bot starts ta
 | `endOfTurn` | name of the end-of-turn provider in use |
 | `listening`, `speaking`, `error`, `stt`, `tts`, `lastInput`, `output`, `mode` | as before |
 
-Every interruption, ignored backchannel and end of turn is reported on `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Log it while tuning.
+Every interruption, ignored backchannel or echo and end of turn is reported on `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Log it while tuning.
 
 ### Privacy and echo
 
 - Providers declare whether audio or text leaves the page (`remote`). `webSpeechSTT` counts as remote: browsers such as Chrome send the audio to their speech service, and in hands-free that is continuous. Remote end-of-turn providers send the transcript to your server and from there to whoever runs the model.
 - Give a provider a `consent` purpose and it is used only while the purpose is granted ([Consent](./consent.md)); the plugin falls back to the next recognizer, or to silence. Showing the notice and storing the decision is your app's job.
-- Recognizers that open the microphone (`httpSTT`, `websocketSTT`, `voskSTT`, `voskBrowserSTT`) use echo cancellation, noise suppression and automatic gain. Web Speech manages its own microphone; how well it ignores the bot's own voice depends on the device. Test with and without headphones.
+- Recognizers that open the microphone (`httpSTT`, `websocketSTT`, `voskSTT`, `voskBrowserSTT`) use echo cancellation, noise suppression and automatic gain. Web Speech manages its own microphone; how well it ignores the bot's own voice depends on the device. The [echo filter](#echo-filter) covers what gets through. Test with and without headphones.
 - Safari on iOS ends recognition sessions on its own; hands-free restarts them, but test long sessions on real devices.
 
 ### Tuning
@@ -188,6 +220,7 @@ Every interruption, ignored backchannel and end of turn is reported on `h4b.on('
 |---|---|
 | Cuts people mid-sentence | raise `silence`, or add an end-of-turn provider and raise `threshold` |
 | Feels slow to answer | lower `silence`; with a provider, lower `minSilence` and check its latency |
-| Bot interrupts itself | headphones, a microphone recognizer with echo cancellation, a higher `minWords`, or `bargeIn: false` |
+| Bot interrupts itself | check that `voice.decision` shows `reason: 'echo'`; lower `echo.threshold` or raise `echo.tail`; headphones, a microphone recognizer with echo cancellation, a higher `minWords`, or `bargeIn: false` |
+| User speech dropped as echo | raise `echo.threshold` or `minRun`, lower `tail`, or `echo: false` with headphones |
 | "ok"/"yes" interrupt the bot | add them to `bargeIn.ignore` |
 | Too many backend calls while thinking | keep `whileBusy` at `interrupt` or `merge` (resumption joins them) |

@@ -2,8 +2,11 @@
 import { createH4B, textOf, type Transport, type TurnRequest } from '@handsforbots/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  echoCoverage,
   httpEndOfTurn,
+  textEchoFilter,
   voice,
+  type EchoFilter,
   type EndOfTurn,
   type SpeechToText,
   type SttHandlers,
@@ -284,6 +287,123 @@ describe('speech output and barge-in', () => {
     await interrupted
     expect(h4b.messages.find((m) => m.role === 'assistant')).toBeUndefined() // nothing was heard
     expect(v.getState().interrupted).toBe(true)
+  })
+})
+
+describe('echo filter', () => {
+  /** The bot starts a reply with `script` and the first sentence is being spoken. */
+  async function botSpeaking(options: Partial<VoiceOptions> = {}) {
+    const stt = fakeSTT()
+    const tts = fakeTTS()
+    const ctx = await setup(
+      { stt: stt.provider, tts: tts.provider, output: 'voice', ...options },
+      transport(['O horário de atendimento é das nove às dezoito. Aos sábados até meio-dia. Depois']),
+    )
+    await ctx.voice.listen()
+    ctx.h4b.send('horário')
+    await ctx.h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(ctx.voice.getState().phase).toBe('botSpeaking')
+    return { ...ctx, stt, tts }
+  }
+
+  it('drops the bot\'s own words heard by the microphone, live and final, without interrupting', async () => {
+    const { h4b, voice: v, decisions, stt } = await botSpeaking()
+    expect(v.getState().echo).toBe('text-echo')
+    stt.last().onPartial?.('o horário de')
+    expect(v.getState()).toMatchObject({ speaking: true, partial: '' })
+    stt.last().onFinal('o horario de atendimento e das 9 as dezoito')
+    expect(decisions.at(-1)).toMatchObject({ kind: 'ignore', reason: 'echo' })
+    expect(v.getState()).toMatchObject({ speaking: true, interrupted: false, partial: '', phase: 'botSpeaking' })
+    expect(userTexts(h4b)).toEqual(['horário'])
+    await h4b.interrupt()
+  })
+
+  it('lets the user talk over the bot', async () => {
+    const { h4b, voice: v, decisions, stt } = await botSpeaking()
+    stt.last().onPartial?.('espera aí')
+    expect(v.getState()).toMatchObject({ speaking: false, interrupted: true })
+    expect(decisions.at(-1)).toMatchObject({ kind: 'interrupt', text: 'espera aí' })
+    await h4b.when('turn.interrupted', () => true)
+  })
+
+  it('keeps speech that only partly repeats the bot, whole', async () => {
+    const { h4b, voice: v, stt } = await botSpeaking()
+    stt.last().onFinal('não quero saber o horário de atendimento agora não obrigado')
+    expect(v.getState().interrupted).toBe(true)
+    expect(v.getState().partial).toBe('não quero saber o horário de atendimento agora não obrigado')
+    await h4b.when('turn.interrupted', () => true)
+  })
+
+  it('still drops the echo shortly after the speech stops, but not later', async () => {
+    const { h4b, voice: v, decisions, stt, tts } = await botSpeaking({ echo: textEchoFilter({ tail: 50 }) })
+    v.cancelSpeech()
+    stt.last().onFinal('o horário de atendimento')
+    expect(decisions.at(-1)).toMatchObject({ kind: 'ignore', reason: 'echo' })
+    await new Promise((r) => setTimeout(r, 60))
+    stt.last().onFinal('o horário de atendimento')
+    expect(v.getState().partial).toBe('o horário de atendimento')
+    expect(tts.spoken).toHaveLength(1)
+    await h4b.interrupt()
+  })
+
+  it('is turned off with echo: false, and replaced or removed at runtime', async () => {
+    const off = await botSpeaking({ echo: false })
+    expect(off.voice.getState().echo).toBeUndefined()
+    off.stt.last().onFinal('o horário de atendimento')
+    expect(off.voice.getState().interrupted).toBe(true)
+    await off.h4b.when('turn.interrupted', () => true)
+
+    const filter = vi.fn<EchoFilter['filter']>((input) => (input.text.includes('bot') ? '' : input.text))
+    const custom = await botSpeaking({ echo: { name: 'mine', filter } })
+    expect(custom.voice.getState().echo).toBe('mine')
+    custom.stt.last().onFinal('voz do bot')
+    expect(filter).toHaveBeenCalledWith({
+      text: 'voz do bot',
+      final: true,
+      language: 'pt-BR',
+      speech: [{ text: 'O horário de atendimento é das nove às dezoito.', startedAt: expect.any(Number) }],
+    })
+    expect(custom.decisions.at(-1)).toMatchObject({ kind: 'ignore', reason: 'echo' })
+    custom.voice.setEcho(null)
+    expect(custom.voice.getState().echo).toBeUndefined()
+    custom.stt.last().onFinal('voz do bot')
+    expect(custom.voice.getState().interrupted).toBe(true)
+    await custom.h4b.when('turn.interrupted', () => true)
+  })
+
+  it('a failing filter reports the error and keeps the text', async () => {
+    const errors: string[] = []
+    const { h4b, voice: v, stt } = await botSpeaking({
+      echo: { name: 'broken', filter: () => { throw new Error('boom') } },
+    })
+    h4b.on('error', (e) => errors.push(e.source))
+    stt.last().onFinal('espera aí')
+    expect(errors).toEqual(['voice:echo:broken'])
+    expect(v.getState().interrupted).toBe(true)
+    await h4b.when('turn.interrupted', () => true)
+  })
+})
+
+describe('textEchoFilter', () => {
+  const words = (text: string) => text.split(' ')
+
+  it('counts only runs of consecutive words, tolerating one wrong letter', () => {
+    expect(echoCoverage(words('para para'), words('isso serve para você e para todos'), 2)).toBe(0)
+    expect(echoCoverage(words('serve pra'), words('isso serve para'), 2)).toBe(0) // short words must match exactly
+    expect(echoCoverage(words('atendimiento das'), words('o atendimento das nove'), 2)).toBe(1)
+    expect(echoCoverage(words('espera atendimento das'), words('o atendimento das nove'), 2)).toBeCloseTo(2 / 3)
+  })
+
+  it('decides all or nothing, ignoring case, accents and punctuation; one word always passes', () => {
+    const filter = textEchoFilter()
+    const speech = [{ text: 'Você pode pagar com cartão, Pix ou boleto.', startedAt: 0 }]
+    const run = (text: string) => filter.filter({ text, final: true, speech, language: 'pt-BR' })
+    expect(run('voce pode pagar com cartao')).toBe('')
+    expect(run('pix ou boleto')).toBe('')
+    expect(run('cartão')).toBe('cartão')
+    expect(run('quero pagar com pix')).toBe('quero pagar com pix')
+    expect(textEchoFilter({ threshold: 0.4 }).filter({ text: 'quero pagar com pix', final: true, speech, language: 'pt-BR' })).toBe('')
   })
 })
 

@@ -28,7 +28,11 @@ h4b.provide('confirm', async ({ description, args, origin }) =>
 )
 
 await h4b.start()
-if (import.meta.env.DEV) Object.assign(window, { h4b })
+if (import.meta.env.DEV) {
+  Object.assign(window, { h4b })
+  // Why the voice interrupted, ignored (backchannel or the bot's own echo) or ended a turn.
+  h4b.on('voice.decision', (decision) => console.info('[voice]', decision))
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

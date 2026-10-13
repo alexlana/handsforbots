@@ -42,6 +42,7 @@ voice({
   endOfTurn: httpEndOfTurn({ url: '/api/end-of-turn' }), // optional
   turn: { silence: 800, minSilence: 300, maxSilence: 2000, threshold: 0.5, timeout: 600 },
   bargeIn: { minWords: 2, ignore: [...] },               // or false
+  echo: textEchoFilter({ threshold: 0.6, tail: 2000 }),   // the default; false turns it off
 })
 await h4b.get('voice').listen()
 ```
@@ -49,9 +50,9 @@ await h4b.get('voice').listen()
 - Finals pile up into **one pending turn**, sent when the turn ends: after `silence` ms without a provider; with one, asked after `minSilence`, sent if probability ≥ `threshold`, else at `maxSilence`; a slow (`timeout`) or failing provider falls back to `silence`. Speaking again keeps the turn open.
 - A recognizer that detects turns itself decides alone and the provider is not called: `websocketSTT({ ..., endOfTurn: true, parse })` with `parse` returning `{ final, endOfTurn }` (services such as AssemblyAI or Soniox, behind your server's token endpoint), or any provider with `capabilities.endOfTurn` that passes `{ endOfTurn }` to `onFinal`.
 - Buttons: "send now" `voice.endTurn()`, "trash" `voice.discardTurn()` (keeps listening), mic off and send `voice.stop()`, mic off and discard `voice.cancel()`.
-- Runtime: `voice.setEndOfTurn(provider | null)`, `voice.configure({ turn, bargeIn })`.
+- Runtime: `voice.setEndOfTurn(provider | null)`, `voice.setEcho(filter | null)`, `voice.configure({ turn, bargeIn })`.
 - Draw from `getState()`: `phase` (`idle | listening | userSpeaking | waitingEndOfTurn | botSpeaking`), `partial` (whole pending turn), `endOfTurnAt` (epoch ms; animate a countdown from it), `interrupted`, `endOfTurn`, `error`.
-- Debug with `h4b.on('voice.decision', d => …)`: `interrupt`, `ignore` (backchannel), `end-of-turn` (`reason: stt | model | silence | max-silence | manual`), `end-of-turn-unavailable`.
+- Debug with `h4b.on('voice.decision', d => …)`: `interrupt`, `ignore` (`reason: backchannel | echo`), `end-of-turn` (`reason: stt | model | silence | max-silence | manual`), `end-of-turn-unavailable`.
 
 ### End-of-turn providers
 
@@ -67,6 +68,7 @@ Contract: `{ name, input: 'text' | 'audio', historyTurns?, remote?, consent?, is
 - Speech over the bot (speaking, or a reply streaming on screen) calls `h4b.interrupt()` before stopping the speech, so the reply keeps the sentences already spoken. Live transcripts need `minWords`; finals always count; backchannels ("aham", "tá", "ok", "uh-huh", "mhm"…, per language) are dropped. Pressing to talk while the bot answers interrupts too.
 - While the bot is still thinking (nothing shown), speech does not interrupt: the kernel resumes the turn with both messages when the new turn ends.
 - `bargeIn: false` pauses recognition while the bot speaks instead.
+- **Echo filter** (on by default): with speakers the recognizer hears the bot, and browser echo cancellation often misses it (`speechSynthesis` plays outside the browser's audio path), so the bot would interrupt or answer itself. `textEchoFilter()` drops texts whose words mostly (`threshold` 0.6, runs of `minRun` 2) repeat the sentences spoken in the last `tail` ms (2000); all or nothing, single words pass. Replace it with any `EchoFilter` `{ name, tail?, filter({ text, final, speech, language }) → text | '' }` (synchronous: it runs on every partial), or `echo: false` for headphone-only apps. If users report the bot cutting itself off, check `voice.decision` for `reason: 'echo'` before raising `minWords`.
 - Replies are spoken sentence by sentence as they stream (output follows input with `output: 'auto'`).
 
 ## Privacy

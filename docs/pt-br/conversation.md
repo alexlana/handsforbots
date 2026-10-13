@@ -93,6 +93,7 @@ Voltar a falar antes disso mantém o turno aberto. Se o reconhecedor mostra pala
 | Descartar e fechar o microfone | `voice.cancel()` |
 | Ligar/desligar o modelo em runtime | `voice.setEndOfTurn(provedor \| null)` |
 | Tempos e barge-in em runtime | `voice.configure({ turn, bargeIn })` |
+| Trocar ou desligar o filtro de eco em runtime | `voice.setEcho(filtro \| null)` |
 
 ### Provedores de fim de turno
 
@@ -156,6 +157,37 @@ Falar por cima do bot o interrompe quando ele está falando ou exibindo uma resp
 
 `bargeIn: false` desliga isso e pausa o reconhecimento enquanto o bot fala, para o microfone não ouvi-lo.
 
+### Filtro de eco
+
+Com alto-falante, a voz do bot volta pelo microfone e o reconhecedor a transcreve como se fosse a pessoa: o bot se interrompe ou responde a si mesmo. O cancelamento de eco do navegador nem sempre ajuda, porque só remove o som que ele sabe que tocou: a fala do `speechSynthesis` sai pelo sistema operacional, fora do caminho de áudio do navegador. Isso acontece mesmo em equipamento bom (o alto-falante de um notebook fica a poucos centímetros do microfone).
+
+Por isso o plugin de voz passa tudo o que ouve enquanto o bot fala, e por um instante depois (`tail`), por um **filtro de eco** antes do barge-in e do turno. O padrão, `textEchoFilter()`, compara palavras, não áudio, então funciona com qualquer reconhecedor, inclusive o Web Speech:
+
+- um texto é eco quando pelo menos `threshold` (padrão 0,6) das palavras repetem o que o bot disse, em sequências de pelo menos `minRun` (padrão 2) palavras seguidas na mesma ordem; maiúsculas, acentos e pontuação são ignorados, e palavras de 4 letras ou mais podem ter uma letra errada;
+- a decisão é tudo ou nada: o eco é descartado (`voice.decision` `{ kind: 'ignore', reason: 'echo' }`) e o resto passa inteiro, então quem cita o bot enquanto fala por cima dele nunca é cortado;
+- uma palavra sozinha sempre passa: não dá para distinguir da pessoa dizendo a mesma palavra;
+- as frases do bot contam enquanto são faladas e por `tail` ms depois (padrão 2000), porque os reconhecedores entregam resultados atrasados; depois disso a pessoa pode repetir o bot à vontade.
+
+É uma peça substituível, como o provedor de fim de turno:
+
+```ts
+import { voice, textEchoFilter, type EchoFilter } from '@handsforbots/voice'
+
+voice({ stt, tts, mode: 'hands-free' })                                    // textEchoFilter() por padrão
+voice({ stt, tts, mode: 'hands-free', echo: textEchoFilter({ threshold: 0.5, tail: 1500 }) })
+voice({ stt, tts, mode: 'hands-free', echo: false })                       // desligado (ex.: só com fone)
+
+const meuFiltro: EchoFilter = {
+  name: 'meu-filtro',
+  tail: 2000,
+  // speech: as frases sendo faladas e as que terminaram dentro de `tail`, da mais antiga para a mais nova
+  filter: ({ text, final, speech, language }) => (pareceOBot(text, speech) ? '' : text),
+}
+h4b.get('voice').setEcho(meuFiltro) // ou null para desligar
+```
+
+`filter` devolve o que a pessoa disse: o próprio texto, um texto menor, ou `''` quando era tudo eco. Ele roda a cada transcrição parcial, então precisa ser síncrono e rápido; se lançar um erro, o erro vai para `h4b.on('error')` (`source: 'voice:echo:<nome>'`) e o texto é mantido. `getState().echo` traz o nome do filtro em uso.
+
 ### Saída falada
 
 As respostas são faladas **frase a frase enquanto chegam**, então o bot começa a falar antes de a resposta terminar, e uma interrupção sabe quais frases foram ouvidas. A saída segue a entrada (`output: 'auto'`): resposta falada depois de fala, texto depois de digitação.
@@ -173,13 +205,13 @@ As respostas são faladas **frase a frase enquanto chegam**, então o bot começ
 | `endOfTurn` | nome do provedor de fim de turno em uso |
 | `listening`, `speaking`, `error`, `stt`, `tts`, `lastInput`, `output`, `mode` | como antes |
 
-Toda interrupção, backchannel ignorado e fim de turno é informado em `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Registre isso enquanto ajusta.
+Toda interrupção, backchannel ou eco ignorado e fim de turno é informado em `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Registre isso enquanto ajusta.
 
 ### Privacidade e eco
 
 - Provedores declaram se o áudio ou o texto saem da página (`remote`). O `webSpeechSTT` conta como remoto: navegadores como o Chrome mandam o áudio para o serviço de fala deles, e no mãos-livres isso é contínuo. Provedores remotos de fim de turno mandam a transcrição para o seu servidor e, de lá, para quem roda o modelo.
 - Dê a um provedor uma finalidade `consent` e ele só é usado enquanto ela está concedida ([Consentimento](./consent.md)); o plugin passa ao próximo reconhecedor, ou ao silêncio. Mostrar o aviso e guardar a decisão é do seu app.
-- Reconhecedores que abrem o microfone (`httpSTT`, `websocketSTT`, `voskSTT`, `voskBrowserSTT`) usam cancelamento de eco, supressão de ruído e ganho automático. O Web Speech cuida do próprio microfone; o quanto ele ignora a voz do bot depende do aparelho. Teste com e sem fone.
+- Reconhecedores que abrem o microfone (`httpSTT`, `websocketSTT`, `voskSTT`, `voskBrowserSTT`) usam cancelamento de eco, supressão de ruído e ganho automático. O Web Speech cuida do próprio microfone; o quanto ele ignora a voz do bot depende do aparelho. O [filtro de eco](#filtro-de-eco) cobre o que passar. Teste com e sem fone.
 - O Safari no iOS encerra as sessões de reconhecimento sozinho; o mãos-livres as reinicia, mas teste sessões longas em aparelhos reais.
 
 ### Ajustes
@@ -188,6 +220,7 @@ Toda interrupção, backchannel ignorado e fim de turno é informado em `h4b.on(
 |---|---|
 | Corta a pessoa no meio da frase | aumentar `silence`, ou adicionar um provedor de fim de turno e aumentar `threshold` |
 | Demora para responder | diminuir `silence`; com provedor, diminuir `minSilence` e verificar a latência dele |
-| O bot interrompe a si mesmo | fone, um reconhecedor de microfone com cancelamento de eco, `minWords` maior, ou `bargeIn: false` |
+| O bot interrompe a si mesmo | ver se o `voice.decision` mostra `reason: 'echo'`; diminuir `echo.threshold` ou aumentar `echo.tail`; fone, um reconhecedor de microfone com cancelamento de eco, `minWords` maior, ou `bargeIn: false` |
+| Fala da pessoa descartada como eco | aumentar `echo.threshold` ou `minRun`, diminuir `tail`, ou `echo: false` com fone |
 | "ok"/"sim" interrompem o bot | acrescentá-los a `bargeIn.ignore` |
 | Muitas chamadas ao backend enquanto ele pensa | manter `whileBusy` em `interrupt` ou `merge` (a retomada as une) |
