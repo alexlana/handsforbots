@@ -1,9 +1,14 @@
 import { definePlugin, textOf, type AssistantMessage, type PluginContext } from '@handsforbots/core'
+import { planProsody, webAudioPlayer, type ProsodyPlan } from './player.js'
 import { textEchoFilter } from './providers/echo.js'
 import {
   SpeechError,
+  type AudioPlayer,
   type EchoFilter,
   type EndOfTurn,
+  type SpeakOptions,
+  type SpeechAudio,
+  type SpeechEffects,
   type SpeechToText,
   type SpokenSentence,
   type SttSession,
@@ -17,6 +22,32 @@ export type InputModality = 'keyboard' | 'voice'
 export type OutputPreference = 'auto' | 'voice' | 'text'
 /** What the conversation is doing, for UIs to draw (ADR 0011). */
 export type VoicePhase = 'idle' | 'listening' | 'userSpeaking' | 'waitingEndOfTurn' | 'botSpeaking'
+
+/** Where a speech provider is: providers without `load` are `ready` from the start. */
+export type TtsStatus = {
+  state: 'unloaded' | 'loading' | 'ready' | 'failed'
+  /** Bytes downloaded so far. */
+  loaded?: number
+  total?: number
+  error?: string
+}
+
+/**
+ * When providers with a model (`load`) start downloading. `eager`: when the
+ * plugin starts. `idle`: once the page is idle after that. `first-use`
+ * (default): when a reply is first spoken. `manual`: only on `loadSpeech()`.
+ */
+export type SpeechLoadStart = 'eager' | 'idle' | 'first-use' | 'manual'
+
+/**
+ * Speech while the preferred provider is not ready. `fallback` (default): the
+ * next ready provider in the list speaks (the browser's voice, for instance).
+ * `wait`: speech waits for the download in progress. `silent`: replies are
+ * not spoken until it is ready.
+ */
+export type SpeechWhileLoading = 'fallback' | 'wait' | 'silent'
+
+export type SpeechLoading = { start?: SpeechLoadStart; whileLoading?: SpeechWhileLoading }
 
 export type VoiceState = {
   supported: { stt: boolean; tts: boolean }
@@ -36,10 +67,16 @@ export type VoiceState = {
   /** Active providers. */
   stt?: string
   tts?: string
+  /** Each speech provider by name: whether its model is downloaded, and how much of it. */
+  ttsStatus: Record<string, TtsStatus>
+  /** A sentence is being synthesized (models can take seconds before speech starts). */
+  synthesizing: boolean
   /** End-of-turn provider in use, if any. */
   endOfTurn?: string
   /** Echo filter in use, if any. */
   echo?: string
+  /** Speech effects in use, if any. */
+  effects?: string
   error?: SpeechError
 }
 
@@ -106,6 +143,18 @@ export type VoiceService = {
   configure(options: { turn?: TurnTiming; bargeIn?: boolean | BargeInOptions }): void
   speak(text: string): Promise<void>
   cancelSpeech(): void
+  /**
+   * Starts downloading a provider's model now (by name; default: the preferred
+   * one). Resolves `true` when it is ready, `false` if it failed (the error is
+   * in `ttsStatus` and on the `error` event). Calling it again after a failure retries.
+   */
+  loadSpeech(name?: string): Promise<boolean>
+  /** Replaces the speech providers (the user picked another voice or model). */
+  setTTS(tts: TextToSpeech | TextToSpeech[]): Promise<void>
+  /** Replaces the speech effects, or turns them off (`null`). */
+  setEffects(effects: SpeechEffects | null): void
+  /** Allows audio playback: call it inside a click if speech may start long after it. */
+  unlockAudio(): void
 }
 
 declare module '@handsforbots/core' {
@@ -141,6 +190,12 @@ export type VoiceOptions = {
   echo?: EchoFilter | false
   turn?: TurnTiming
   voiceName?: string
+  /** When models download and what speech does meanwhile. Default `{ start: 'first-use', whileLoading: 'fallback' }`. */
+  load?: SpeechLoading
+  /** Effects on synthesized speech; `speechSynthesis` only gets their prosody. */
+  effects?: SpeechEffects | null
+  /** Plays synthesized speech. Default `webAudioPlayer()`. */
+  player?: AudioPlayer
 }
 
 const toArray = <T>(value: T | T[] | undefined): T[] => (value === undefined ? [] : Array.isArray(value) ? value : [value])
@@ -185,7 +240,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   const language =
     options.language || (typeof document !== 'undefined' && document.documentElement.lang) || 'en-US'
   const sttProviders = await supportedOf(toArray(options.stt))
-  const ttsProviders = await supportedOf(toArray(options.tts))
+  const player = options.player ?? webAudioPlayer()
+  const playable = (p: TextToSpeech) => !!p.speak || (!!p.synthesize && player.isSupported())
+  let ttsProviders = (await supportedOf(toArray(options.tts))).filter(playable)
   const allowed = (provider: { consent?: string }) => !provider.consent || ctx.app.consent.granted(provider.consent)
 
   let bargeIn = options.bargeIn !== false
@@ -224,6 +281,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     output: options.output ?? 'auto',
     stt: sttProviders[0]?.name,
     tts: ttsProviders[0]?.name,
+    ttsStatus: {},
+    synthesizing: false,
+    effects: options.effects?.name,
   }
   let echo: EchoFilter | undefined = options.echo === false ? undefined : (options.echo ?? textEchoFilter())
   state.echo = echo?.name
@@ -660,39 +720,247 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   /* Speech output, sentence by sentence                                    */
   /* ---------------------------------------------------------------------- */
 
+  let disposed = false
+  let effects: SpeechEffects | undefined = options.effects ?? undefined
+  let unfollowEffects: (() => void) | undefined
+  const followEffects = () => {
+    unfollowEffects?.()
+    const current = effects
+    unfollowEffects = current?.subscribe?.(() => {
+      if (state.effects !== current.name) set({ effects: current.name })
+    })
+    if (state.effects !== current?.name) set({ effects: current?.name })
+  }
+  const loadStart = options.load?.start ?? 'first-use'
+  const whileLoading = options.load?.whileLoading ?? 'fallback'
+
+  /* Models: when they download and which provider speaks meanwhile. */
+
+  const statuses = new Map<TextToSpeech, TtsStatus>()
+  const loads = new Map<TextToSpeech, Promise<boolean>>()
+  const loadControllers = new Set<AbortController>()
+  /** The loading policy has been triggered: failed downloads move on to the next model. */
+  let loadingWanted = false
+  const statusOf = (p: TextToSpeech): TtsStatus =>
+    statuses.get(p) ?? (p.load ? { state: 'unloaded', total: p.size } : { state: 'ready' })
+  const publishStatus = () => set({ ttsStatus: Object.fromEntries(ttsProviders.map((p) => [p.name, statusOf(p)])) })
+  const setStatus = (p: TextToSpeech, status: TtsStatus) => {
+    statuses.set(p, status)
+    publishStatus()
+  }
+  const ready = (p: TextToSpeech) => statusOf(p).state === 'ready'
+  const usable = (p: TextToSpeech) => allowed(p) && statusOf(p).state !== 'failed'
+  /** The provider speech should come from, once it is ready. */
+  const preferred = () => ttsProviders.find(usable)
+
+  const loadProvider = (p: TextToSpeech): Promise<boolean> => {
+    if (!p.load || ready(p)) return Promise.resolve(true)
+    const running = loads.get(p)
+    if (running) return running
+    const controller = new AbortController()
+    loadControllers.add(controller)
+    let lastProgress = 0
+    setStatus(p, { state: 'loading', loaded: 0, total: p.size })
+    const promise = p
+      .load((progress) => {
+        const now = Date.now()
+        if (controller.signal.aborted || now - lastProgress < 100) return
+        lastProgress = now
+        setStatus(p, { state: 'loading', loaded: progress.loaded, total: progress.total ?? p.size })
+      }, controller.signal)
+      .then(() => {
+        if (controller.signal.aborted) return false
+        setStatus(p, { state: 'ready', loaded: statusOf(p).loaded, total: statusOf(p).total })
+        return true
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return false
+        setStatus(p, { state: 'failed', error: (error as Error)?.message ?? String(error) })
+        ctx.emit('error', { error, source: `voice:tts:${p.name}` })
+        if (loadingWanted) void loadPreferred()
+        return false
+      })
+      .finally(() => {
+        loads.delete(p)
+        loadControllers.delete(controller)
+      })
+    loads.set(p, promise)
+    return promise
+  }
+
+  const loadPreferred = () => {
+    loadingWanted = true
+    const p = preferred()
+    return p ? loadProvider(p) : Promise.resolve(false)
+  }
+
+  /**
+   * Who speaks the next sentence; `undefined` = nobody (silent until the model
+   * is ready). Synchronous unless it has to wait for a download.
+   */
+  const choose = (): TextToSpeech | undefined | Promise<TextToSpeech | undefined> => {
+    const first = preferred()
+    if (!first || ready(first)) return first
+    if (loadStart === 'first-use') void loadPreferred()
+    switch (whileLoading) {
+      case 'fallback':
+        return ttsProviders.find((p) => p !== first && usable(p) && ready(p))
+      case 'wait': {
+        // Only a download in progress is waited for: with `manual`, nothing speaks before `loadSpeech()`.
+        const running = loads.get(first)
+        return running?.then(() => choose())
+      }
+      case 'silent':
+        return undefined
+      default: {
+        const never: never = whileLoading
+        throw new Error(`Unknown whileLoading: ${String(never)}`)
+      }
+    }
+  }
+
+  switch (loadStart) {
+    case 'eager':
+      void loadPreferred()
+      break
+    case 'idle': {
+      const idle = (globalThis as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+      const start = () => !disposed && void loadPreferred()
+      if (idle) idle(start, { timeout: 5000 })
+      else setTimeout(start, 1500)
+      break
+    }
+    case 'first-use':
+    case 'manual':
+      break
+    default: {
+      const never: never = loadStart
+      throw new Error(`Unknown load.start: ${String(never)}`)
+    }
+  }
+
+  /* Audio output: browsers allow it only after a user gesture. */
+
+  const unlockAudio = () => {
+    if (player.isSupported() && ttsProviders.some((p) => p.synthesize)) player.unlock()
+  }
+  const gestures = ['pointerdown', 'keydown', 'touchend'] as const
+  if (typeof document !== 'undefined') {
+    for (const type of gestures) document.addEventListener(type, unlockAudio, { capture: true, passive: true })
+  }
+
+  /* Sentences: synthesis runs ahead of playback, one at a time. */
+
   let speechController: AbortController | undefined
   let speechQueue: Promise<void> = Promise.resolve()
+  let synthQueue: Promise<unknown> = Promise.resolve()
+  let synthesizing = 0
   /** Chunks queued and not finished: `speaking` stays on between sentences. */
   let chunksLeft = 0
   /** Per assistant message being spoken: characters queued and characters already spoken. */
   type Track = { speak: boolean; queued: number; spoken: number }
   const tracks = new Map<string, Track>()
 
+  type Prepared = { provider: TextToSpeech; options: SpeakOptions; plan: ProsodyPlan; audio?: SpeechAudio }
+  const viaPlayer = (p: TextToSpeech) => !!p.synthesize && player.isSupported()
+
+  const synthesize = (provider: TextToSpeech, text: string, speakOptions: SpeakOptions, signal: AbortSignal) => {
+    const job = synthQueue.then(async () => {
+      if (signal.aborted) return undefined
+      set({ synthesizing: ++synthesizing > 0 })
+      try {
+        return await provider.synthesize!(text, speakOptions)
+      } finally {
+        set({ synthesizing: --synthesizing > 0 })
+      }
+    })
+    synthQueue = job.catch(() => undefined)
+    return job
+  }
+
+  const plainSpeech = (provider: TextToSpeech, signal: AbortSignal): Prepared => {
+    const plan = planProsody(provider.prosody, effects?.prosody?.(), false)
+    return { provider, plan, options: { language, voice: options.voiceName, signal, prosody: plan.synth } }
+  }
+
+  /**
+   * Picks the provider and, for models and cloud audio, starts synthesizing
+   * right away. Providers that speak by themselves are prepared synchronously,
+   * so their speech starts in the same tick as before there were models.
+   */
+  const prepare = (text: string, signal: AbortSignal): Prepared | undefined | Promise<Prepared | undefined> => {
+    const chosen = choose()
+    if (chosen instanceof Promise) return chosen.then((p) => (p ? synthesizeWith(p, text, signal) : undefined))
+    if (!chosen) return undefined
+    return viaPlayer(chosen) ? synthesizeWith(chosen, text, signal) : plainSpeech(chosen, signal)
+  }
+
+  const synthesizeWith = async (first: TextToSpeech, text: string, signal: AbortSignal): Promise<Prepared | undefined> => {
+    let provider: TextToSpeech | undefined = first
+    while (provider && !signal.aborted) {
+      if (!viaPlayer(provider)) return plainSpeech(provider, signal)
+      const plan = planProsody(provider.prosody, effects?.prosody?.(), true)
+      const speakOptions: SpeakOptions = { language, voice: options.voiceName, signal, prosody: plan.synth }
+      try {
+        const audio = await synthesize(provider, text, speakOptions, signal)
+        return audio && { provider, options: speakOptions, plan, audio }
+      } catch (error) {
+        if (signal.aborted) return undefined
+        ctx.emit('error', { error, source: `voice:tts:${provider.name}` })
+        // This sentence goes to the next ready provider (the backend is down, the model choked).
+        const failed: TextToSpeech = provider
+        provider = ttsProviders.slice(ttsProviders.indexOf(failed) + 1).find((p) => usable(p) && ready(p))
+        if (!provider) throw error
+      }
+    }
+    return undefined
+  }
+
   const speakChunk = (text: string, onSpoken?: () => void): Promise<void> => {
-    const provider = ttsProviders.find(allowed)
-    if (!provider || !text.trim()) {
+    if (!preferred() || !text.trim()) {
       onSpoken?.()
       return Promise.resolve()
     }
     const controller = (speechController ??= new AbortController())
     chunksLeft++
+    let job: ReturnType<typeof prepare>
+    try {
+      job = prepare(text, controller.signal)
+    } catch (error) {
+      job = Promise.reject(error)
+    }
+    if (job instanceof Promise) job.catch(() => {})
     speechQueue = speechQueue.then(async () => {
-      if (controller.signal.aborted) return
-      set({ speaking: true, tts: provider.name })
-      const sentence: SpokenSentence = { text, startedAt: Date.now() }
-      recentSpeech().push(sentence)
-      // Without barge-in the mic would hear the bot: pause recognition while speaking.
-      if (!bargeIn && active?.session) {
-        pausedForSpeech = true
-        active.session.abort()
-      }
+      let prepared: Prepared | undefined
+      let sentence: SpokenSentence | undefined
       try {
-        await provider.speak(text, { language, voice: options.voiceName, signal: controller.signal })
+        prepared = job instanceof Promise ? await job : job
+        if (controller.signal.aborted) return
+        // Nobody can speak it yet: the text stays as shown.
+        if (!prepared) return onSpoken?.()
+        set({ speaking: true, tts: prepared.provider.name })
+        sentence = { text, startedAt: Date.now() }
+        recentSpeech().push(sentence)
+        // Without barge-in the mic would hear the bot: pause recognition while speaking.
+        if (!bargeIn && active?.session) {
+          pausedForSpeech = true
+          active.session.abort()
+        }
+        if (prepared.audio) {
+          await player.play(prepared.audio, {
+            effects,
+            playbackRate: prepared.plan.playbackRate,
+            gainDb: prepared.plan.gainDb,
+            signal: controller.signal,
+          })
+        } else {
+          await prepared.provider.speak!(text, prepared.options)
+        }
         if (!controller.signal.aborted) onSpoken?.()
       } catch (error) {
-        fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
+        if (!controller.signal.aborted) fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
       } finally {
-        sentence.endedAt ??= Date.now()
+        if (sentence) sentence.endedAt ??= Date.now()
         chunksLeft = Math.max(0, chunksLeft - 1)
         if (chunksLeft === 0 || controller.signal.aborted) set({ speaking: false })
         if (pausedForSpeech) {
@@ -755,6 +1023,8 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       holding =
         options.until === 'stop' && state.mode === 'push-to-talk' ? { texts: [], done: false } : undefined
       wantListening = true
+      // Usually a click: the reply to come may be played long after it.
+      unlockAudio()
       // Pressing to talk while the bot answers is a barge-in.
       if (bargeIn && botAnswering()) {
         bargedIn = true
@@ -862,7 +1132,8 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     cancelSpeech() {
       speechController?.abort()
       speechController = undefined
-      ttsProviders.find(allowed)?.cancel()
+      player.stop()
+      for (const p of ttsProviders) p.cancel?.()
       speechQueue = Promise.resolve()
       chunksLeft = 0
       // What was playing can still reach the recognizer for a moment.
@@ -872,7 +1143,28 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       for (const track of tracks.values()) track.speak = false
       if (state.speaking) set({ speaking: false })
     },
+    loadSpeech(name) {
+      if (name === undefined) return loadPreferred()
+      const p = ttsProviders.find((provider) => provider.name === name)
+      return p ? loadProvider(p) : Promise.resolve(false)
+    },
+    async setTTS(tts) {
+      const next = (await supportedOf(toArray(tts))).filter(playable)
+      service.cancelSpeech()
+      for (const p of ttsProviders) if (!next.includes(p)) statuses.delete(p)
+      ttsProviders = next
+      set({ supported: { ...state.supported, tts: next.length > 0 }, tts: next[0]?.name })
+      publishStatus()
+      if (loadingWanted || loadStart === 'eager') void loadPreferred()
+    },
+    setEffects(next) {
+      effects = next ?? undefined
+      followEffects()
+    },
+    unlockAudio,
   }
+  publishStatus()
+  followEffects()
 
   // Which modality did the user use last?
   ctx.on('signal', (signal) => {
@@ -901,6 +1193,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   })
 
   ctx.onDispose(() => {
+    disposed = true
+    unfollowEffects?.()
+    for (const controller of loadControllers) controller.abort()
+    if (typeof document !== 'undefined') {
+      for (const type of gestures) document.removeEventListener(type, unlockAudio, { capture: true })
+    }
     wantListening = false
     if (holding) release(holding, false)
     clearTimeout(restartTimer)

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='80'>🔊</text></svg>" />
+    <title>Hands for Bots v2 — Voice lab</title>
+  </head>
+  <body>
+    <main>
+      <h1>Voice lab</h1>
+      <p class="lead">Speech synthesis with browser models, a backend or <code>speechSynthesis</code>, plus effects. Everything here is plain <code>@handsforbots/voice</code>, <code>voice-models</code> and <code>voice-effects</code>.</p>
+
+      <section>
+        <h2>Engine</h2>
+        <div class="grid">
+          <label>Engine
+            <select id="engine">
+              <option value="piper">Piper (browser, ONNX)</option>
+              <option value="kokoro">Kokoro 82M (browser, ONNX)</option>
+              <option value="http">Backend (httpTTS)</option>
+              <option value="webspeech">speechSynthesis</option>
+            </select>
+          </label>
+          <label>Language <input id="language" value="pt-BR" /></label>
+          <label data-engine="piper">Piper voice <input id="piper-voice" value="pt_BR-faber-medium" list="piper-voices" /></label>
+          <datalist id="piper-voices">
+            <option value="pt_BR-faber-medium"></option>
+            <option value="pt_BR-cadu-medium"></option>
+            <option value="en_US-lessac-medium"></option>
+            <option value="es_ES-davefx-medium"></option>
+          </datalist>
+          <label data-engine="kokoro">Kokoro file
+            <select id="kokoro-dtype">
+              <option value="q8">q8 (~92 MB)</option>
+              <option value="q4f16">q4f16 (~154 MB)</option>
+              <option value="fp16">fp16 (~163 MB)</option>
+              <option value="fp32">fp32 (~326 MB)</option>
+            </select>
+          </label>
+          <label data-engine="kokoro">Kokoro voice <input id="kokoro-voice" value="pf_dora" list="kokoro-voices" /></label>
+          <datalist id="kokoro-voices">
+            <option value="pf_dora"></option>
+            <option value="pm_alex"></option>
+            <option value="af_heart"></option>
+            <option value="bf_emma"></option>
+          </datalist>
+          <label data-engine="http">Backend URL <input id="http-url" value="/api/tts" /></label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Model files</h2>
+        <div class="grid">
+          <label>Source
+            <select id="source">
+              <option value="hf">Hugging Face</option>
+              <option value="folder">A folder you serve</option>
+            </select>
+          </label>
+          <label>Revision (Hugging Face) <input id="revision" value="main" /></label>
+          <label>Folder <input id="folder" placeholder="/models" /></label>
+          <label class="check"><input id="cache" type="checkbox" checked /> Keep files in Cache Storage</label>
+        </div>
+        <p class="hint">A folder mirrors the Hub: <code>&lt;folder&gt;/&lt;repo&gt;/&lt;file&gt;</code>, e.g. <code>/models/rhasspy/piper-voices/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx</code>.</p>
+      </section>
+
+      <section>
+        <h2>Loading</h2>
+        <div class="grid">
+          <label>Start download
+            <select id="start">
+              <option value="first-use">first-use</option>
+              <option value="eager">eager</option>
+              <option value="idle">idle</option>
+              <option value="manual">manual</option>
+            </select>
+          </label>
+          <label>While it downloads
+            <select id="while">
+              <option value="fallback">fallback</option>
+              <option value="wait">wait</option>
+              <option value="silent">silent</option>
+            </select>
+          </label>
+          <label class="check"><input id="fallback" type="checkbox" checked /> speechSynthesis as fallback</label>
+        </div>
+        <div class="row">
+          <button id="apply">Apply settings</button>
+          <button id="load">Download model now</button>
+          <button id="clear" class="quiet">Erase cached models</button>
+        </div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section>
+        <h2>Speak</h2>
+        <textarea id="text" rows="3">Olá! Eu sou a voz do laboratório. Cada frase é sintetizada enquanto a anterior toca.</textarea>
+        <div class="row">
+          <button id="speak">Speak</button>
+          <button id="stop" class="quiet">Stop</button>
+          <button id="wav" class="quiet" disabled>Download WAV</button>
+          <button id="wav-fx" class="quiet" disabled>Download WAV with effects</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Effects</h2>
+        <div class="row">
+          <label>Preset <select id="preset"></select></label>
+          <label>Add <select id="add"><option value="">effect…</option></select></label>
+        </div>
+        <div id="prosody" class="params"></div>
+        <div id="chain"></div>
+        <details>
+          <summary>Chain JSON</summary>
+          <textarea id="json" rows="12" spellcheck="false"></textarea>
+          <div class="row"><button id="json-apply">Apply JSON</button><span id="json-error" class="error"></span></div>
+        </details>
+        <details>
+          <summary>SSML (prosody for cloud engines)</summary>
+          <pre id="ssml"></pre>
+        </details>
+        <details>
+          <summary>FFmpeg (the same chain, offline)</summary>
+          <pre id="ffmpeg"></pre>
+        </details>
+      </section>
+
+      <section>
+        <h2>Log</h2>
+        <pre id="log" class="log"></pre>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

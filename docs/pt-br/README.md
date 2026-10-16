@@ -42,6 +42,7 @@ await h4b.start()
 - [Escrevendo plugins](./writing-plugins.md)
 - [Histórico](./history.md): leitura, registro de decisões da interface, linha do tempo
 - [Interrupção e conversa por voz](./conversation.md): mensagens enviadas enquanto o assistente responde, botões de parar, conversa com microfone aberto, modelos de fim de turno, barge-in
+- [Síntese de voz e efeitos](./speech.md): a voz do navegador, um backend ou modelos na página (Piper, Kokoro, transformers.js), quando os modelos baixam e quem fala enquanto isso, efeitos em JSON, presets, exportação para SSML e FFmpeg
 - [Persistência, memória e privacidade](./persistence.md): o que é enviado, guardado e armazenado, criptografia, retenção, abas
 - [Consentimento](./consent.md): trabalhar com a sua ferramenta de consentimento, regras por legislação e região, apagar ao revogar, anonimização para revisão humana
 - [Segurança](./security.md)
@@ -53,6 +54,7 @@ await h4b.start()
 ## Exemplos
 
 - [`examples/react-agui`](../../examples/react-agui/README.md): painel em React em que o assistente trabalha na interface via AG-UI, com comandos diretos, voz, atalhos de teclado e WebMCP. Roda com um agente simulado: `pnpm install && pnpm --filter @handsforbots/example-react-agui dev`.
+- [`examples/voice-lab`](../../examples/voice-lab/README.md): laboratório de síntese de voz: motores, fontes de modelo, políticas de carga e um editor de efeitos com exportação para SSML e FFmpeg: `pnpm --filter @handsforbots/example-voice-lab dev`.
 - [`examples/vite`](../../examples/README.md): Rasa + widget `<h4b-chat>` + tours guiados + observabilidade (Docker).
 
 ## Agradecimentos

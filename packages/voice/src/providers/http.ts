@@ -1,4 +1,11 @@
-import { SpeechError, type SpeechToText, type TextToSpeech } from '../types.js'
+import {
+  SpeechError,
+  type ProsodySupport,
+  type SpeakOptions,
+  type SpeechAudio,
+  type SpeechToText,
+  type TextToSpeech,
+} from '../types.js'
 import { closeStream, detectEndOfSpeech, openMicrophone } from './media.js'
 
 type Headers = Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>)
@@ -95,28 +102,74 @@ export function httpSTT(options: HttpSTTOptions): SpeechToText {
 }
 
 export type HttpTTSOptions = {
-  /** Your backend endpoint: receives `{ text, language, voice }`, returns audio. */
+  /** Your backend endpoint: receives `{ text, language, voice, prosody? }`, returns audio (WAV, MP3, Ogg…). */
   url: string
   headers?: Headers
   fetch?: typeof fetch
   name?: string
+  /**
+   * The prosody your backend applies (for example as SSML, see `toSSML` in
+   * `@handsforbots/voice-effects`). `true` = rate, pitch and volume. What it
+   * does not apply, the player does where it can. Default: none, and the body
+   * carries no `prosody`.
+   */
+  prosody?: boolean | ProsodySupport
+  /** Builds the JSON body. Default `{ text, language, voice, prosody? }`. */
+  body?: (text: string, options: SpeakOptions) => unknown
+  /**
+   * `webaudio` (default): the voice plugin plays the decoded audio, through the
+   * effects. `element`: an `<audio>` element plays it, without effects.
+   */
+  playback?: 'webaudio' | 'element'
 }
 
-/** Cloud TTS through your backend; plays the returned audio. */
+/** Decodes an audio file into mono samples (Web Audio). */
+export async function decodeAudio(bytes: ArrayBuffer): Promise<SpeechAudio> {
+  const decoder = new OfflineAudioContext(1, 1, 48000)
+  const buffer = await decoder.decodeAudioData(bytes)
+  const samples = new Float32Array(buffer.length)
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const channel = buffer.getChannelData(c)
+    for (let i = 0; i < channel.length; i++) samples[i]! += channel[i]! / buffer.numberOfChannels
+  }
+  return { samples, sampleRate: buffer.sampleRate }
+}
+
+/** Cloud TTS through your backend; the voice plugin plays the returned audio. */
 export function httpTTS(options: HttpTTSOptions): TextToSpeech {
   let current: HTMLAudioElement | undefined
   let finishCurrent: (() => void) | undefined
+  const prosody: ProsodySupport | undefined =
+    options.prosody === true ? { rate: true, pitch: true, volume: true } : options.prosody || undefined
+
+  const request = async (text: string, speakOptions: SpeakOptions) => {
+    const body = options.body?.(text, speakOptions) ?? {
+      text,
+      language: speakOptions.language,
+      voice: speakOptions.voice,
+      ...(prosody && speakOptions.prosody && Object.keys(speakOptions.prosody).length ? { prosody: speakOptions.prosody } : {}),
+    }
+    const response = await (options.fetch ?? fetch)(options.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await resolveHeaders(options.headers)) },
+      body: JSON.stringify(body),
+      signal: speakOptions.signal,
+    })
+    if (!response.ok) throw new SpeechError('network', `TTS endpoint responded ${response.status}`)
+    return response
+  }
+
   return {
     name: options.name ?? 'http',
-    isSupported: () => typeof Audio !== 'undefined',
+    remote: true,
+    prosody,
+    isSupported: () => typeof Audio !== 'undefined' || typeof OfflineAudioContext !== 'undefined',
+    synthesize:
+      options.playback === 'element'
+        ? undefined
+        : async (text, speakOptions) => decodeAudio(await (await request(text, speakOptions)).arrayBuffer()),
     async speak(text, speakOptions) {
-      const response = await (options.fetch ?? fetch)(options.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await resolveHeaders(options.headers)) },
-        body: JSON.stringify({ text, language: speakOptions.language, voice: speakOptions.voice }),
-        signal: speakOptions.signal,
-      })
-      if (!response.ok) throw new SpeechError('network', `TTS endpoint responded ${response.status}`)
+      const response = await request(text, speakOptions)
       const url = URL.createObjectURL(await response.blob())
       try {
         await new Promise<void>((resolve) => {

@@ -14,6 +14,8 @@
 | [`@handsforbots/assistant-ui`](./assistant-ui) | assistant-ui runtime backed by H4B |
 | [`@handsforbots/menu`](./menu) | Direct commands without the LLM: slash, patterns, fuzzy phrases, suggestions |
 | [`@handsforbots/voice`](./voice) | Speech in and out with pluggable providers (browser, HTTP, WebSocket, Vosk), push-to-talk, hands-free, barge-in |
+| [`@handsforbots/voice-models`](./voice-models) | Neural speech in the page (Piper, Kokoro, transformers.js); models from Hugging Face, any URL or local bytes, with progress and cache |
+| [`@handsforbots/voice-effects`](./voice-effects) | Effects for synthesized speech as JSON (Web Audio terms), presets, offline rendering, SSML and FFmpeg export |
 | [`@handsforbots/keyboard`](./keyboard) | Shortcuts: hold-to-talk, interrupt, command palette |
 | [`@handsforbots/inputs`](./inputs) | Camera (photos, video frames), files, GUI events (Poke successor), sensors |
 | [`@handsforbots/guided`](./guided) | Guided tours, highlights, `show_section`, `image_gallery` |

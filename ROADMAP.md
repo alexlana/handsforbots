@@ -301,7 +301,7 @@ Um **gerenciador de modalidades** (no kernel) decide como o usuário interage em
 | Serviço | Provedores previstos |
 |---------|---------------------|
 | `stt` | Web Speech API do navegador, Vosk WASM (offline), Vosk remoto (WebSocket), nuvem (adapter genérico + 1–2 provedores de referência) |
-| `tts` | `speechSynthesis` do navegador, nuvem (adapter genérico) |
+| `tts` | `speechSynthesis` do navegador, nuvem (adapter genérico), modelos no navegador (Piper, Kokoro, transformers.js) com efeitos declarativos ([ADR 0013](./docs/adr/0013-sintese-de-voz-e-efeitos.md)) |
 | `realtime` | Modelos speech-to-speech (OpenAI Realtime, Gemini Live etc.) como **transporte** que dispensa STT/TTS |
 
 - Cada provedor declara capacidades (`partials`, `offline`, `languages`, `latency`, `cost`). O gerenciador escolhe pela ordem configurada, com fallback automático.
@@ -401,6 +401,8 @@ Aprendizados que ajustaram o plano:
 Entregue depois (2026-10-06, [ADR 0008](./docs/adr/0008-persistencia-e-abas.md)): `storage-local` criptografado por padrão, com a chave num cookie que expira (`cookieKey`) ou no backend (`backendKey`), e varredura que apaga dados sem chave ou vencidos; pacote `storage-backend`; serviço `retention` com escolhas do desenvolvedor e de quem usa o site (painel de privacidade no `widget`); `tab-sync` com os modos `sync`, `notify` e `off`. Em seguida ([ADR 0009](./docs/adr/0009-memoria.md)): pacote `memory`, montado por padrão, com janela de envio e retenção medidas em turnos (20 e 100) e compactação dos turnos antigos num resumo (local ou via backend); `turnId` em cada mensagem; os transportes deixaram de cortar o histórico por conta própria.
 
 Em 2026-10-07 ([ADR 0010](./docs/adr/0010-consentimento.md)): consentimento por finalidade no core (`createH4B({ consent })`, `h4b.consent`, `withConsent`, `ctx.onRevoke`), com plugins montados só enquanto a finalidade está concedida e o storage apagado ao revogar, sem tocar na conversa em memória; regras declarativas (JSON/YAML) escolhidas pela região do acesso; decisões levadas às outras abas; hook `storage.before` e `h4b.persist()`; `X-H4B-Consent` no `storage-backend`; pacote `consent` com presets (LGPD, GDPR, CCPA, opt-in), carregador de regras, região e anonimização (`redact`); consentimento no painel 🔒 do widget. Isso cobre o "consentimento explícito" de armazenamento; o consentimento por modalidade de captura (seção 2.8) continua em aberto, mas já pode usar `withConsent`.
+
+Em 2026-10-16 ([ADR 0013](./docs/adr/0013-sintese-de-voz-e-efeitos.md)): síntese de voz com provedores que devolvem áudio (`synthesize`), tocados pelo Web Audio com a frase seguinte sintetizada em paralelo; política de carga (`load.start`: `first-use`, `eager`, `idle`, `manual`; `load.whileLoading`: `fallback`, `wait`, `silent`) com `ttsStatus` e `loadSpeech()`; prosódia dividida entre provedor e player; `httpTTS` com áudio decodificado. Pacote `voice-models` (fontes Hugging Face, URL, pasta própria, Blob; download com progresso e cache; `piperTTS`, `kokoroTTS`, `transformersTTS`; `espeakPhonemizer` com o build passado pelo app) e pacote `voice-effects` (cadeia JSON em termos de Web Audio, descritores de parâmetros dos WAM, prosódia SSML, 21 efeitos, 11 presets, render offline, `toSSML`, `toFFmpeg` conferido com FFmpeg real, JSON Schema). Exemplo `voice-lab`, com Piper e Kokoro validados no Chrome. Pendente: hospedar plugins WAM de terceiros; Kokoro em WebGPU ou com threads (numa thread de CPU fica mais lento que o tempo real).
 
 ### Prioritário: revisão de XSS
 

@@ -1,0 +1,38 @@
+{
+  "name": "@handsforbots/voice-effects",
+  "version": "2.0.0-alpha.0",
+  "description": "Declarative effects for synthesized speech: a JSON chain in Web Audio terms, parameters described like Web Audio Modules, SSML prosody, presets, offline rendering and export to FFmpeg filtergraphs and SSML.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/voice": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@handsforbots/voice": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/voice": "workspace:^"
+  }
+}

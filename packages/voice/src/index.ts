@@ -5,6 +5,10 @@ export {
   type InputModality,
   type ListenOptions,
   type OutputPreference,
+  type SpeechLoadStart,
+  type SpeechLoading,
+  type SpeechWhileLoading,
+  type TtsStatus,
   type TurnTiming,
   type VoiceDecision,
   type VoiceMode,
@@ -13,8 +17,16 @@ export {
   type VoiceService,
   type VoiceState,
 } from './voice.js'
-export { webSpeechSTT, webSpeechTTS, splitSentences, type WebSpeechSTTOptions, type WebSpeechTTSOptions } from './providers/webspeech.js'
-export { httpSTT, httpTTS, type HttpSTTOptions, type HttpTTSOptions } from './providers/http.js'
+export {
+  webSpeechSTT,
+  webSpeechTTS,
+  splitSentences,
+  utteranceProsody,
+  type WebSpeechSTTOptions,
+  type WebSpeechTTSOptions,
+} from './providers/webspeech.js'
+export { httpSTT, httpTTS, decodeAudio, type HttpSTTOptions, type HttpTTSOptions } from './providers/http.js'
+export { webAudioPlayer, planProsody, encodeWav, type ProsodyPlan, type WebAudioPlayerOptions } from './player.js'
 export { websocketSTT, voskSTT, type StreamingResult, type WebSocketSTTOptions } from './providers/websocket.js'
 export { voskBrowserSTT, type VoskBrowserModule, type VoskBrowserOptions } from './providers/vosk-browser.js'
 export { httpEndOfTurn, type HttpEndOfTurnOptions } from './providers/end-of-turn.js'

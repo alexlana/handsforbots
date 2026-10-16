@@ -50,21 +50,118 @@ export type SpeechToText = {
   listen(options: SttListenOptions, handlers: SttHandlers): SttSession | Promise<SttSession>
 }
 
+/**
+ * How to say it, after SSML `<prosody>` (W3C SSML 1.1, section 3.2.4), with
+ * relative values only. Absent = the voice's own.
+ */
+export type Prosody = {
+  /** Speaking rate as a multiplier (SSML `rate="120%"` = 1.2): tempo without a pitch change. */
+  rate?: number
+  /** Pitch shift in semitones (SSML `pitch="+2st"` = 2). */
+  pitch?: number
+  /** Volume change in decibels (SSML `volume="+6dB"` = 6). */
+  volume?: number
+}
+
+/** Which parts of the prosody a provider applies itself. */
+export type ProsodySupport = { rate?: boolean; pitch?: boolean; volume?: boolean }
+
 export type SpeakOptions = {
   language: string
   voice?: string
   signal?: AbortSignal
+  /** The part of the prosody this provider applies itself (see `TextToSpeech.prosody`). */
+  prosody?: Prosody
 }
 
-/** Text-to-speech provider: browser or cloud. */
+/** Mono audio made by a synthesizer, before it is played. */
+export type SpeechAudio = {
+  samples: Float32Array
+  sampleRate: number
+}
+
+/** Download progress of a provider's model, in bytes. */
+export type LoadProgress = {
+  loaded: number
+  /** Unknown until the server tells it (no `Content-Length`). */
+  total?: number
+  /** The file being downloaded. */
+  file?: string
+}
+
+/**
+ * Text-to-speech provider: the browser's voice, a cloud service behind your
+ * backend or a model running in the page. A provider either plays the speech
+ * itself (`speak`) or hands the audio to the voice plugin (`synthesize`), which
+ * plays it through the effects; at least one of the two is required.
+ */
 export type TextToSpeech = {
   name: string
   remote?: boolean
   consent?: string
   isSupported(): boolean | Promise<boolean>
-  /** Resolves when speech finishes or is cancelled. */
-  speak(text: string, options: SpeakOptions): Promise<void>
-  cancel(): void
+  /** Plays the speech itself; resolves when it finishes or is cancelled. */
+  speak?(text: string, options: SpeakOptions): Promise<void>
+  /** Returns the audio without playing it. Preferred over `speak` when Web Audio is available. */
+  synthesize?(text: string, options: SpeakOptions): Promise<SpeechAudio>
+  /** Stops what `speak` is playing. */
+  cancel?(): void
+  /**
+   * Downloads and prepares what it needs (a model). The voice plugin decides
+   * when to call it (`load.start`) and what to do with speech meanwhile
+   * (`load.whileLoading`). Without it, the provider is ready once supported.
+   */
+  load?(onProgress: (progress: LoadProgress) => void, signal: AbortSignal): Promise<void>
+  /** Bytes `load` downloads, if known in advance (for the UI). */
+  size?: number
+  /** Prosody it applies itself; the player does the rest it can (pitch, volume). */
+  prosody?: ProsodySupport
+}
+
+/** One sentence's effects, built by `SpeechEffects.connect`. */
+export type EffectsInstance = {
+  /** The node that goes to the speakers. */
+  output: AudioNode
+  /** Seconds the effects keep sounding after the speech ends (reverb, echo). */
+  tail?: number
+  /** Releases the nodes (oscillators, buffers) once the tail is over or speech stops. */
+  dispose?(): void
+}
+
+/**
+ * Effects on synthesized speech. The voice plugin asks `prosody()` before each
+ * sentence (providers apply what they can; `speechSynthesis` gets only this),
+ * runs `process` on the samples and plays them through `connect`.
+ */
+export type SpeechEffects = {
+  name: string
+  prosody?(): Prosody
+  /** Sample-level processing before playback (a noise gate, for example). */
+  process?(audio: SpeechAudio): SpeechAudio
+  /** Wires the effects after `source`; may change `source.playbackRate`. */
+  connect(context: BaseAudioContext, source: AudioBufferSourceNode): EffectsInstance
+  /** Called when the effects change (so `state.effects` follows `name`). */
+  subscribe?(listener: () => void): () => void
+}
+
+export type PlayOptions = {
+  effects?: SpeechEffects
+  /** Playback rate of the source (changes pitch and tempo together). */
+  playbackRate?: number
+  /** Gain in decibels. */
+  gainDb?: number
+  signal?: AbortSignal
+}
+
+/** Plays synthesized speech. `webAudioPlayer()` is the default. */
+export type AudioPlayer = {
+  isSupported(): boolean
+  /** Creates or resumes the audio output; Safari and Firefox only allow it inside a user gesture. */
+  unlock(): void
+  /** Resolves when the speech ends or `signal` aborts; effect tails keep sounding after it. */
+  play(audio: SpeechAudio, options: PlayOptions): Promise<void>
+  /** Stops everything, tails included. */
+  stop(): void
 }
 
 export type SpeechErrorCode =

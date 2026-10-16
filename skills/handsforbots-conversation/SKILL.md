@@ -70,6 +70,7 @@ Contract: `{ name, input: 'text' | 'audio', historyTurns?, remote?, consent?, is
 - `bargeIn: false` pauses recognition while the bot speaks instead.
 - **Echo filter** (on by default): with speakers the recognizer hears the bot, and browser echo cancellation often misses it (`speechSynthesis` plays outside the browser's audio path), so the bot would interrupt or answer itself. `textEchoFilter()` drops texts whose words mostly (`threshold` 0.6, runs of `minRun` 2) repeat the sentences spoken in the last `tail` ms (2000); all or nothing, single words pass. Replace it with any `EchoFilter` `{ name, tail?, filter({ text, final, speech, language }) → text | '' }` (synchronous: it runs on every partial), or `echo: false` for headphone-only apps. If users report the bot cutting itself off, check `voice.decision` for `reason: 'echo'` before raising `minWords`.
 - Replies are spoken sentence by sentence as they stream (output follows input with `output: 'auto'`).
+- Which voice speaks (browser, backend, models in the page), model downloads and voice effects: the `handsforbots-speech` skill.
 
 ## Privacy
 

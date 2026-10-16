@@ -37,3 +37,36 @@ Supports [ADR 0011](../adr/0011-interrupcao-e-fim-de-turno.md) and [Interruption
 | ChatGPT text chat | Lets you type during a reply but requires stopping before sending; no native queue found. A third-party userscript adds one ([ChatGPT Message Queue](https://greasyfork.org/en/scripts/561517-chatgpt-message-queue)), a sign that people want it |
 
 Also cited in the discussion that led to the ADR, without a specific page checked by us: Hamming, Picovoice, Coval, Dograh and WorkAdventure (voice agent evaluation and turn-taking write-ups).
+
+## Speech synthesis and effects
+
+Supports [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md) and [Speech synthesis and voice effects](./speech.md). Accessed 2026-10-16. Sizes and timings measured by us are marked; the others are the authors'.
+
+### Standards behind the effects format
+
+| Source | Use in H4B |
+|---|---|
+| [Web Audio API (W3C)](https://www.w3.org/TR/webaudio/) | Effect vocabulary: node types and parameter names (`BiquadFilterNode`, `DynamicsCompressorNode`, `DelayNode`, `ConvolverNode`, `WaveShaperNode`); Q in dB for low/high-pass. The player and the effects are built on it |
+| [Web Audio Modules 2.0](https://www.webaudiomodules.com/docs/intro) · [API](https://github.com/webaudiomodules/api) | Parameter descriptors (`label`, `type`, `defaultValue`, `minValue`, `maxValue`, `discreteStep`, `exponent`, `choices`, `units`) so editors are generated. Hosting WAM plugins is not supported yet |
+| [SSML 1.1 (W3C)](https://www.w3.org/TR/speech-synthesis11/) | Prosody units (`rate` as a percentage, `pitch` in semitones, `volume` in dB) and the `toSSML` export |
+| [Amazon Polly `<prosody>`](https://docs.aws.amazon.com/polly/latest/dg/prosody-tag.html) · [Azure SSML voice and prosody](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-synthesis-markup-voice) · [Google Cloud TTS SSML](https://cloud.google.com/text-to-speech/docs/ssml) | What cloud engines accept: Polly takes pitch as a percentage, hence `toSSML({ pitch: '%' })` |
+| [FFmpeg filters](https://ffmpeg.org/ffmpeg-filters.html) | `toFFmpeg`: `highpass`, `equalizer`, `acompressor`, `alimiter`, `vibrato`, `tremolo`, `chorus`, `aecho`, `asoftclip`, `atempo`, `asetrate`, `aresample`. Every preset is checked against FFmpeg 7.1 in the tests |
+| [JSON Schema 2020-12](https://json-schema.org/draft/2020-12) | `chainSchema()` |
+
+### Engines and models
+
+| Source | What it is | Notes |
+|---|---|---|
+| [Piper](https://github.com/rhasspy/piper) (archived; continued at [OHF-Voice/piper1-gpl](https://github.com/OHF-Voice/piper1-gpl)) · [voices](https://huggingface.co/rhasspy/piper-voices) | Fast VITS voices exported to ONNX, one language per voice, a `.onnx.json` with the phoneme map and inference settings | `piperTTS`, `piperVoice`. The original repository was MIT; the continuation is GPL. Voice licenses vary per `MODEL_CARD`. Measured by us: `pt_BR-faber-medium` + espeak data = 82 MB |
+| [Kokoro 82M](https://huggingface.co/hexgrad/Kokoro-82M) · [ONNX build](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) | StyleTTS 2 based, 82M parameters, 24 kHz, several languages, Apache-2.0 | `kokoroTTS`, `kokoroModel`. ONNX files from 92 MB (q8) to 326 MB (fp32). Measured by us on one CPU thread: 8.2 s for 5.2 s of audio |
+| [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/) | Runs ONNX models in the browser (WebAssembly, WebGPU) | The runtime for Piper and Kokoro; passed by the app, not a dependency. Threads need cross-origin isolation; `env.wasm.proxy` runs it in a worker |
+| [transformers.js](https://huggingface.co/docs/transformers.js) | Hugging Face pipelines in the browser, including `text-to-speech` | `transformersTTS` adapts any of its TTS pipelines |
+| [espeak-ng](https://github.com/espeak-ng/espeak-ng) · [piper-phonemize](https://github.com/rhasspy/piper-phonemize) · [@diffusionstudio/piper-wasm](https://github.com/diffusion-studio/piper-wasm) | Text to IPA phonemes; piper-phonemize wraps it as Piper expects; piper-wasm is a WebAssembly build | `espeakPhonemizer`. espeak-ng is GPL-3.0, so H4B does not ship it. The data file of that build is 17 MB |
+
+### Browser APIs
+
+| Source | Use in H4B |
+|---|---|
+| [`SpeechSynthesisUtterance` (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisUtterance) | `webSpeechTTS` prosody (`rate`, `pitch`, `volume`). Its audio cannot be routed into Web Audio, so effects do not apply |
+| [Autoplay guide (MDN)](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Autoplay) | Why the player unlocks audio on the first gesture and `unlockAudio()` exists |
+| [`CacheStorage` (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage) | Where downloaded models are kept (`h4b-voice-models`) |

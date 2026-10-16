@@ -15,6 +15,8 @@ Cada pacote exporta uma fábrica de plugin: chame com as opções e passe para `
 | [`assistant-ui`](#assistant-ui) | `useH4BAssistantRuntime` | — |
 | [`menu`](#menu) | `menu` | `menu` |
 | [`voice`](#voice) | `voice` | `voice` |
+| [`voice-models`](#voice-models) | `piperTTS`, `kokoroTTS`, `transformersTTS`, `espeakPhonemizer` (provedores) | — |
+| [`voice-effects`](#voice-effects) | `voiceEffects`, presets, `toSSML`, `toFFmpeg` | — |
 | [`keyboard`](#keyboard) | `keyboard` | — |
 | [`inputs`](#inputs) | `camera`, `files`, `gui`, `sensors` | `camera`, `files`, `sensors` |
 | [`guided`](#guided) | `guided` | `guided` |
@@ -128,17 +130,19 @@ Dentro de `<CopilotKitProvider>` e `<H4BProvider>`: `useCopilotKitBridge({ agent
 
 ## voice
 
-`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true | { minWords?: 2, ignore? }, endOfTurn?, echo?: textEchoFilter() | EchoFilter | false, turn?: { silence?: 800, minSilence?: 300, maxSilence?: 2000, threshold?: 0.5, timeout?: 600, audioSeconds?: 8 }, voiceName? })`. `stt`/`tts` recebem um provedor ou uma lista (testados em ordem, com troca em erro de rede ou suporte e quando o serviço de fala do navegador está desligado).
+`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true | { minWords?: 2, ignore? }, endOfTurn?, echo?: textEchoFilter() | EchoFilter | false, turn?: { silence?: 800, minSilence?: 300, maxSilence?: 2000, threshold?: 0.5, timeout?: 600, audioSeconds?: 8 }, voiceName?, load?: { start?: 'first-use' | 'eager' | 'idle' | 'manual', whileLoading?: 'fallback' | 'wait' | 'silent' }, effects?, player? })`. `stt`/`tts` recebem um provedor ou uma lista (testados em ordem, com troca em erro de rede ou suporte e quando o serviço de fala do navegador está desligado).
 
 | Provedor | Observações |
 |----------|-------------|
-| `webSpeechSTT({ continuous? })`, `webSpeechTTS({ voice?, rate?, pitch? })` | APIs do navegador; textos longos são divididos em frases |
-| `httpSTT({ url, headers?, parse?, silenceMs? })`, `httpTTS({ url })` | Seu backend faz proxy para qualquer provedor em nuvem (chaves ficam no servidor); detecção simples de fala para mãos-livres |
+| `webSpeechSTT({ continuous? })`, `webSpeechTTS({ voice?, rate?, pitch? })` | APIs do navegador; textos longos são divididos em frases. O `webSpeechTTS` recebe só a prosódia dos efeitos |
+| `httpSTT({ url, headers?, parse?, silenceMs? })`, `httpTTS({ url, headers?, body?, prosody?, playback?: 'webaudio' \| 'element' })` | Seu backend faz proxy para qualquer provedor em nuvem (chaves ficam no servidor); detecção simples de fala para mãos-livres. O `httpTTS` decodifica o áudio e toca pelos efeitos; `prosody: true` manda a prosódia no corpo para o seu backend aplicar |
 | `websocketSTT({ url, sampleRate?, onOpen?, parse, finish?, endOfTurn? })` | Envia PCM 16 bits em streaming; `url` pode ser uma função que busca um token temporário. `endOfTurn: true` quando o serviço detecta o turno sozinho: `parse` devolve `{ final, endOfTurn }` |
 | `voskSTT({ url })` | Servidor Vosk próprio |
 | `voskBrowserSTT({ modelUrl, load: () => import('vosk-browser'), grammar? })` | Offline, no navegador (WebAssembly); o modelo é baixado uma vez e depois nenhum áudio sai do dispositivo. `preload()` adianta o download |
 
-Serviço: `listen({ until? })`, `stop()`, `cancel()`, `endTurn()`, `discardTurn()`, `toggle()`, `setMode()`, `setOutput()`, `setEndOfTurn()`, `setEcho()`, `configure({ turn?, bargeIn? })`, `speak()`, `cancelSpeech()`, `getState()` (`phase`, `listening`, `speaking`, `partial`, `endOfTurnAt`, `interrupted`, `lastInput`, `endOfTurn`, `echo`, `error`…), `subscribe()`.
+Serviço: `listen({ until? })`, `stop()`, `cancel()`, `endTurn()`, `discardTurn()`, `toggle()`, `setMode()`, `setOutput()`, `setEndOfTurn()`, `setEcho()`, `configure({ turn?, bargeIn? })`, `speak()`, `cancelSpeech()`, `loadSpeech(nome?)`, `setTTS(provedores)`, `setEffects(efeitos | null)`, `unlockAudio()`, `getState()` (`phase`, `listening`, `speaking`, `synthesizing`, `partial`, `endOfTurnAt`, `interrupted`, `lastInput`, `endOfTurn`, `echo`, `effects`, `ttsStatus`, `error`…), `subscribe()`.
+
+- **Síntese de voz.** Provedores que devolvem áudio (`synthesize`: `httpTTS`, os modelos do `voice-models`) tocam pelo Web Audio com os efeitos, e a próxima frase é sintetizada enquanto a atual toca. `load` decide quando os modelos baixam (`start`) e quem fala enquanto isso (`whileLoading`); `ttsStatus` tem o `state` de cada provedor (`unloaded`, `loading`, `ready`, `failed`) e o progresso. O áudio é liberado no primeiro gesto na página. Guia: [Síntese de voz e efeitos](./speech.md).
 
 - `stop()` encerra a escuta e ainda envia o que foi dito; `cancel()` encerra e descarta a fala (nada é enviado, nem uma transcrição final que o provedor entregue depois).
 - No push-to-talk a fala termina na primeira pausa por padrão (bom para clicar e falar). `listen({ until: 'stop' })` é segurar para falar: o reconhecimento continua entre pausas (reiniciando se o navegador encerrar a sessão), `partial` mostra tudo o que foi dito até ali e uma única mensagem sai no `stop()`. O botão de microfone do widget e o atalho `talk` do teclado usam esse modo.
@@ -153,6 +157,30 @@ Serviço: `listen({ until? })`, `stop()`, `cancel()`, `endTurn()`, `discardTurn(
 - Provedores dizem se o áudio ou o texto saem da página (`remote`; o `webSpeechSTT` conta como remoto, porque navegadores como o Chrome mandam o áudio para o serviço deles) e podem exigir uma finalidade de consentimento (`consent`, veja [Consentimento](./consent.md)): enquanto ela não está concedida, são pulados. Mostrar o aviso é do app. Provedores que abrem o microfone usam cancelamento de eco, supressão de ruído e ganho automático; o Web Speech cuida do próprio microfone.
 - O `webSpeechSTT` se declara sem suporte fora de um contexto seguro (`http` simples), então `supported.stt` é `false` nesse caso, a não ser que outro provedor funcione.
 - `webSpeechSTT({ continuous: 'auto' })` (padrão) usa o reconhecimento contínuo do navegador no segurar para falar e no mãos-livres, menos no Android, onde o Chrome repete o que já foi dito nesse modo: ali cada sessão ouve uma fala e o serviço de voz inicia a seguinte, então uma palavra dita bem na troca pode se perder. `continuous: true` força o modo contínuo do navegador e `false` o desliga em todos os aparelhos.
+
+## voice-models
+
+Provedores de fala que rodam modelos neurais na página. Entram em `voice({ tts })`; nada pesado é importado até um modelo carregar (passe `runtime: () => import('onnxruntime-web')`).
+
+| Provedor | Opções |
+|----------|--------|
+| `piperTTS({ model, config, phonemizer, runtime, speaker?, noiseScale?, lengthScale?, noiseW?, sessionOptions?, cache?, size?, name? })` | Vozes do Piper (VITS). `piperVoice('pt_BR-faber-medium')` dá `{ model, config }` no Hugging Face. Velocidade pelo `length_scale` |
+| `kokoroTTS({ model, tokenizer, voices, voice?, phonemizer, runtime, language?, sessionOptions?, cache?, size?, name? })` | Kokoro 82M. `kokoroModel({ dtype?: 'q8', voices, revision? })` dá os arquivos no Hugging Face. O idioma da voz segue a primeira letra (`p` → português do Brasil) |
+| `transformersTTS({ name, pipeline, call?, prosody?, size? })` | Qualquer pipeline `text-to-speech` do transformers.js; `transformersProgress(onProgress)` adapta os eventos de progresso |
+| `espeakPhonemizer({ module, wasm, data, voices?, cache?, size? })` | Texto para fonemas com espeak-ng (GPL-3.0, não incluído: você passa o build do piper-phonemize) |
+
+Fontes (`ModelSource`): uma URL (absoluta ou relativa à página), `huggingFace(repo, arquivo, { revision?, endpoint? })`, um `Blob`, um `ArrayBuffer`/`Uint8Array` ou uma função assíncrona que devolve qualquer um deles. `fetchModel(fonte, { onProgress?, signal?, cache?, fetch? })` baixa com progresso e guarda o arquivo no Cache Storage (`h4b-voice-models`; `cache: false` desliga); `clearModelCache()` apaga. Guia: [Síntese de voz e efeitos](./speech.md).
+
+## voice-effects
+
+`voiceEffects(cadeia | preset = 'clean', { effects? })` → uma cadeia de efeitos viva para `voice({ effects })`: `get()`, `set(cadeia | preset)`, `update(índice | id, patch)`, `setProsody(prosódia)`, `subscribe()`, `definitions()`, `render(áudio)`.
+
+- Uma cadeia é JSON: `{ version: 1, name?, description?, prosody?: { rate?, pitch?, volume? }, effects: [{ type, id?, bypass?, ...parâmetros }] }`. Tipos e nomes de parâmetros seguem o Web Audio; os descritores de parâmetros seguem os Web Audio Modules; a prosódia usa as unidades do SSML (semitons, dB).
+- Tipos de efeito: `highpass`, `lowpass`, `bandpass`, `peaking`, `lowshelf`, `highshelf`, `notch`, `allpass`, `gain`, `compressor`, `limiter`, `gate`, `varispeed`, `vibrato`, `tremolo`, `chorus`, `delay`, `reverb`, `distortion`, `ringmod`, `dispersion`. Acrescente os seus com `defineEffect({ type, label, params, process?, build?, tail?, speed?, ffmpeg? })`.
+- Presets (`presets`): `clean`, `denoise`, `radio`, `telephone`, `megaphone`, `robot`, `underwater`, `cave`, `ice`, `chipmunk`, `giant`.
+- `validateChain(cadeia)` lista todos os problemas; `chainSchema()` é o JSON Schema; `fx.render(áudio)` renderiza offline (com as caudas).
+- Pontes: `toSSML(texto, prosódia, { language?, voice?, pitch?: 'st' | '%', fragment? })` e `toFFmpeg(cadeia | preset, { sampleRate?, prosody? })` → `{ filter, warnings, command(entrada, saída) }`.
+- O pacote só precisa do `@handsforbots/voice` para tipos: cadeias, SSML e exportação para FFmpeg funcionam também fora do H4B (um script de build, um servidor).
 
 ## keyboard
 

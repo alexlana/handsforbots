@@ -1,4 +1,4 @@
-import { SpeechError, type SpeechErrorCode, type SpeechToText, type TextToSpeech } from '../types.js'
+import { SpeechError, type Prosody, type SpeechErrorCode, type SpeechToText, type TextToSpeech } from '../types.js'
 
 type RecognitionCtor = new () => any
 
@@ -119,18 +119,22 @@ export function webSpeechTTS(options: WebSpeechTTSOptions = {}): TextToSpeech {
   return {
     name: 'webspeech',
     isSupported: () => synth() !== undefined && typeof SpeechSynthesisUtterance !== 'undefined',
+    // The browser's audio cannot go through Web Audio: effects reach it only as prosody.
+    prosody: { rate: true, pitch: true, volume: true },
     async speak(text, speakOptions) {
       const s = synth()
       if (!s) throw new SpeechError('not-supported', 'Speech synthesis is not available')
       const voice = await pickVoice(speakOptions.language, speakOptions.voice)
+      const { rate, pitch, volume } = utteranceProsody(options, speakOptions.prosody)
       for (const sentence of splitSentences(text)) {
         if (speakOptions.signal?.aborted) return
         await new Promise<void>((resolve) => {
           const utterance = new SpeechSynthesisUtterance(sentence)
           utterance.lang = speakOptions.language
           if (voice) utterance.voice = voice
-          if (options.rate) utterance.rate = options.rate
-          if (options.pitch) utterance.pitch = options.pitch
+          if (rate !== 1) utterance.rate = rate
+          if (pitch !== 1) utterance.pitch = pitch
+          if (volume !== 1) utterance.volume = volume
           utterance.onend = () => resolve()
           utterance.onerror = () => resolve()
           speakOptions.signal?.addEventListener('abort', () => resolve(), { once: true })
@@ -139,6 +143,21 @@ export function webSpeechTTS(options: WebSpeechTTSOptions = {}): TextToSpeech {
       }
     },
     cancel: () => synth()?.cancel(),
+  }
+}
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+/**
+ * Utterance values for the options and the prosody: `rate` 0.1–10, `pitch`
+ * 0–2 (1 = the voice's, semitones become a frequency ratio), `volume` 0–1
+ * (decibels become a gain, so it can only go down from the default).
+ */
+export function utteranceProsody(options: WebSpeechTTSOptions, prosody: Prosody = {}) {
+  return {
+    rate: clamp((options.rate ?? 1) * (prosody.rate ?? 1), 0.1, 10),
+    pitch: clamp((options.pitch ?? 1) * 2 ** ((prosody.pitch ?? 0) / 12), 0, 2),
+    volume: clamp(10 ** ((prosody.volume ?? 0) / 20), 0, 1),
   }
 }
 

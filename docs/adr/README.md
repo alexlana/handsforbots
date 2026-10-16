@@ -16,3 +16,4 @@ Registro curto das decisões da v2: contexto, decisão e consequências. Para mu
 | [0010](./0010-consentimento.md) | Consentimento por finalidade, com regras declarativas por região, apagando o storage ao revogar | Aceita (sobras: ver 0012) |
 | [0011](./0011-interrupcao-e-fim-de-turno.md) | Interrupção e retomada no core (texto e voz), fim de turno plugável e barge-in completo na voz | Aceita |
 | [0012](./0012-apagar-sobras-sem-montar.md) | Apagar sobras de consentimento negado sem montar o plugin (substitui parte do 0010) | Aceita |
+| [0013](./0013-sintese-de-voz-e-efeitos.md) | Síntese de voz com provedores que devolvem áudio, política de carga dos modelos e efeitos em JSON (Web Audio, WAM, SSML) com pontes para SSML e FFmpeg | Aceita |

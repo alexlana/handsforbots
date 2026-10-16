@@ -21,6 +21,10 @@ function fakeVoice(mode: VoiceState['mode'] = 'push-to-talk', speaking = false) 
     configure: vi.fn(),
     speak: vi.fn(async () => {}),
     cancelSpeech: vi.fn(),
+    loadSpeech: vi.fn(async () => true),
+    setTTS: vi.fn(async () => {}),
+    setEffects: vi.fn(),
+    unlockAudio: vi.fn(),
   } satisfies VoiceService
 }
 
