@@ -1,6 +1,3 @@
-import createPiperPhonemize from '@diffusionstudio/piper-wasm/build/piper_phonemize.js'
-import phonemizeData from '@diffusionstudio/piper-wasm/build/piper_phonemize.data?url'
-import phonemizeWasm from '@diffusionstudio/piper-wasm/build/piper_phonemize.wasm?url'
 import { createH4B, type H4B } from '@handsforbots/core'
 import {
   encodeWav,
@@ -25,18 +22,15 @@ import {
 } from '@handsforbots/voice-effects'
 import {
   clearModelCache,
-  espeakPhonemizer,
   kokoroModel,
-  kokoroTTS,
-  piperTTS,
   piperVoice,
+  workerTTS,
   type HuggingFaceFile,
   type KokoroDtype,
   type ModelSource,
-  type OnnxRuntime,
-  type PiperPhonemizeFactory,
-  type RuntimeSource,
+  type WorkerTextToSpeech,
 } from '@handsforbots/voice-models'
+import { buildModel, type ModelConfig } from './models.ts'
 import './styles.css'
 
 const $ = <T extends HTMLElement = HTMLInputElement>(id: string) => document.getElementById(id) as T
@@ -46,20 +40,6 @@ const log = (message: string) => {
   const line = `${new Date().toLocaleTimeString()}  ${message}\n`
   $('log').textContent = line + ($('log').textContent ?? '').slice(0, 4000)
 }
-
-// onnxruntime-web stays out of the page until a model loads.
-const runtime: RuntimeSource = async () => {
-  const ort = await import('onnxruntime-web/wasm')
-  ort.env.wasm.numThreads = 1
-  return ort as unknown as OnnxRuntime
-}
-
-// espeak-ng (GPL-3.0) through piper-phonemize: the example's choice, not part of H4B.
-const phonemizer = espeakPhonemizer({
-  module: async () => createPiperPhonemize as unknown as PiperPhonemizeFactory,
-  wasm: phonemizeWasm,
-  data: phonemizeData,
-})
 
 /** Hugging Face, or the same layout under a folder the app serves. */
 function relocate(source: ModelSource): ModelSource {
@@ -83,26 +63,39 @@ const recorded = (tts: TextToSpeech): TextToSpeech =>
       }
     : tts
 
+function modelConfig(kind: 'piper' | 'kokoro'): ModelConfig {
+  const cache = $('cache').checked
+  if (kind === 'piper') {
+    const files = piperVoice(value('piper-voice'))
+    return { kind, model: relocate(files.model), config: relocate(files.config), cache }
+  }
+  const voiceId = value('kokoro-voice') || 'pf_dora'
+  const files = kokoroModel({ dtype: value('kokoro-dtype') as KokoroDtype, voices: [voiceId] })
+  return {
+    kind,
+    model: relocate(files.model),
+    tokenizer: relocate(files.tokenizer),
+    voices: { [voiceId]: relocate(files.voices[voiceId]!) },
+    cache,
+  }
+}
+
+let worker: WorkerTextToSpeech | undefined
+
 function engine(): TextToSpeech {
-  const cache = $('cache').checked ? undefined : false
   const kind = value('engine')
   switch (kind) {
-    case 'piper': {
-      const files = piperVoice(value('piper-voice'))
-      return piperTTS({ model: relocate(files.model), config: relocate(files.config), phonemizer, runtime, cache })
-    }
-    case 'kokoro': {
-      const voiceId = value('kokoro-voice') || 'pf_dora'
-      const files = kokoroModel({ dtype: value('kokoro-dtype') as KokoroDtype, voices: [voiceId] })
-      return kokoroTTS({
-        model: relocate(files.model),
-        tokenizer: relocate(files.tokenizer),
-        voices: { [voiceId]: relocate(files.voices[voiceId]!) },
-        phonemizer,
-        runtime,
-        cache,
+    case 'piper':
+    case 'kokoro':
+      if (!$('worker').checked) return buildModel(modelConfig(kind))
+      // The model runs in voice.worker.ts; the page only gets the audio.
+      worker = workerTTS({
+        worker: () => new Worker(new URL('./voice.worker.ts', import.meta.url), { type: 'module' }),
+        config: modelConfig(kind),
+        name: `${kind} (worker)`,
+        prosody: { rate: true },
       })
-    }
+      return worker
     case 'http':
       return httpTTS({ url: value('http-url'), prosody: true })
     case 'webspeech':
@@ -118,6 +111,8 @@ let speech: VoiceService | undefined
 
 async function apply() {
   await h4b?.stop()
+  worker?.terminate()
+  worker = undefined
   const providers = [recorded(engine())]
   if ($('fallback').checked && value('engine') !== 'webspeech') providers.push(webSpeechTTS())
   h4b = createH4B({
@@ -280,13 +275,40 @@ const download = (audio: SpeechAudio, name: string) => {
 $('wav').onclick = () => download(joined(), 'speech.wav')
 $('wav-fx').onclick = async () => download(await fx.render(joined()), 'speech-fx.wav')
 
+// Turned by the main thread (a CSS animation would keep spinning while the page is frozen).
+const spinner = document.querySelector<HTMLElement>('.spinner')!
+const spin = (now: number) => {
+  spinner.style.transform = `rotate(${(now / 2) % 360}deg)`
+  requestAnimationFrame(spin)
+}
+requestAnimationFrame(spin)
+
+/** The longest gap between frames while `job` runs: how long the page was frozen. */
+async function longestFrame<T>(job: () => Promise<T>): Promise<number> {
+  let longest = 0
+  let last = performance.now()
+  let running = true
+  const tick = (now: number) => {
+    longest = Math.max(longest, now - last)
+    last = now
+    if (running) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+  try {
+    await job()
+  } finally {
+    running = false
+  }
+  return Math.round(Math.max(longest, performance.now() - last))
+}
+
 $('speak').onclick = async () => {
   if (!speech) await apply()
   clips = []
   speech!.unlockAudio()
   const started = performance.now()
-  await speech!.speak(value('text'))
-  log(`spoke in ${Math.round(performance.now() - started)} ms with ${speech!.getState().tts}`)
+  const frozen = await longestFrame(() => speech!.speak(value('text')))
+  log(`spoke in ${Math.round(performance.now() - started)} ms with ${speech!.getState().tts}; longest frame ${frozen} ms`)
 }
 $('stop').onclick = () => speech?.cancelSpeech()
 $('apply').onclick = () => void apply()
@@ -299,7 +321,10 @@ $('load').onclick = async () => {
 $('clear').onclick = async () => log((await clearModelCache()) ? 'cached models erased' : 'nothing cached')
 
 const showEngineFields = () => {
-  for (const el of document.querySelectorAll<HTMLElement>('[data-engine]')) el.hidden = el.dataset.engine !== value('engine')
+  const kind = value('engine')
+  const model = kind === 'piper' || kind === 'kokoro'
+  for (const el of document.querySelectorAll<HTMLElement>('[data-engine]'))
+    el.hidden = el.dataset.engine !== kind && !(el.dataset.engine === 'model' && model)
 }
 $('engine').addEventListener('change', showEngineFields)
 showEngineFields()

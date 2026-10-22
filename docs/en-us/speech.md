@@ -5,7 +5,7 @@ How the assistant speaks: the browser's voice, a voice from your backend, or a n
 | Package | What it brings |
 |---|---|
 | [`@handsforbots/voice`](./plugins.md#voice) | The `voice` plugin: speaks replies sentence by sentence, picks the provider, decides when models download and who speaks meanwhile, plays audio through Web Audio. Providers `webSpeechTTS` and `httpTTS` |
-| [`@handsforbots/voice-models`](./plugins.md#voice-models) | Models in the page: `piperTTS`, `kokoroTTS`, `transformersTTS`. Files from Hugging Face, any URL, a folder you serve or bytes the app already has, downloaded with progress and cached |
+| [`@handsforbots/voice-models`](./plugins.md#voice-models) | Models in the page: `piperTTS`, `kokoroTTS`, `transformersTTS`, and `workerTTS` to run any of them in a Worker. Files from Hugging Face, any URL, a folder you serve or bytes the app already has, downloaded with progress and cached |
 | [`@handsforbots/voice-effects`](./plugins.md#voice-effects) | Effects as JSON: filters, dynamics, modulation, echo, reverb, distortion; presets; offline rendering; export to SSML and FFmpeg |
 
 Try everything in the lab: `pnpm --filter @handsforbots/example-voice-lab dev` ([examples/voice-lab](../../examples/voice-lab/README.md)).
@@ -262,10 +262,57 @@ Piper and Kokoro read phonemes, not letters. `espeakPhonemizer` runs espeak-ng (
 ## Performance
 
 - **Threads.** `onnxruntime-web` runs on one thread unless the page is cross-origin isolated (`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`), which also requires every cross-origin file (Hugging Face included) to allow it. One thread is the safe default.
-- **Worker.** Inference blocks the thread it runs on. `ort.env.wasm.proxy = true` moves it to a worker, so long sentences do not freeze the page.
+- **Worker.** Synthesis blocks the thread it runs on. Run the provider in a Worker with `workerTTS` ([below](#running-the-model-in-a-worker)) so the page never freezes. `ort.env.wasm.proxy = true` moves only the inference: the phonemizer and model creation stay on the page.
 - **Sentence pipeline.** The plugin synthesizes the next sentence while the current one plays, so after the first sentence the wait is hidden when the model is faster than real time.
 - **Measured in the lab** (one Apple Silicon Mac, Chrome, one thread, files from Hugging Face; your numbers will differ): Piper `pt_BR-faber-medium` downloaded 82 MB (voice + espeak data) in 11 s and spoke 4.4 s of audio with no noticeable wait; Kokoro q8 downloaded 112 MB in 11 s and took 8.2 s to produce 5.2 s of audio. Kokoro on one thread is slower than real time: use it with `whileLoading: 'fallback'`, short sentences, or a backend.
 - **Quantized models hiss** in the pauses more than fp32 ones. The `denoise` preset (a gate and a high-pass) hides most of it.
+
+## Running the model in a Worker
+
+Synthesis blocks the thread it runs on: the phonemizer, the model and the loop over sentence chunks. On the page, the lab's longest frame while Piper spoke was 950 ms (the page froze for about a second); with the model in a Worker it was 33 ms, and the speech took the same time. Animations, 3D scenes and typing in the page all suffer the same way. `serveTTS` and `workerTTS` move the whole provider to a Worker.
+
+The worker file is yours, because it picks the phonemizer, the runtime and the model files:
+
+```ts
+// voice.worker.ts
+import { espeakPhonemizer, piperTTS, piperVoice, serveTTS } from '@handsforbots/voice-models'
+
+const phonemizer = espeakPhonemizer({ module: () => import('./vendor/piper_phonemize.js'), wasm: '/vendor/piper_phonemize.wasm', data: '/vendor/piper_phonemize.data' })
+
+serveTTS((config: { voice: string }) =>
+  piperTTS({ ...piperVoice(config.voice), phonemizer, runtime: () => import('onnxruntime-web/wasm') }),
+)
+```
+
+The page gets an ordinary provider:
+
+```ts
+import { workerTTS } from '@handsforbots/voice-models'
+
+const piper = workerTTS({
+  worker: () => new Worker(new URL('./voice.worker.ts', import.meta.url), { type: 'module' }),
+  config: { voice: 'pt_BR-faber-medium' },
+  name: 'piper',
+  size: 82_000_000,
+  prosody: { rate: true },
+})
+
+voice({ tts: [piper, webSpeechTTS()], load: { start: 'idle', whileLoading: 'fallback' } })
+```
+
+- **Functions do not cross to a Worker.** The phonemizer and the runtime are built in the worker file. `config` carries data (structured clone: strings, numbers, objects, bytes, Blobs) to `serveTTS`'s factory; `serveTTS(provider)` also takes a provider directly.
+- **When it starts.** The worker is created on the first `load` or `synthesize`, so `load.start` still decides when the model downloads.
+- **What the page knows before it starts.** `name` is fixed on the page (default `'worker'`; `ttsStatus` and `loadSpeech(name)` use it). `size` and `prosody` are shown before the worker answers; once it does, the prosody of the provider in the worker wins.
+- **Cancelling.** The signals of `load` and of each sentence are forwarded to the worker, and the page rejects at once.
+- **Audio** comes back without a copy (its buffer is transferred). Samples that are a view on a larger buffer (WebAssembly memory) are copied instead, so the engine's memory is never detached.
+- **Failure.** A worker that cannot start (no module workers, a missing file, a syntax error) or a factory that throws makes `load` reject: the provider becomes `failed`, the `error` event fires and the next provider speaks. The next call starts a new worker.
+- **`terminate()`** stops the worker and rejects what is pending (the user turned voice off); the next call starts a new one.
+- **Cache Storage works in the worker**: files the page cached are reused, and `clearModelCache()` on the page erases them.
+- **Do not set `ort.env.wasm.proxy`** inside the worker: it is already off the page.
+
+**Bundlers.** Write the `new Worker(new URL('./file', import.meta.url), { type: 'module' })` line in your app, as above, so the bundler finds and builds the file (Vite, webpack 5 and Parcel all recognize it). In Vite, set `worker: { format: 'es' }`: the worker imports the runtime on demand, which the default `iife` format cannot do.
+
+**Browsers.** Module workers are in Chrome, Edge and Opera (Chromium 80+), Firefox 114+ and Safari 15+. Tested in the lab with Piper in Chrome 129 and Opera 115 (Chromium 130). Older browsers fail at `load` and fall back to the next provider.
 
 ## Writing a provider
 
@@ -285,6 +332,6 @@ const myTTS: TextToSpeech = {
 }
 ```
 
-Implement `speak(text, options)` instead of `synthesize` for engines that play by themselves (they get no effects). `cancel()` stops them. ONNX engines can reuse `fetchModel`, `loadRuntime` and `chunkText` from `@handsforbots/voice-models`.
+Implement `speak(text, options)` instead of `synthesize` for engines that play by themselves (they get no effects). `cancel()` stops them. ONNX engines can reuse `fetchModel`, `loadRuntime` and `chunkText` from `@handsforbots/voice-models`, and any provider with `synthesize` runs in a Worker through `serveTTS`.
 
 Sources: [References → Speech synthesis](./references.md#speech-synthesis-and-effects). Decision: [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md).

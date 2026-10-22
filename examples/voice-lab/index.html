@@ -45,6 +45,7 @@
             <option value="af_heart"></option>
             <option value="bf_emma"></option>
           </datalist>
+          <label class="check" data-engine="model"><input id="worker" type="checkbox" checked /> Run the model in a Worker</label>
           <label data-engine="http">Backend URL <input id="http-url" value="/api/tts" /></label>
         </div>
       </section>
@@ -99,6 +100,7 @@
         <div class="row">
           <button id="speak">Speak</button>
           <button id="stop" class="quiet">Stop</button>
+          <span class="spinner" title="Stops when the page is frozen"></span>
           <button id="wav" class="quiet" disabled>Download WAV</button>
           <button id="wav-fx" class="quiet" disabled>Download WAV with effects</button>
         </div>

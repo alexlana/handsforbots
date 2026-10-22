@@ -176,3 +176,13 @@ pre {
   max-height: 200px;
   overflow: auto;
 }
+
+/* Turned from main.ts: it stops whenever synthesis freezes the page. */
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+}

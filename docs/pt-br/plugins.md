@@ -15,7 +15,7 @@ Cada pacote exporta uma fábrica de plugin: chame com as opções e passe para `
 | [`assistant-ui`](#assistant-ui) | `useH4BAssistantRuntime` | — |
 | [`menu`](#menu) | `menu` | `menu` |
 | [`voice`](#voice) | `voice` | `voice` |
-| [`voice-models`](#voice-models) | `piperTTS`, `kokoroTTS`, `transformersTTS`, `espeakPhonemizer` (provedores) | — |
+| [`voice-models`](#voice-models) | `piperTTS`, `kokoroTTS`, `transformersTTS`, `workerTTS`, `espeakPhonemizer` (provedores) | — |
 | [`voice-effects`](#voice-effects) | `voiceEffects`, presets, `toSSML`, `toFFmpeg` | — |
 | [`keyboard`](#keyboard) | `keyboard` | — |
 | [`inputs`](#inputs) | `camera`, `files`, `gui`, `sensors` | `camera`, `files`, `sensors` |
@@ -168,6 +168,7 @@ Provedores de fala que rodam modelos neurais na página. Entram em `voice({ tts 
 | `kokoroTTS({ model, tokenizer, voices, voice?, phonemizer, runtime, language?, sessionOptions?, cache?, size?, name? })` | Kokoro 82M. `kokoroModel({ dtype?: 'q8', voices, revision? })` dá os arquivos no Hugging Face. O idioma da voz segue a primeira letra (`p` → português do Brasil) |
 | `transformersTTS({ name, pipeline, call?, prosody?, size? })` | Qualquer pipeline `text-to-speech` do transformers.js; `transformersProgress(onProgress)` adapta os eventos de progresso |
 | `espeakPhonemizer({ module, wasm, data, voices?, cache?, size? })` | Texto para fonemas com espeak-ng (GPL-3.0, não incluído: você passa o build do piper-phonemize) |
+| `workerTTS({ worker, config?, name?, size?, prosody? })` + `serveTTS(provedor \| (config) => provedor)` | Roda qualquer provedor com `synthesize` num Web Worker, e a síntese nunca congela a página. O `serveTTS` vai no arquivo do Worker; o `workerTTS` devolve o provedor para a página (`terminate()` para o Worker). [Guia](./speech.md#rodando-o-modelo-num-worker) |
 
 Fontes (`ModelSource`): uma URL (absoluta ou relativa à página), `huggingFace(repo, arquivo, { revision?, endpoint? })`, um `Blob`, um `ArrayBuffer`/`Uint8Array` ou uma função assíncrona que devolve qualquer um deles. `fetchModel(fonte, { onProgress?, signal?, cache?, fetch? })` baixa com progresso e guarda o arquivo no Cache Storage (`h4b-voice-models`; `cache: false` desliga); `clearModelCache()` apaga. Guia: [Síntese de voz e efeitos](./speech.md).
 

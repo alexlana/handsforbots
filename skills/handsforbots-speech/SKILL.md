@@ -1,6 +1,6 @@
 ---
 name: handsforbots-speech
-description: Make a Hands for Bots v2 (H4B) assistant speak with the right voice - the browser's speechSynthesis, a backend TTS through httpTTS, or a neural model in the page with @handsforbots/voice-models (Piper, Kokoro, transformers.js; files from Hugging Face, a URL, a folder or a Blob, downloaded with progress and cached) - decide when models download and who speaks meanwhile (load.start, load.whileLoading, loadSpeech, ttsStatus), and shape the voice with @handsforbots/voice-effects (JSON effect chains in Web Audio terms, presets such as radio, robot or telephone, prosody, custom effects, offline render, SSML and FFmpeg export). Use when code calls voice({ tts }), piperTTS, kokoroTTS, transformersTTS, espeakPhonemizer, voiceEffects, toSSML or toFFmpeg, when the user wants a better, offline, cheaper or stylized bot voice, a download progress bar for a voice model, or voice effects.
+description: Make a Hands for Bots v2 (H4B) assistant speak with the right voice - the browser's speechSynthesis, a backend TTS through httpTTS, or a neural model in the page with @handsforbots/voice-models (Piper, Kokoro, transformers.js; files from Hugging Face, a URL, a folder or a Blob, downloaded with progress and cached) - decide when models download and who speaks meanwhile (load.start, load.whileLoading, loadSpeech, ttsStatus), and shape the voice with @handsforbots/voice-effects (JSON effect chains in Web Audio terms, presets such as radio, robot or telephone, prosody, custom effects, offline render, SSML and FFmpeg export). Use when code calls voice({ tts }), piperTTS, kokoroTTS, transformersTTS, workerTTS, serveTTS, espeakPhonemizer, voiceEffects, toSSML or toFFmpeg, when the user wants a better, offline, cheaper or stylized bot voice, a download progress bar for a voice model, a page that freezes while the bot speaks, or voice effects.
 ---
 
 # Hands for Bots v2 — speech synthesis and voice effects
@@ -31,7 +31,31 @@ Facts to rely on:
 - The app passes the ONNX runtime (`runtime`: the module or a loader) and the phonemizer build. The packages do not depend on `onnxruntime-web` and **do not ship espeak-ng (GPL-3.0)**. Tell the user about the GPL before they ship `espeakPhonemizer`; `@diffusionstudio/piper-wasm` is one build (17 MB data file with every language). Any `Phonemizer` (`phonemize(text, language) → string[]`) can replace it.
 - `piperVoice(id)` and `kokoroModel({ dtype, voices })` build Hugging Face sources. Suggest pinning `revision` to a commit in production. Kokoro voice ids start with the language letter (`a` en-US, `b` en-GB, `e` es, `f` fr, `h` hi, `i` it, `p` pt-BR).
 - `ModelSource` is a URL (same-origin folder avoids CORS), `huggingFace(repo, file, { revision, endpoint })`, a `Blob`, bytes, or an async function. Files go to Cache Storage `h4b-voice-models` (`cache: false` off; `clearModelCache()` erases).
-- Sizes: Piper 15–115 MB per voice; Kokoro 92 MB (q8) to 326 MB (fp32); plus 17 MB of espeak data. Measured once (one Mac, Chrome, one thread): Kokoro q8 took 8.2 s for 5.2 s of audio, Piper had no noticeable wait. Recommend Kokoro only with `whileLoading: 'fallback'`, a worker (`ort.env.wasm.proxy = true`), or a backend.
+- Sizes: Piper 15–115 MB per voice; Kokoro 92 MB (q8) to 326 MB (fp32); plus 17 MB of espeak data. Measured once (one Mac, Chrome, one thread): Kokoro q8 took 8.2 s for 5.2 s of audio, Piper had no noticeable wait. Recommend Kokoro only with `whileLoading: 'fallback'`, a worker (`workerTTS`), or a backend.
+
+## Run the model in a Worker
+
+Synthesis blocks the thread it runs on (phonemizer + model). In the lab, Piper on the page froze it for ~950 ms per sentence; in a Worker the longest frame was ~33 ms. Recommend a Worker whenever the page animates (3D, canvas, CSS driven by JS) or the user types while the bot speaks.
+
+```ts
+// voice.worker.ts — the app writes it: functions (phonemizer, runtime) cannot cross to a worker
+import { espeakPhonemizer, piperTTS, piperVoice, serveTTS } from '@handsforbots/voice-models'
+const phonemizer = espeakPhonemizer({ module: () => import('./vendor/piper_phonemize.js'), wasm: '/vendor/piper_phonemize.wasm', data: '/vendor/piper_phonemize.data' })
+serveTTS((config: { voice: string }) => piperTTS({ ...piperVoice(config.voice), phonemizer, runtime: () => import('onnxruntime-web/wasm') }))
+
+// page
+const piper = workerTTS({
+  worker: () => new Worker(new URL('./voice.worker.ts', import.meta.url), { type: 'module' }),
+  config: { voice: 'pt_BR-faber-medium' }, // structured-clone data only
+  name: 'piper', size: 82_000_000, prosody: { rate: true },
+})
+voice({ tts: [piper, webSpeechTTS()] })
+```
+
+- The `new Worker(new URL(...), { type: 'module' })` line must be in the app so the bundler builds the file. Vite needs `worker: { format: 'es' }`.
+- The worker starts on the first `load`/`synthesize`; `load.start` still decides when. `name` is fixed on the page (default `'worker'`). Signals are forwarded; audio is transferred without a copy.
+- A worker that cannot start (no module workers: Firefox < 114, Safari < 15; missing file) makes `load` reject, so the next provider speaks. Keep `webSpeechTTS()` last.
+- `piper.terminate()` stops the worker (voice turned off). Don't set `ort.env.wasm.proxy` inside the worker.
 
 ## When models download and who speaks meanwhile
 

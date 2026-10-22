@@ -23,3 +23,12 @@ export {
   type TtsPipeline,
   type TtsPipelineOutput,
 } from './transformers.js'
+export {
+  serveTTS,
+  workerTTS,
+  type TtsWorker,
+  type TtsWorkerScope,
+  type TtsWorkerSource,
+  type WorkerTTSOptions,
+  type WorkerTextToSpeech,
+} from './worker.js'

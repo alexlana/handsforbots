@@ -15,7 +15,7 @@ Every package exports a plugin factory: call it with options and pass it to `cre
 | [`assistant-ui`](#assistant-ui) | `useH4BAssistantRuntime` | — |
 | [`menu`](#menu) | `menu` | `menu` |
 | [`voice`](#voice) | `voice` | `voice` |
-| [`voice-models`](#voice-models) | `piperTTS`, `kokoroTTS`, `transformersTTS`, `espeakPhonemizer` (providers) | — |
+| [`voice-models`](#voice-models) | `piperTTS`, `kokoroTTS`, `transformersTTS`, `workerTTS`, `espeakPhonemizer` (providers) | — |
 | [`voice-effects`](#voice-effects) | `voiceEffects`, presets, `toSSML`, `toFFmpeg` | — |
 | [`keyboard`](#keyboard) | `keyboard` | — |
 | [`inputs`](#inputs) | `camera`, `files`, `gui`, `sensors` | `camera`, `files`, `sensors` |
@@ -168,6 +168,7 @@ Speech providers that run neural models in the page. They plug into `voice({ tts
 | `kokoroTTS({ model, tokenizer, voices, voice?, phonemizer, runtime, language?, sessionOptions?, cache?, size?, name? })` | Kokoro 82M. `kokoroModel({ dtype?: 'q8', voices, revision? })` gives the Hugging Face files. The voice language follows its first letter (`p` → Brazilian Portuguese) |
 | `transformersTTS({ name, pipeline, call?, prosody?, size? })` | Any transformers.js `text-to-speech` pipeline; `transformersProgress(onProgress)` adapts its progress events |
 | `espeakPhonemizer({ module, wasm, data, voices?, cache?, size? })` | Text to phonemes with espeak-ng (GPL-3.0, not shipped: you pass the piper-phonemize build) |
+| `workerTTS({ worker, config?, name?, size?, prosody? })` + `serveTTS(provider \| (config) => provider)` | Runs any provider with `synthesize` in a Web Worker, so synthesis never freezes the page. `serveTTS` goes in the worker file; `workerTTS` returns the provider for the page (`terminate()` stops the worker). [Guide](./speech.md#running-the-model-in-a-worker) |
 
 Sources (`ModelSource`): a URL (absolute or relative to the page), `huggingFace(repo, file, { revision?, endpoint? })`, a `Blob`, an `ArrayBuffer`/`Uint8Array`, or an async function returning any of them. `fetchModel(source, { onProgress?, signal?, cache?, fetch? })` downloads with progress and keeps the file in Cache Storage (`h4b-voice-models`; `cache: false` turns it off); `clearModelCache()` erases it. Guide: [Speech synthesis and voice effects](./speech.md).
 
