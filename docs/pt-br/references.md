@@ -73,3 +73,15 @@ Apoia o [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md) e [Síntese de voz e
 | [`Worker()` com `type: 'module'` (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker) | `workerTTS`: o arquivo do Worker importa o runtime sob demanda, então precisa ser um Worker de módulo (Chromium 80+, Firefox 114+, Safari 15+) |
 | [Objetos transferíveis (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects) | As amostras sintetizadas voltam do Worker transferindo o buffer, sem cópia |
 | [Vite: `worker.format`](https://vite.dev/config/worker-options) | `'es'` é necessário para Workers que importam módulos sob demanda; o `iife` padrão não faz isso |
+
+## Frameworks de agente e "browser hands"
+
+Apoia a seção "Relação com frameworks de agente e browser hands" do [ROADMAP](../../ROADMAP.md) (posicionamento, transporte `realtime` em P1). Acessado em 2026-11-04. Nada aqui foi testado por nós.
+
+| Fonte | O que é | Uso no H4B |
+|---|---|---|
+| [Vídeo de uma série sobre agentes multimodais](https://www.youtube.com/watch?v=dNGchf4InU0) | Série que monta um agente em camadas (genai SDK → ADK → tools → hands → memory → eyes; "hear · talk · act · remember · see") | Motivou a revisão. Só o diagrama da série foi conferido, não o vídeo |
+| [Bidi-streaming (live) no ADK](https://google.github.io/adk-docs/streaming) · [codelab](https://codelabs.developers.google.com/intro-to-adk-live) | Agentes do ADK com voz e vídeo de baixa latência pela Gemini Live API: entrada de texto, áudio e vídeo, saída de texto e áudio, ferramentas na sessão | Caminho em que o áudio vai direto do navegador ao agente: o atrito com o `voice`, respondido pelo transporte `realtime` |
+| [Gemini Live API](https://ai.google.dev/gemini-api/docs/live) | API fala-a-fala do Gemini, por sessão | Candidata a provedor de referência do `realtime` (decisão em aberto 7) |
+| [`ag_ui_adk`](https://pypi.org/project/ag-ui-adk/) · [discussão no fórum do Google](https://discuss.google.dev/t/integrating-google-adk-agents-with-modern-frontends-using-the-ag-ui-protocol/298415) | Middleware Python que expõe um agente do ADK pelo protocolo AG-UI, com ferramentas do cliente executadas no agente (`AGUIToolset`) | Um agente do ADK pode usar as ações do H4B pelo `transport-agui` sem pacote novo; falta um exemplo que confirme |
+| [The browser agent stack, explained (Lightpanda)](https://lightpanda.io/blog/posts/the-browser-agent-stack-explained) · [How browser agents work (Anchor)](https://anchorbrowser.io/guides/how-browser-agents-work-a-step-by-step-architectural-guide) | Descrevem a camada de execução ("mãos") dos agentes de navegador: Playwright, browser-use, Stagehand e afins agindo num navegador controlado pelo agente | Base da distinção entre mãos que agem de fora da página e as ações declaradas do H4B, expostas pelo `expose-webmcp` |

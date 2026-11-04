@@ -73,3 +73,15 @@ Supports [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md) and [Speech synthes
 | [`Worker()` with `type: 'module'` (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker) | `workerTTS`: the worker file imports the runtime on demand, so it must be a module worker (Chromium 80+, Firefox 114+, Safari 15+) |
 | [Transferable objects (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects) | The synthesized samples come back from the worker by transferring their buffer, without a copy |
 | [Vite: `worker.format`](https://vite.dev/config/worker-options) | `'es'` is needed for workers that import modules on demand; the default `iife` cannot |
+
+## Agent frameworks and "browser hands"
+
+Supports the "Relação com frameworks de agente e browser hands" section of the [ROADMAP](../../ROADMAP.md) (positioning, `realtime` transport moved to P1). Accessed 2026-11-04. Nothing here was tested by us.
+
+| Source | What it is | Use in H4B |
+|---|---|---|
+| [Video from a series on multimodal agents](https://www.youtube.com/watch?v=dNGchf4InU0) | A series that builds an agent in layers (genai SDK → ADK → tools → hands → memory → eyes; "hear · talk · act · remember · see") | Prompted the review. Only the series diagram was checked, not the video |
+| [Bidi-streaming (live) in ADK](https://google.github.io/adk-docs/streaming) · [codelab](https://codelabs.developers.google.com/intro-to-adk-live) | ADK agents with low-latency voice and video through the Gemini Live API: text, audio and video in, text and audio out, tools in the session | The path where audio goes straight from the browser to the agent: the overlap with `voice`, answered by the `realtime` transport |
+| [Gemini Live API](https://ai.google.dev/gemini-api/docs/live) | Gemini's session-based speech-to-speech API | Candidate reference provider for `realtime` (open decision 7) |
+| [`ag_ui_adk`](https://pypi.org/project/ag-ui-adk/) · [Google forum discussion](https://discuss.google.dev/t/integrating-google-adk-agents-with-modern-frontends-using-the-ag-ui-protocol/298415) | Python middleware that exposes an ADK agent over the AG-UI protocol, with client-side tools executed by the agent (`AGUIToolset`) | An ADK agent can use H4B actions through `transport-agui` without a new package; an example still has to confirm it |
+| [The browser agent stack, explained (Lightpanda)](https://lightpanda.io/blog/posts/the-browser-agent-stack-explained) · [How browser agents work (Anchor)](https://anchorbrowser.io/guides/how-browser-agents-work-a-step-by-step-architectural-guide) | Describe the execution layer ("hands") of browser agents: Playwright, browser-use, Stagehand and similar acting in a browser the agent controls | Basis for telling apart hands that act from outside the page and H4B's declared actions, exposed through `expose-webmcp` |

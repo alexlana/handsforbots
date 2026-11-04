@@ -1,7 +1,7 @@
 # Hands for Bots — Roadmap v2
 
 **Horizonte:** 6–9 meses
-**Última atualização:** outubro/2026
+**Última atualização:** novembro/2026
 
 Este documento substitui o roadmap de julho/2026. Ele redefine o posicionamento do Hands for Bots (H4B), descreve a arquitetura da v2 (tudo é plugin), mostra onde cada recurso atual se encaixa e ordena o trabalho em fases com critérios de saída.
 
@@ -44,6 +44,25 @@ O H4B **não compete** com eles: ele se conecta a eles. A regra de arquitetura �
 > **O H4B tem seu próprio modelo interno. Cada ferramenta externa entra como adapter.** Trocar CopilotKit por assistant-ui, ou AG-UI pelo AI SDK, é trocar um plugin, não reescrever o app.
 
 AG-UI e CopilotKit são os alvos **prioritários** porque são o padrão mais adotado hoje, mas não são dependências do core.
+
+### Relação com frameworks de agente e "browser hands"
+
+Tutoriais e frameworks de agente (o ADK do Google, o Agents SDK da OpenAI e afins) ensinam a montar um "agente multimodal completo" em camadas, e algumas séries resumem isso como *hear · talk · act · remember · see*: SDK do modelo → framework de agente → tools → **hands** → memory → **eyes**. São os mesmos cinco verbos da tese do H4B, mas do **lado do agente**. No diagrama da seção 2.1, essa pilha inteira cabe na caixa **Transportes**.
+
+| Capacidade | No framework de agente | No H4B | Relação |
+|------------|------------------------|--------|---------|
+| Ouvir / falar | Modelo fala-a-fala (Gemini Live, OpenAI Realtime): o áudio vai direto do navegador para o agente | `voice` (STT/TTS, barge-in, eco, modelos na página) | **Atrito real.** Quem segue esse caminho dispensa a voz do H4B. Resposta: transporte `realtime` (seção 2.7), em que o H4B continua cuidando da UI, do barge-in, do histórico e das ações |
+| Agir (tools + hands) | Ferramentas no servidor e um navegador controlado pelo agente (Playwright, browser-use, computer use) | Ações declaradas, expostas ao assistente, ao menu e ao WebMCP | **Complementar.** As "mãos" do agente agem **de fora** da página e adivinham onde clicar; as do H4B agem **dentro** da página do usuário, com schema, confirmação, confiança por origem e o usuário vendo |
+| Lembrar | Memória de longo prazo no servidor, entre sessões | `memory`: janela de turnos e resumo da conversa (ADR 0009) | **Escopos diferentes.** O H4B não guarda memória de longo prazo; o backend pode fornecer o `Summarizer` |
+| Ver | Vídeo e câmera para o modelo | `inputs` (foto e quadros de vídeo) | Mesmo atrito do áudio: vídeo contínuo pede o transporte `realtime` |
+
+**Posição:** o framework de agente dá capacidades ao agente; o H4B dá essas capacidades **na página do usuário, com o usuário presente**. O H4B não vira framework de agente (seção 6) e trata cada framework como mais um backend:
+
+- **Por turno:** o agente fala AG-UI e usa o `transport-agui`. Para o ADK existe a ponte `ag_ui_adk`, que leva as ferramentas do cliente para dentro do agente ([referências](./docs/pt-br/references.md#frameworks-de-agente-e-browser-hands)); validar com um exemplo.
+- **Fala-a-fala:** o agente usa uma sessão ao vivo e entra pelo transporte `realtime`, que passa a ser P1 (seção 5).
+- **Agente de navegador externo:** usa as ações publicadas pelo `expose-webmcp`, com a menor confiança por origem, em vez de automatizar o DOM.
+
+Se as "mãos" genéricas (automação do DOM ou por visão) ficarem boas o bastante, cai o incentivo para declarar ações. O argumento do H4B é o que elas não dão: execução determinística e instantânea pelo menu, validação e confirmação auditáveis, histórico coerente e a colaboração visível (destaques, tours, voz). Isso precisa aparecer na documentação e nos exemplos, não só neste roadmap.
 
 ---
 
@@ -302,7 +321,7 @@ Um **gerenciador de modalidades** (no kernel) decide como o usuário interage em
 |---------|---------------------|
 | `stt` | Web Speech API do navegador, Vosk WASM (offline), Vosk remoto (WebSocket), nuvem (adapter genérico + 1–2 provedores de referência) |
 | `tts` | `speechSynthesis` do navegador, nuvem (adapter genérico), modelos no navegador (Piper, Kokoro, transformers.js) com efeitos declarativos ([ADR 0013](./docs/adr/0013-sintese-de-voz-e-efeitos.md)) |
-| `realtime` | Modelos speech-to-speech (OpenAI Realtime, Gemini Live etc.) como **transporte** que dispensa STT/TTS |
+| `realtime` | Modelos speech-to-speech (OpenAI Realtime, Gemini Live, sessões ao vivo do ADK etc.) como **transporte** que dispensa STT/TTS. P1: é por aqui que agentes multimodais "completos" entram sem tirar o H4B da página (seção 1) |
 
 - Cada provedor declara capacidades (`partials`, `offline`, `languages`, `latency`, `cost`). O gerenciador escolhe pela ordem configurada, com fallback automático.
 - **Chaves de nuvem nunca ficam no navegador:** o backend emite um token efêmero (`tokenUrl`).
@@ -340,6 +359,8 @@ O registro de ações substitui o `BotsCommands` (que hoje executa `window[comma
 | `render-mcp-apps` | Renderiza `ui://` de MCP Apps em iframe com sandbox dentro de slots | P1 |
 | `transport-ai-sdk` / `bridge-assistant-ui` | Alternativas ao AG-UI / CopilotKit; provam a substituibilidade | P1 |
 | `transport-rasa`, `transport-universal-llm`, `transport-turn-based` | Backends existentes e APIs síncronas genéricas (ex.: Laravel) | P1 |
+| `transport-realtime` | Sessão fala-a-fala (áudio e vídeo) com ações pelo canal de dados; provedor de referência em aberto (seção 8) | P1 |
+| Frameworks de agente (ADK etc.) | Sem pacote próprio: entram via AG-UI (`ag_ui_adk` no ADK) ou pelo `transport-realtime`. Falta um exemplo que prove isso | P1 |
 | `vue` | Composables (`useMessages`, `useAction`, `useContextSignal`, `useService`, `useStore`) — entregue | P2 |
 
 **Dois modos de uso com CopilotKit:**
@@ -471,7 +492,8 @@ Os prazos assumem uma equipe pequena. Cada fase só termina quando o critério d
 | 4.2 | `render-mcp-apps` + slots `ui.render` para componentes do host |
 | 4.3 | `input-camera` (foto, frames de vídeo), `input-files`, `input-gui` |
 | 4.4 | Primeiros `sensor-*` (geolocalização, orientação) com consentimento e `beforeSend` |
-| 4.5 | Transporte `realtime` (1 provedor de referência) |
+| 4.5 | Transporte `realtime` (1 provedor de referência), promovido a P1 em 2026-11 (seção 1) |
+| 4.6 | Exemplo com um agente de framework (ADK) usando as ações do H4B via AG-UI, e a mesma conversa por voz via `realtime` |
 
 **Saída:** um agente do navegador opera o app via WebMCP com as mesmas ações e políticas do assistente interno; foto e sensor chegam ao backend como sinais.
 
@@ -507,10 +529,12 @@ P1 — diferenciais
 ├── STT/TTS em nuvem + Vosk + barge-in
 ├── expose-webmcp + render-mcp-apps
 ├── Câmera, arquivos, eventos de GUI
-└── Transportes alternativos (AI SDK, Rasa, UniversalLLM, turn-based)
+├── Transportes alternativos (AI SDK, Rasa, UniversalLLM, turn-based)
+├── Transporte realtime (fala-a-fala) com ações e histórico
+└── Exemplo "agente de framework com as mãos do H4B" (ADK via AG-UI)
 
 P2 — expansão
-├── Sensores, transporte realtime, vídeo contínuo
+├── Sensores, vídeo contínuo
 ├── Matcher semântico local no menu
 ├── vue, bridge-assistant-ui
 └── remote-config
@@ -531,6 +555,8 @@ P3 — reavaliar com demanda
 4. **Tools via prompt como caminho principal.** Function calling nativo é o padrão; prompt é fallback.
 5. **Cliente A2A no navegador.** É protocolo servidor ↔ servidor; fora do escopo.
 6. **Mascarar a latência do LLM com atrasos artificiais no menu.** Consistência vem da gramática visual, não de deixar o rápido lento.
+7. **Virar framework de agente.** Tools no servidor, orquestração e memória de longo prazo são do backend (ADK, Agents SDK, LangGraph…). O H4B se conecta a eles; não compete com eles.
+8. **Automação genérica do DOM como caminho principal de ação.** As ações declaradas são o contrato. "Mãos" genéricas, se vierem, só como reserva e sob as mesmas políticas (seção 8).
 
 ---
 
@@ -545,6 +571,8 @@ P3 — reavaliar com demanda
 | Bundle | `core` < 15 kB gzip sem plugins |
 | Cobertura da v1 | 100% dos itens da tabela 2.11 com destino implementado ou aposentadoria documentada |
 | Exposição | ≥ 1 ação executada por agente de navegador via WebMCP no exemplo oficial |
+| Fala-a-fala | A mesma conversa troca `voice` (STT/TTS) ↔ transporte `realtime` só por configuração, com ações, barge-in e histórico com transcrição |
+| Frameworks de agente | ≥ 1 agente de framework (ADK) usando as ações do H4B no exemplo oficial |
 
 ---
 
@@ -558,6 +586,8 @@ P3 — reavaliar com demanda
 | 4 | Matcher semântico local no menu | Modelo de embeddings pequeno no navegador vs. só padrões; decidir com dados da Fase 3 |
 | 5 | Destino do widget atual | Reescrever sobre o core v2 vs. manter visual e trocar só o motor |
 | 6 | Cripto local da sessão | Decidida no [ADR 0008](./docs/adr/0008-persistencia-e-abas.md) para limitar o tempo de legibilidade (chave em cookie que expira ou no backend). A proteção contra XSS segue em aberto: revisão prioritária (seção 3) |
+| 7 | Provedor de referência do transporte `realtime` | Gemini Live (via ADK ou direto) vs. OpenAI Realtime; decidir por pt-BR, vídeo, chamadas de ferramenta na sessão e token efêmero para o navegador |
+| 8 | "Mãos" genéricas de reserva | Ações genéricas (clicar, preencher, rolar) com destaque visível, sob `exposeTo`, confirmação e histórico, para partes do app sem ação declarada vs. só ações declaradas. Recomendação: só ações declaradas até haver demanda; reavaliar se agentes de navegador passarem a ignorar o WebMCP |
 
 ---
 
@@ -565,6 +595,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-11-04 | Posicionamento diante de frameworks de agente e "browser hands" (seção 1); transporte `realtime` promovido a P1; exemplo com agente ADK; itens 7 e 8 em "O que não fazer"; decisões em aberto 7 e 8 |
 | 2026-10-11 | Sobras de consentimento negado apagadas pelo `erase` do plugin, sem montá-lo: o `apply` nunca roda sem a finalidade (ADR 0012) |
 | 2026-10-07 | Consentimento por finalidade com regras declarativas por região, apagando o storage ao revogar; pacote `consent` com presets e anonimização (ADR 0010); guia de consentimento; skill `handsforbots-consent` |
 | 2026-10-07 | Política de memória: pacote `memory` montado por padrão, turnos enviados/guardados, compactação (ADR 0009); guia de persistência, memória e privacidade; skill `handsforbots-persistence` |
