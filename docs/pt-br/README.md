@@ -49,6 +49,7 @@ await h4b.start()
 - [Desenvolvimento](./development.md)
 - [Migrando da v1](./migrating-from-v1.md)
 - [Referências](./references.md): bibliotecas, serviços e artigos por trás das decisões
+- [Projetos de terceiros](./NOTICE.md): pacotes e licenças
 - [Roadmap](../../ROADMAP.md) (arquitetura, decisões, estado)
 
 ## Exemplos

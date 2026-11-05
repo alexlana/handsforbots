@@ -57,6 +57,7 @@ await h4b.start()
 - [Development](./docs/en-us/development.md)
 - [Migrating from v1](./docs/en-us/migrating-from-v1.md)
 - [References](./docs/en-us/references.md): libraries, services and papers behind the decisions
+- [Third-party projects](./NOTICE.md): packages and licenses
 - [Roadmap](./ROADMAP.md) (architecture, decisions, status; Portuguese)
 
 ## Examples
