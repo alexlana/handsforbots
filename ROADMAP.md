@@ -58,11 +58,66 @@ Tutoriais e frameworks de agente (o ADK do Google, o Agents SDK da OpenAI e afin
 
 **Posição:** o framework de agente dá capacidades ao agente; o H4B dá essas capacidades **na página do usuário, com o usuário presente**. O H4B não vira framework de agente (seção 6) e trata cada framework como mais um backend:
 
-- **Por turno:** o agente fala AG-UI e usa o `transport-agui`. Para o ADK existe a ponte `ag_ui_adk`, que leva as ferramentas do cliente para dentro do agente ([referências](./docs/pt-br/references.md#frameworks-de-agente-e-browser-hands)); validar com um exemplo.
+- **Por turno:** o agente fala AG-UI e usa o `transport-agui`. Para o ADK existe a ponte `ag_ui_adk`, que leva as ferramentas do cliente para dentro do agente ([referências](./docs/pt-br/references.md#frameworks-de-agente-e-browser-hands)); validar com a prova de conceito abaixo.
 - **Fala-a-fala:** o agente usa uma sessão ao vivo e entra pelo transporte `realtime`, que passa a ser P1 (seção 5).
 - **Agente de navegador externo:** usa as ações publicadas pelo `expose-webmcp`, com a menor confiança por origem, em vez de automatizar o DOM.
 
 Se as "mãos" genéricas (automação do DOM ou por visão) ficarem boas o bastante, cai o incentivo para declarar ações. O argumento do H4B é o que elas não dão: execução determinística e instantânea pelo menu, validação e confirmação auditáveis, histórico coerente e a colaboração visível (destaques, tours, voz). Isso precisa aparecer na documentação e nos exemplos, não só neste roadmap.
+
+### Prova de conceito: agente multimodal com as mãos do H4B
+
+O posicionamento acima ainda é hipótese. Nada da pilha do vídeo foi testado por nós ([referências](./docs/pt-br/references.md#frameworks-de-agente-e-browser-hands)), a ponte `ag_ui_adk` não foi exercitada contra o `transport-agui`, e o transporte `realtime` está parado à espera de um provedor e de uma chave para validar (seção 3). Antes de investir no pacote `transport-realtime` e de repetir o argumento em documentação, precisamos de uma **demo que monte a mesma arquitetura em camadas, com o H4B no lugar das mãos e dos olhos na página**, e mostre na prática o que cada lado faz.
+
+**Pergunta que a demo responde:** um agente montado do jeito que o vídeo ensina (ADK + Gemini, com tools, memória, voz e visão) consegue usar o H4B como suas mãos e seus olhos dentro da página do usuário, sem perder a voz ao vivo, e o resultado é melhor do que dar ao mesmo agente um navegador automatizado?
+
+**Arquitetura da demo:**
+
+```mermaid
+flowchart LR
+  subgraph Pagina["Navegador: app de pedidos (examples/react-agui)"]
+    UI["Componentes do app"]
+    H4B["H4B: ações, menu, confirm,<br/>voice, inputs (câmera), memory"]
+    WebMCP["expose-webmcp"]
+  end
+  subgraph Backend["Backend Python"]
+    Bridge["ag_ui_adk (AG-UI ⇄ ADK)"]
+    Agent["Agente ADK (Gemini)<br/>tools de servidor + memória de sessão"]
+    Token["Emissor de token efêmero"]
+  end
+  Live["Gemini Live API"]
+  Externo["Agente de navegador externo<br/>(Playwright / browser-use)"]
+
+  H4B -- "turnos via transport-agui (SSE)" --> Bridge
+  Bridge --> Agent
+  Agent -- "tool calls do cliente" --> H4B
+  H4B -- "sessão realtime (áudio/vídeo + ações)" --> Live
+  Token -. "token" .-> H4B
+  Externo -- "ações declaradas" --> WebMCP
+  Externo -. "comparação: automação do DOM" .-> UI
+```
+
+| Camada do vídeo | Na demo |
+|-----------------|---------|
+| SDK do modelo + framework | Agente ADK em Python com Gemini, servido pelo `ag_ui_adk` no lugar do `mockAgent` do `examples/react-agui` |
+| Tools | Tools de servidor do ADK (ex.: consultar estoque) **e** as ações da página (`filter_orders`, `open_order`, `highlight`, `cancel_order`) como ferramentas do cliente |
+| Hands | As ações do H4B: schema, confirmação da ação destrutiva, histórico, estados visíveis. Menu para o comando direto sem LLM |
+| Memory | Decidir quem guarda o quê: a janela e o resumo do `memory` do H4B vs. a sessão/memória do ADK, sem resumir duas vezes |
+| Hear / talk | Duas variantes da mesma conversa: (a) `voice` do H4B (STT/TTS) com o agente por turno; (b) sessão ao vivo do Gemini pelo protótipo do transporte `realtime` |
+| See | Foto ou quadro da câmera pelo `inputs` como sinal do turno; vídeo contínuo só na variante (b) |
+
+**Etapas** (cada uma é demonstrável sozinha, nessa ordem):
+
+1. **Agente ADK por turno, em texto.** Trocar o `mockAgent` por um servidor ADK + `ag_ui_adk` sem mudar o front. Prova que ferramentas do cliente, sinais de contexto (`orders.view`), confirmação e histórico passam pela ponte. É o item 4.6 na sua forma mínima.
+2. **Voz pelo H4B.** A mesma conversa com `voice` (push-to-talk, mãos-livres, barge-in) contra o agente ADK. Nenhum código novo esperado; valida que o H4B cobre "hear · talk" sem sessão ao vivo.
+3. **Olhos pelo H4B.** Foto da câmera pelo `inputs` chegando ao agente como conteúdo do turno (ex.: "que pedido é esse?" mostrando uma etiqueta).
+4. **Fala-a-fala.** Protótipo do transporte `realtime` com a Gemini Live API (direto ou via sessão ao vivo do ADK): token efêmero emitido pelo backend, ações da página chamadas na sessão e devolvidas pelo canal de dados, barge-in e histórico com transcrição. Pode viver no exemplo antes de virar pacote; o que ele ensinar decide a decisão em aberto 7 e alimenta um ADR.
+5. **Comparação com mãos externas** (opcional, mas é o argumento da seção). O mesmo roteiro de tarefas feito por um agente de navegador externo de dois jeitos: automatizando o DOM e chamando as ações publicadas pelo `expose-webmcp`. Registrar acerto, tempo, número de passos e o que o usuário viu.
+
+**Entregáveis:** `examples/adk-agui/` (ou um modo do `examples/react-agui` apontando para o ADK) com o agente em Python, instruções para rodar com uma chave do Gemini só no backend, um roteiro de demo de 3–5 minutos (texto → voz → câmera → fala-a-fala → comparação) e uma gravação; a seção de exemplos em `docs/en-us` e `docs/pt-br` atualizada quando a demo rodar.
+
+**Critério de saída:** as etapas 1 a 3 rodam com o agente ADK real sem mudar o core; a etapa 4 conversa por voz ao vivo e executa ao menos uma ação da página com confirmação e transcrição no histórico; a tabela da etapa 5 existe, mesmo que mostre que as mãos externas vão bem. Se algum passo exigir mudança de contrato no core, ela entra por ADR, não pela demo.
+
+**Riscos e o que precisamos:** maturidade da `ag_ui_adk` (ordem dos resultados das ferramentas do cliente, streaming); qualidade do pt-BR e custo da Gemini Live; uma chave do Gemini (ou projeto Vertex) para a equipe; WebMCP ainda atrás de flag no Chrome. A demo não é produto: nada dela vira dependência do core, e um agente de outro framework (Agents SDK, LangGraph) deve poder ocupar o mesmo lugar.
 
 ---
 
@@ -493,7 +548,7 @@ Os prazos assumem uma equipe pequena. Cada fase só termina quando o critério d
 | 4.3 | `input-camera` (foto, frames de vídeo), `input-files`, `input-gui` |
 | 4.4 | Primeiros `sensor-*` (geolocalização, orientação) com consentimento e `beforeSend` |
 | 4.5 | Transporte `realtime` (1 provedor de referência), promovido a P1 em 2026-11 (seção 1) |
-| 4.6 | Exemplo com um agente de framework (ADK) usando as ações do H4B via AG-UI, e a mesma conversa por voz via `realtime` |
+| 4.6 | Prova de conceito com um agente de framework (ADK) usando as ações do H4B via AG-UI, e a mesma conversa por voz via `realtime` (etapas na seção 1). Pode começar antes de 4.5: as etapas 1–3 não dependem do `realtime` e a etapa 4 é o protótipo dele |
 
 **Saída:** um agente do navegador opera o app via WebMCP com as mesmas ações e políticas do assistente interno; foto e sensor chegam ao backend como sinais.
 
@@ -531,7 +586,7 @@ P1 — diferenciais
 ├── Câmera, arquivos, eventos de GUI
 ├── Transportes alternativos (AI SDK, Rasa, UniversalLLM, turn-based)
 ├── Transporte realtime (fala-a-fala) com ações e histórico
-└── Exemplo "agente de framework com as mãos do H4B" (ADK via AG-UI)
+└── Prova de conceito "agente de framework com as mãos do H4B" (ADK via AG-UI + Gemini Live; seção 1)
 
 P2 — expansão
 ├── Sensores, vídeo contínuo
@@ -572,7 +627,7 @@ P3 — reavaliar com demanda
 | Cobertura da v1 | 100% dos itens da tabela 2.11 com destino implementado ou aposentadoria documentada |
 | Exposição | ≥ 1 ação executada por agente de navegador via WebMCP no exemplo oficial |
 | Fala-a-fala | A mesma conversa troca `voice` (STT/TTS) ↔ transporte `realtime` só por configuração, com ações, barge-in e histórico com transcrição |
-| Frameworks de agente | ≥ 1 agente de framework (ADK) usando as ações do H4B no exemplo oficial |
+| Frameworks de agente | ≥ 1 agente de framework (ADK) usando as ações do H4B no exemplo oficial; prova de conceito com as etapas 1–4 rodando e a comparação da etapa 5 registrada |
 
 ---
 
@@ -595,6 +650,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-11-05 | Prova de conceito do agente multimodal em camadas (ADK + Gemini) com o H4B como mãos e olhos na página: arquitetura, etapas, entregáveis e critério de saída (seção 1); item 4.6, P1 e métrica ajustados |
 | 2026-11-04 | Posicionamento diante de frameworks de agente e "browser hands" (seção 1); transporte `realtime` promovido a P1; exemplo com agente ADK; itens 7 e 8 em "O que não fazer"; decisões em aberto 7 e 8 |
 | 2026-10-11 | Sobras de consentimento negado apagadas pelo `erase` do plugin, sem montá-lo: o `apply` nunca roda sem a finalidade (ADR 0012) |
 | 2026-10-07 | Consentimento por finalidade com regras declarativas por região, apagando o storage ao revogar; pacote `consent` com presets e anonimização (ADR 0010); guia de consentimento; skill `handsforbots-consent` |
