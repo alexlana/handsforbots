@@ -4,6 +4,7 @@ import {
   sameRetention,
   textOf,
   type H4B,
+  sourcesOf,
   type MediaPart,
   type Message,
   type Retention,
@@ -12,11 +13,13 @@ import {
 } from '@handsforbots/core'
 import { stringsFor, type Strings } from './i18n.js'
 import { escapeHtml, renderMarkdown } from './markdown.js'
+import { renderCitedText, sourceList, type SourcesOptions } from './sources.js'
 import { PALETTES, STYLES } from './styles.js'
 
 export { renderMarkdown, escapeHtml } from './markdown.js'
 export { stringsFor, STRINGS, type Strings } from './i18n.js'
 export { PALETTES } from './styles.js'
+export { renderCitedText, type SourcesOptions } from './sources.js'
 
 export type QuickReply = { label: string; payload?: string }
 
@@ -100,6 +103,11 @@ export type WidgetOptions = {
    * `consent`) and delete it. Default true.
    */
   showPrivacy?: boolean
+  /**
+   * Sources and citations of assistant messages (ADR 0014): numbered
+   * references in the text and a list under the message. `false` hides them.
+   */
+  sources?: SourcesOptions | false
 }
 
 const TAG = 'h4b-chat'
@@ -294,6 +302,7 @@ export class H4BChatElement extends BaseElement {
       launcher.hidden = true
     }
 
+    this.els.log.addEventListener('click', (event) => this.onSourceClick(event))
     launcher.addEventListener('click', () => this.setOpen(!this.isOpen))
     close.addEventListener('click', () => this.setOpen(false))
     form.addEventListener('submit', (event) => {
@@ -446,7 +455,8 @@ export class H4BChatElement extends BaseElement {
     const text = textOf(message)
     const images = message.parts.filter((p): p is MediaPart => p.type === 'image')
     const rich = message.parts.filter((p) => p.type === 'data' && p.name === 'ui')
-    if (!text && images.length === 0 && rich.length === 0) {
+    const sources = this.options.sources === false || message.role !== 'assistant' ? [] : sourcesOf(message)
+    if (!text && images.length === 0 && rich.length === 0 && sources.length === 0) {
       element.hidden = true // e.g. assistant message that only carries tool calls
       return
     }
@@ -459,8 +469,13 @@ export class H4BChatElement extends BaseElement {
     // Text is re-rendered on every update; rich parts (images, components such as
     // MCP App iframes) are created once, so they keep their state while text streams.
     const textElement = this.region(element, 'text')
-    textElement.innerHTML = text ? renderMarkdown(text) : ''
+    const sourceOptions = this.options.sources || {}
+    textElement.innerHTML = !text ? '' : sources.length ? renderCitedText(message, sourceOptions) : renderMarkdown(text)
     textElement.hidden = !text
+    const sourcesElement = this.region(element, 'sources')
+    const list = sources.length ? sourceList(message, s.sources, s.consultedSources, sourceOptions) : undefined
+    sourcesElement.replaceChildren(...(list ? [list] : []))
+    sourcesElement.hidden = !list
     element.classList.toggle('streaming', !!message.streaming)
     element.classList.toggle('interrupted', !!message.interrupted)
     element.title = message.interrupted ? s.interrupted : ''
@@ -485,15 +500,44 @@ export class H4BChatElement extends BaseElement {
     }
   }
 
-  private region(element: HTMLElement, name: 'text' | 'media'): HTMLElement {
-    let region = [...element.children].find((child) => child.classList.contains(name)) as HTMLElement | undefined
+  private region(element: HTMLElement, name: 'text' | 'sources' | 'media'): HTMLElement {
+    const find = (n: string) => [...element.children].find((child) => child.classList.contains(n)) as HTMLElement | undefined
+    let region = find(name)
     if (!region) {
       region = document.createElement('div')
       region.className = name
       if (name === 'text') element.prepend(region)
+      else if (name === 'sources') {
+        const text = find('text')
+        if (text) text.after(region)
+        else element.prepend(region)
+      }
       else element.append(region)
     }
     return region
+  }
+
+  /** Clicks on references and sources: run the configured action, or show the source in the list. */
+  private onSourceClick(event: Event) {
+    const target = (event.target as Element | null)?.closest?.('[data-source]') as HTMLElement | null
+    if (!target || !this.h4b) return
+    const { source: id, message: messageId } = target.dataset
+    const message = this.h4b.messages.find((m) => m.id === messageId)
+    const source = message && sourcesOf(message).find((s) => s.id === id)
+    if (!source) return
+    const options = this.options.sources || {}
+    if (options.action) {
+      event.preventDefault()
+      const { type: _, excerpt: __, ...args } = source
+      void this.h4b.runAction(options.action, { ...args, messageId }, { origin: 'user' })
+      return
+    }
+    if (target.tagName === 'BUTTON' && target.closest('.text')) {
+      const item = this.root.getElementById(`src-${messageId}-${id}`)
+      item?.scrollIntoView?.({ block: 'nearest' })
+      item?.classList.add('flash')
+      setTimeout(() => item?.classList.remove('flash'), 1200)
+    }
   }
 
   private imageElement(image: MediaPart): HTMLImageElement {

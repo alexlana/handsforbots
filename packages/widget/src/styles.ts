@@ -121,6 +121,16 @@ header button[hidden] { display: none; }
 .msg img { display: block; max-width: 100%; border-radius: 10px; margin-top: 4px; }
 .msg.streaming::after { content: '▍'; animation: blink 1s steps(2) infinite; opacity: .6; }
 .msg.interrupted::after { content: ' …'; opacity: .6; }
+.msg .cite { line-height: 0; margin-left: 1px; }
+.msg .cite a, .msg .cite button { appearance: none; font: inherit; font-size: .75em; line-height: 1.3; color: var(--h4b-primary); background: var(--h4b-soft); border: 0; border-radius: 6px; padding: 0 4px; cursor: pointer; text-decoration: none; }
+.msg .source-list { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--h4b-border); font-size: .85em; }
+.msg .sources-title { color: var(--h4b-muted); font-size: .9em; margin: 4px 0 2px; }
+.msg .sources ol, .msg .sources ul { margin: 0; padding-left: 1.4em; }
+.msg .sources li { margin: 2px 0; transition: background .3s; border-radius: 4px; }
+.msg .sources li.flash { background: var(--h4b-soft); }
+.msg .sources button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.msg .sources .trail { display: block; color: var(--h4b-muted); font-size: .9em; }
+.msg .sources .consulted { opacity: .7; }
 .msg.pending { display: none; }
 .msg.queued { opacity: .55; }
 .msg.rich { max-width: 100%; }

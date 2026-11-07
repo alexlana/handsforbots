@@ -10,6 +10,7 @@ import {
   useContextSignal,
   useMessages,
   useService,
+  useSources,
   useStimulus,
   useStore,
 } from '../src/index.js'
@@ -150,5 +151,33 @@ describe('vue bindings', () => {
     const scope = effectScope()
     expect(() => scope.run(() => useMessages())).toThrow(/h4bVue/)
     scope.stop()
+  })
+
+  it('splits sources from the text of a message', async () => {
+    const h4b = createH4B()
+    h4b.provide('transport', {
+      name: 't',
+      async *run() {
+        yield { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c1', title: 'Autotrac' } }
+        yield { type: 'message.delta', messageId: 'a', delta: 'Rastreia.' }
+        yield { type: 'message.citations', messageId: 'a', citations: [{ start: 0, end: 9, sourceIds: ['c1'] }] }
+      },
+    })
+    let view: ReturnType<typeof useSources> | undefined
+    mount(
+      h4b,
+      defineComponent(() => {
+        const messages = useMessages()
+        view = useSources(() => messages.value.find((m) => m.role === 'assistant') ?? { id: 'none', role: 'assistant', parts: [], createdAt: 0 })
+        return () => h('p')
+      }),
+    )
+    await h4b.ask('o que é?')
+    await nextTick()
+    expect(view!.value.segments).toEqual([
+      { kind: 'text', text: 'Rastreia.', sourceIds: ['c1'] },
+      { kind: 'ref', sourceIds: ['c1'] },
+    ])
+    expect(view!.value.cited).toEqual([{ type: 'source', id: 'c1', title: 'Autotrac', number: 1 }])
   })
 })

@@ -58,6 +58,26 @@ describe('chunk mapping', () => {
     ])
   })
 
+  it('maps source-url and source-document parts and data-citations', () => {
+    const map = createChunkMapper()
+    const out = [
+      { type: 'start', messageId: 'm1' },
+      { type: 'source-url', sourceId: 's1', url: 'https://example.com/a#b', title: 'Página A' },
+      { type: 'source-url', sourceId: 's2', url: 'https://example.com/c' },
+      { type: 'source-document', sourceId: 's3', mediaType: 'application/pdf', title: 'Manual', filename: 'manual.pdf' },
+      { type: 'text-delta', id: 'a', delta: 'Fato.' },
+      { type: 'data-citations', data: { citations: [{ start: 0, end: 5, sourceIds: ['s1'] }] } },
+    ].flatMap(map)
+    expect(out).toEqual([
+      { type: 'message.part', messageId: 'm1', part: { type: 'source', id: 's1', title: 'Página A', url: 'https://example.com/a#b' } },
+      { type: 'message.part', messageId: 'm1', part: { type: 'source', id: 's2', title: 'https://example.com/c', url: 'https://example.com/c' } },
+      { type: 'message.part', messageId: 'm1', part: { type: 'source', id: 's3', title: 'Manual' } },
+      { type: 'message.start', messageId: 'm1' },
+      { type: 'message.delta', messageId: 'm1', delta: 'Fato.' },
+      { type: 'message.citations', messageId: 'm1', citations: [{ start: 0, end: 5, sourceIds: ['s1'] }] },
+    ])
+  })
+
   it('folds tool results into the assistant tool part, like the AI SDK client does', async () => {
     const ui = await toUIMessages([
       { id: 'u', role: 'user', parts: [{ type: 'text', text: 'oi' }], modality: 'text', source: 'x', createdAt: 0 },

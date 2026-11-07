@@ -12,6 +12,10 @@ export type Strings = {
   aborted: string
   /** Tooltip on a reply cut short by the user. */
   interrupted: string
+  /** Heading of the sources under a reply. */
+  sources: string
+  /** Heading of the sources consulted but not cited, when some were cited. */
+  consultedSources: string
   directAction: string
   assistantAction: string
   agentAction: string
@@ -64,6 +68,8 @@ const pt: Strings = {
   error: 'Algo deu errado',
   aborted: 'Cancelado',
   interrupted: 'Interrompida',
+  sources: 'Fontes',
+  consultedSources: 'Também consultadas',
   directAction: '⚡ ação direta',
   assistantAction: '🤖 executou',
   agentAction: '🌐 agente externo executou',
@@ -114,6 +120,8 @@ export const STRINGS: Record<string, Strings> = {
     error: 'Something went wrong',
     aborted: 'Cancelled',
     interrupted: 'Interrupted',
+    sources: 'Sources',
+    consultedSources: 'Also consulted',
     directAction: '⚡ direct action',
     assistantAction: '🤖 ran',
     agentAction: '🌐 external agent ran',

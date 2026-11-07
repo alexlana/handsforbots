@@ -80,6 +80,46 @@ describe('event mapper', () => {
   })
 })
 
+describe('sources and citations', () => {
+  const source = { id: 'c1', title: 'Autotrac', trail: ['Autotrac', 'Cap. 1'], url: 'https://example.com/autotrac#cap-1', excerpt: 'Trecho' }
+
+  it('maps h4b.sources and h4b.citations to the message in progress or the one named', () => {
+    const map = createEventMapper()
+    const out = [
+      ev(EventType.CUSTOM, { name: 'h4b.sources', value: { messageId: 'm', sources: [source, { id: 'c2', title: 'Outro', extra: 1, url: 7 }] } }),
+      ev(EventType.TEXT_MESSAGE_START, { messageId: 'm', role: 'assistant' }),
+      ev(EventType.TEXT_MESSAGE_CONTENT, { messageId: 'm', delta: 'Autotrac rastreia.' }),
+      ev(EventType.CUSTOM, { name: 'h4b.sources', value: { sources: [{ id: 'c3', title: 'Mais' }, { title: 'sem id' }] } }),
+      ev(EventType.TEXT_MESSAGE_END, { messageId: 'm' }),
+      ev(EventType.CUSTOM, { name: 'h4b.citations', value: { citations: [{ start: 0, end: 18, sourceIds: ['c1'] }] } }),
+    ].flatMap(map)
+    expect(out).toEqual([
+      { type: 'message.part', messageId: 'm', part: { type: 'source', ...source } },
+      { type: 'message.part', messageId: 'm', part: { type: 'source', id: 'c2', title: 'Outro' } },
+      { type: 'message.start', messageId: 'm' },
+      { type: 'message.delta', messageId: 'm', delta: 'Autotrac rastreia.' },
+      { type: 'message.part', messageId: 'm', part: { type: 'source', id: 'c3', title: 'Mais' } },
+      { type: 'message.end', messageId: 'm' },
+      { type: 'message.citations', messageId: 'm', citations: [{ start: 0, end: 18, sourceIds: ['c1'] }] },
+    ])
+  })
+
+  it('does not send sources back in the history', async () => {
+    const messages: Message[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        createdAt: 0,
+        parts: [
+          { type: 'source', id: 'c1', title: 'Autotrac' },
+          { type: 'text', text: 'Autotrac rastreia.', citations: [{ start: 0, end: 18, sourceIds: ['c1'] }] },
+        ],
+      },
+    ]
+    expect(await toAguiMessages(messages)).toEqual([{ id: 'a1', role: 'assistant', content: 'Autotrac rastreia.' }])
+  })
+})
+
 describe('message conversion', () => {
   it('converts history, tool calls and media to AG-UI messages', async () => {
     const messages: Message[] = [

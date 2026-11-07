@@ -17,8 +17,8 @@ flowchart LR
 ```
 
 - A **trigger** signal starts a turn. A **context** signal (`kind: 'context'`) is kept and sent with every turn until replaced (same `key`) or removed: current page, selection, sensor readings, camera frames.
-- **Parts** carry content: `text`, media (`image`, `audio`, `video`, `file` as Blob, base64 or URL) and `data` (structured values).
-- **Stimuli** are what backends (and direct commands) produce: `message.start/delta/part/end`, `action.call`, `action.result`, `ui.render`, `ui.effect`, `state.snapshot/patch`, `audio`, `custom`, `error`. A synchronous backend is just a stream with one batch.
+- **Parts** carry content: `text` (optionally with `citations`), media (`image`, `audio`, `video`, `file` as Blob, base64 or URL), `data` (structured values) and `source` (where an answer came from; see [Sources and citations](./sources.md)).
+- **Stimuli** are what backends (and direct commands) produce: `message.start/delta/part/end`, `message.citations`, `action.call`, `action.result`, `ui.render`, `ui.effect`, `state.snapshot/patch`, `audio`, `custom`, `error`. A synchronous backend is just a stream with one batch.
 
 ## Routes
 

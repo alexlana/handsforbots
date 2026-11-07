@@ -377,6 +377,85 @@ describe('<h4b-chat> rich content', () => {
 })
 
 
+describe('<h4b-chat> sources', () => {
+  const sourcesReply = () => [
+    { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c1', title: 'Autotrac <b>', url: 'https://example.com/autotrac#cap-1', trail: ['Autotrac', 'Cap. 1'], excerpt: 'Trecho <i>' } },
+    { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c2', title: 'Relativa', url: '/cases/x' } },
+    { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c3', title: 'Só consultada' } },
+    { type: 'message.delta', messageId: 'a', delta: '**Autotrac** rastreia. Usa [docs](https://example.com).' },
+    {
+      type: 'message.citations',
+      messageId: 'a',
+      citations: [
+        { start: 0, end: 22, sourceIds: ['c2'] },
+        { start: 0, end: 22, sourceIds: ['c1', 'ghost'] },
+      ],
+    },
+  ]
+
+  it('numbers references in the text and lists cited, then consulted, sources as plain text', async () => {
+    const { h4b, $ } = await mount({ startOpen: true }, scripted(sourcesReply))
+    await h4b.ask('o que é a Autotrac?')
+    const bubble = $('.msg.assistant')
+    const text = bubble.querySelector('.text')!
+    expect(text.innerHTML).toContain('<strong>Autotrac</strong> rastreia.<sup class="cite"')
+    expect([...text.querySelectorAll('.cite [data-source]')].map((r) => [r.getAttribute('data-source'), r.textContent])).toEqual([
+      ['c2', '1'],
+      ['c1', '2'],
+    ])
+    // A relative URL is never a link; an absolute one opens in a new tab.
+    expect(text.querySelector('[data-source="c2"]')!.tagName).toBe('BUTTON')
+    const link = text.querySelector('a[data-source="c1"]')!
+    expect(link.getAttribute('href')).toBe('https://example.com/autotrac#cap-1')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(text.querySelector('a[href="https://example.com"]')!.textContent).toBe('docs')
+    const sources = bubble.querySelector('.sources')!
+    expect([...sources.querySelectorAll('ol li > :first-child')].map((e) => e.textContent)).toEqual(['Relativa', 'Autotrac <b>'])
+    expect(sources.querySelector('ol li:nth-child(2) .trail')!.textContent).toBe('Autotrac › Cap. 1')
+    expect(sources.querySelector('ol li:nth-child(2)')!.getAttribute('title')).toBe('Trecho <i>')
+    expect(sources.querySelector('b, i')).toBeNull()
+    expect([...sources.querySelectorAll('ul.consulted li')].map((e) => e.textContent)).toEqual(['Só consultada'])
+  })
+
+  it('shows consulted sources before the text arrives', async () => {
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const transport: Transport = {
+      name: 'slow',
+      async *run() {
+        yield { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c1', title: 'Autotrac' } }
+        await gate
+        yield { type: 'message.delta', messageId: 'a', delta: 'Pronto.' }
+      },
+    }
+    const { h4b, $ } = await mount({ startOpen: true }, transport as never)
+    const pending = h4b.ask('oi')
+    await vi.waitFor(() => expect($('.msg.assistant .sources')?.textContent).toContain('Autotrac'))
+    expect(($('.msg.assistant .text') as HTMLElement).hidden).toBe(true)
+    release()
+    await pending
+  })
+
+  it('runs the configured action instead of following the link', async () => {
+    const open = vi.fn(() => ({ ok: true }))
+    const { h4b, $ } = await mount({ startOpen: true, sources: { action: 'open_source' } }, scripted(sourcesReply))
+    h4b.actions.register({ name: 'open_source', description: 'Opens a source', handler: open })
+    await h4b.ask('o que é a Autotrac?')
+    const reference = $('.msg.assistant .text [data-source="c1"]')
+    expect(reference.tagName).toBe('BUTTON')
+    reference.click()
+    await vi.waitFor(() => expect(open).toHaveBeenCalled())
+    expect(open.mock.calls[0]![0]).toEqual({ id: 'c1', title: 'Autotrac <b>', url: 'https://example.com/autotrac#cap-1', trail: ['Autotrac', 'Cap. 1'], messageId: 'a' })
+  })
+
+  it('hides sources with sources: false', async () => {
+    const { h4b, $ } = await mount({ startOpen: true, sources: false }, scripted(sourcesReply))
+    await h4b.ask('o que é a Autotrac?')
+    expect($('.msg.assistant .cite')).toBeNull()
+    expect($('.msg.assistant .source-list')).toBeNull()
+  })
+})
+
 describe('<h4b-chat> rich parts are stable', () => {
   it('keeps rendered components while the text of the same message keeps changing', async () => {
     const created = vi.fn(() => document.createElement('section'))

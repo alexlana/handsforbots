@@ -1,5 +1,6 @@
 import { memory, type MemoryOptions } from '@handsforbots/memory'
 import { ActionError, ActionRegistry } from './actions.js'
+import { isCitation } from './citations.js'
 import { ConsentManager, type ConsentControl, type ConsentOptions } from './consent.js'
 import { Conversation } from './conversation.js'
 import { EventBus } from './events.js'
@@ -32,6 +33,7 @@ import type {
   Signal,
   SignalInput,
   Stimulus,
+  TextPart,
   ToolCall,
   ToolMessage,
   TurnRequest,
@@ -1131,7 +1133,31 @@ export class H4B {
       case 'message.part': {
         const id = this.ensureAssistant(round, stimulus.messageId)
         if ((conversation.find(id) as AssistantMessage).interrupted) return
-        conversation.update<AssistantMessage>(id, (m) => ({ ...m, parts: [...m.parts, stimulus.part] }))
+        const part = stimulus.part
+        conversation.update<AssistantMessage>(id, (m) => {
+          const index = part.type === 'source' ? m.parts.findIndex((p) => p.type === 'source' && p.id === part.id) : -1
+          return { ...m, parts: index < 0 ? [...m.parts, part] : m.parts.with(index, part) }
+        })
+        break
+      }
+      case 'message.citations': {
+        const id = this.ensureAssistant(round, stimulus.messageId)
+        if ((conversation.find(id) as AssistantMessage).interrupted) return
+        const citations = (Array.isArray(stimulus.citations) ? stimulus.citations : []).filter(isCitation)
+        if (citations.length !== (stimulus.citations?.length ?? 0)) {
+          this.emit('error', { error: new Error('Malformed citations were dropped.'), source: 'message.citations' })
+        }
+        const message = conversation.find(id) as AssistantMessage
+        const index = message.parts.findLastIndex((p) => p.type === 'text')
+        if (index < 0) {
+          this.emit('error', { error: new Error('Citations need a text part to point into.'), source: 'message.citations' })
+          return
+        }
+        if (!citations.length) return
+        conversation.update<AssistantMessage>(id, (m) => {
+          const text = m.parts[index] as TextPart
+          return { ...m, parts: m.parts.with(index, { ...text, citations: [...(text.citations ?? []), ...citations] }) }
+        })
         break
       }
       case 'message.end':
@@ -1235,7 +1261,7 @@ function mergeSignals(first: Signal, second: Signal): Signal {
   return { ...second, parts, meta: { ...first.meta, ...second.meta, mergedFrom } }
 }
 
-/** Keeps the first `keep` characters of the text parts; other parts stay. */
+/** Keeps the first `keep` characters of the text parts (and the citations inside them); other parts stay. */
 function cutText(parts: Part[], keep: number): Part[] {
   let left = keep
   const result: Part[] = []
@@ -1246,7 +1272,10 @@ function cutText(parts: Part[], keep: number): Part[] {
     }
     const text = part.text.slice(0, Math.max(0, left))
     left -= part.text.length
-    if (text) result.push({ type: 'text', text })
+    if (!text) continue
+    // Citations past the cut point to text that is gone.
+    const citations = part.citations?.filter((c) => c.end <= text.length)
+    result.push(citations?.length ? { type: 'text', text, citations } : { type: 'text', text })
   }
   return result
 }

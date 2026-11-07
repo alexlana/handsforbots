@@ -1,4 +1,14 @@
-import { createH4B, textOf, type H4B, type H4BOptions, type Stimulus, type Transport, type TurnRequest } from '@handsforbots/core'
+import {
+  createH4B,
+  stripInlineCitations,
+  textOf,
+  type H4B,
+  type H4BOptions,
+  type SourcePart,
+  type Stimulus,
+  type Transport,
+  type TurnRequest,
+} from '@handsforbots/core'
 import { describe, expect, it } from 'vitest'
 
 /* -------------------------------------------------------------------------- */
@@ -27,6 +37,27 @@ export function reply(text: string, messageId = `m-${Math.random().toString(36).
   return [
     { type: 'message.start', messageId },
     { type: 'message.delta', messageId, delta: text },
+    { type: 'message.end', messageId },
+  ]
+}
+
+/**
+ * Text reply backed by sources, as a RAG backend sends it (ADR 0014): the
+ * sources first (as `message.part`), then the text, then the citations.
+ * Markers such as `[c1]` in `text` become citations and are removed from it
+ * (`stripInlineCitations`, only for ids in `sources`).
+ */
+export function citedReply(
+  text: string,
+  sources: Array<Omit<SourcePart, 'type'>>,
+  messageId = `m-${Math.random().toString(36).slice(2)}`,
+): Stimulus[] {
+  const clean = stripInlineCitations(text, { known: sources.map((s) => s.id) })
+  return [
+    { type: 'message.start', messageId },
+    ...sources.map((source): Stimulus => ({ type: 'message.part', messageId, part: { ...source, type: 'source' } })),
+    { type: 'message.delta', messageId, delta: clean.text },
+    ...(clean.citations.length ? [{ type: 'message.citations', messageId, citations: clean.citations } satisfies Stimulus] : []),
     { type: 'message.end', messageId },
   ]
 }

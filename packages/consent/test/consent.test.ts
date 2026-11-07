@@ -129,6 +129,29 @@ describe('redaction', () => {
     expect(redactMessages(messages, { media: 'keep' })[0]).toMatchObject({ parts: [{}, { type: 'file' }] })
   })
 
+  it('anonymizes sources and drops citations, whose positions no longer fit the redacted text', () => {
+    const messages: Message[] = [
+      {
+        id: 'a',
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          { type: 'source', id: 'c1', title: 'Ficha de ana@x.com', trail: ['Clientes', 'ana@x.com'], url: 'https://x.test/ana@x.com', excerpt: 'fone (11) 3333-4444' },
+          { type: 'text', text: 'Ana: ana@x.com.', citations: [{ start: 0, end: 15, sourceIds: ['c1'] }] },
+        ],
+      },
+    ]
+    expect(redactMessages(messages)[0]).toEqual({
+      id: 'a',
+      role: 'assistant',
+      createdAt: 1,
+      parts: [
+        { type: 'source', id: 'c1', title: 'Ficha de [email]', trail: ['Clientes', '[email]'], url: 'https://x.test/[email]', excerpt: 'fone [phone]' },
+        { type: 'text', text: 'Ana: [email].' },
+      ],
+    })
+  })
+
   it('as a plugin, anonymizes what is stored while the purpose is granted, never what is on screen', async () => {
     const saved: SessionSnapshot[] = []
     const store = definePlugin({

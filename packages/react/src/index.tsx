@@ -4,18 +4,21 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import type {
-  ActionDefinition,
-  Events,
-  H4B,
-  H4BSnapshot,
-  Message,
-  Modality,
-  TurnStatus,
+import {
+  sourceView,
+  type ActionDefinition,
+  type Events,
+  type H4B,
+  type H4BSnapshot,
+  type Message,
+  type Modality,
+  type SourceView,
+  type TurnStatus,
 } from '@handsforbots/core'
 
 const H4BContext = createContext<H4B | null>(null)
@@ -54,6 +57,14 @@ export function useH4BState<T = H4BSnapshot>(selector: (snapshot: H4BSnapshot) =
 export const useMessages = (): Message[] => useH4BState((s) => s.messages)
 export const useTurn = (): TurnStatus | undefined => useH4BState((s) => s.turn)
 export const useBusy = (): boolean => useH4BState((s) => s.busy)
+
+/**
+ * A message's sources split from its text (ADR 0014): `segments` (text and
+ * references), `cited` (numbered) and `consulted`. Recomputed when the
+ * message changes (messages are immutable). Render titles and excerpts as
+ * text, and links only through `safeSourceUrl`.
+ */
+export const useSources = (message: Message): SourceView => useMemo(() => sourceView(message), [message])
 export const useSharedState = <T = unknown,>(): T => useH4BState((s) => s.state as T)
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect

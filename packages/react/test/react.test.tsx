@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react'
-import { createH4B, textOf, type Transport, type TurnRequest } from '@handsforbots/core'
+import { createH4B, textOf, type Message, type Transport, type TurnRequest } from '@handsforbots/core'
 import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { H4BProvider, useAction, useBusy, useContextSignal, useMessages, useStimulus } from '../src/index.js'
+import { H4BProvider, useAction, useBusy, useContextSignal, useMessages, useSources, useStimulus } from '../src/index.js'
 
 afterEach(cleanup)
 
@@ -115,5 +115,39 @@ describe('react bindings', () => {
     )
     await act(() => h4b.ask('onde salvo?'))
     expect(effects).toEqual(['#save'])
+  })
+
+  it('splits sources from the text of a message', async () => {
+    const h4b = createH4B()
+    h4b.provide('transport', {
+      name: 't',
+      async *run() {
+        yield { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c1', title: 'Autotrac' } }
+        yield { type: 'message.part', messageId: 'a', part: { type: 'source', id: 'c2', title: 'Outra' } }
+        yield { type: 'message.delta', messageId: 'a', delta: 'Rastreia.' }
+        yield { type: 'message.citations', messageId: 'a', citations: [{ start: 0, end: 9, sourceIds: ['c1'] }] }
+      },
+    })
+    function Answer({ message }: { message: Message }) {
+      const { segments, cited, consulted } = useSources(message)
+      return (
+        <p>
+          {segments.map((s, i) => (s.kind === 'text' ? <span key={i}>{s.text}</span> : <sup key={i}>{s.sourceIds.join(',')}</sup>))}
+          <small>{cited.map((c) => `${c.number}.${c.title}`).join(' ')}</small>
+          <em>{consulted.map((c) => c.title).join(' ')}</em>
+        </p>
+      )
+    }
+    function Assistant() {
+      const message = useMessages().find((m) => m.role === 'assistant')
+      return message ? <Answer message={message} /> : null
+    }
+    const { container } = render(
+      <H4BProvider value={h4b}>
+        <Assistant />
+      </H4BProvider>,
+    )
+    await act(() => h4b.ask('o que é?'))
+    expect(container.querySelector('p')!.innerHTML).toBe('<span>Rastreia.</span><sup>c1</sup><small>1.Autotrac</small><em>Outra</em>')
   })
 })

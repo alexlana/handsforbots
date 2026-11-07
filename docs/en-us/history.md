@@ -14,6 +14,8 @@ This guide shows how to read the history, how to record interface events that do
 
 Every message has an `id` and a `createdAt`. The `route` says how the turn was resolved: `transport`, `direct`, `capture`, `agent` or `push` (see [Concepts](./concepts.md#routes)). An action's arguments are in the `toolCalls` of the `assistant` message; its result is in the `tool` message with the same `toolCallId`.
 
+An `assistant` message may carry `source` parts and text parts with `citations`: where the answer came from ([Sources and citations](./sources.md)). They are stored with the message and not sent back to the backend.
+
 Messages are immutable: each change replaces the array and the changed objects, so you can compare by reference.
 
 ## Reading
