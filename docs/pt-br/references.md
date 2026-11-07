@@ -38,6 +38,15 @@ Apoia o [ADR 0011](../adr/0011-interrupcao-e-fim-de-turno.md) e [Interrupção e
 
 Também citados na discussão que levou ao ADR, sem uma página específica conferida por nós: Hamming, Picovoice, Coval, Dograh e WorkAdventure (textos sobre avaliação de agentes de voz e troca de turnos).
 
+### Avisando o backend
+
+Apoia o [ADR 0015](../adr/0015-retorno-da-interrupcao.md). Acessado em 2026-11-06. Lido na documentação e nos tipos dos SDKs; não chamado por nós.
+
+| Fonte | O que é | Uso no H4B |
+|---|---|---|
+| [`conversation.item.truncate` do OpenAI Realtime (tipos do LangChain)](https://v03.api.js.langchain.com/interfaces/_langchain_openai.OpenAIClient.Beta.Realtime.ConversationItemTruncateEvent.html) · [openai-agents-python #4122](https://github.com/openai/openai-agents-python/pull/4122) | Evento do cliente que diz ao servidor quanto do áudio de uma mensagem do assistente foi tocado (`audio_end_ms`) quando o usuário interrompe | Precedente: quem toca a resposta avisa quem a escreveu onde ela parou. O H4B faz isso em caracteres (`kept`), na requisição seguinte |
+| [Discussão na comunidade sobre transcrições cortadas](https://community.openai.com/t/realtime-api-interruptions-dont-properly-trim-the-transcript/1000703) | Usuários relatam o modelo adivinhando onde foi interrompido quando só o histórico não diz | Motivo para mandar o fato (`conversation.interrupted`), e não só o texto cortado |
+
 ## Síntese de voz e efeitos
 
 Apoia o [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md) e [Síntese de voz e efeitos](./speech.md). Acessado em 2026-10-16. Tamanhos e tempos medidos por nós estão marcados; os outros são dos autores.

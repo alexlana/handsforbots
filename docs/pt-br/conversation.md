@@ -41,9 +41,10 @@ Eventos: `signal.merged` (`{ signal, from, resumed }`) e `turn.interrupted` (`{ 
 1. aborta o job em andamento (transportes e ações recebem o `AbortSignal`);
 2. marca a mensagem do assistente daquele turno com `interrupted: true` e corta o texto onde os interceptadores `interrupt.before` disserem que a pessoa parou de recebê-lo: por padrão, tudo o que foi exibido;
 3. remove a mensagem se não sobrar nada e ela não tiver tool calls;
-4. emite `turn.interrupted` e salva.
+4. emite `turn.interrupted` (com `by`, quem cortou) e salva;
+5. avisa o backend no turno seguinte (veja abaixo).
 
-Sem nada rodando, só corta a última resposta se um interceptador disser que parte dela não chegou (o plugin de voz informa o que foi falado). `interrupt({ clearQueue: true })` também esvazia a fila. O `abort()` continua existindo e cancela sem mexer no histórico.
+Sem nada rodando, só corta a última resposta se um interceptador disser que parte dela não chegou (o plugin de voz informa o que foi falado). `interrupt({ clearQueue: true })` também esvazia a fila; `interrupt({ by: 'botao-parar' })` diz quem cortou (padrão `api`; entrada digitada dá a sua modalidade, o plugin de voz, `voice`). O `abort()` continua existindo e cancela sem mexer no histórico.
 
 ```ts
 // Um plugin que sabe quanto da resposta a pessoa viu (ex.: revelação gradual):
@@ -56,7 +57,12 @@ Deltas que chegam depois do corte são ignorados. O widget mostra respostas inte
 
 - **Parar de gerar quando a requisição é abortada.** O kernel fecha o stream (SSE do AG-UI, HTTP), mas só o servidor consegue parar a chamada ao LLM. Sem isso, a interrupção não economiza tokens.
 - **Usar o histórico que recebe.** Os transportes enviam o histórico inteiro a cada execução. Um backend que guarda a própria cópia vai divergir: não verá mensagens unidas, turnos removidos nem respostas cortadas.
-- **Aceitar mensagens do assistente truncadas.** Uma resposta interrompida termina no meio. Os transportes incluídos não enviam a marca `interrupted`; se o modelo precisar saber, mapeie num interceptador `request.before` (por exemplo, acrescentando "[interrompido pelo usuário]" ao texto) ou explique no prompt de sistema.
+- **Aceitar mensagens do assistente truncadas.** Uma resposta interrompida termina no meio.
+- **Ler o que aconteceu enquanto ele respondia** ([ADR 0015](../adr/0015-retorno-da-interrupcao.md)). A requisição seguinte leva sinais de contexto de um turno só (`once: true`, removidos depois dela):
+  - `conversation.interrupted`: `{ messageId, kept, total, by }`, depois de uma interrupção que cortou uma resposta. `kept` é quantos caracteres ficaram (o que foi falado ou exibido), `total` o tamanho da resposta quando foi cortada, `by` quem cortou. Desligue com `createH4B({ input: { reportInterruptions: false } })`.
+  - `voice.reactions`: `{ messageId, reactions: [{ at, text }] }`, os backchannels ouvidos enquanto o bot falava (veja [Barge-in](#barge-in)). Trate como pista: o reconhecimento do navegador costuma perder ou errar sons curtos.
+
+  No fio eles aparecem como qualquer sinal de contexto: `context['conversation.interrupted'] = [{ … }]` no `http` e no `aiSdk`; no `agui`, um item de `context` com `description: 'gui-event from conversation.interrupted'` e `value: 'interrupted: {…}'` (`'transcript from voice.reactions'`, `'reactions: {…}'`). Diga ao modelo no prompt de sistema o que significam, por exemplo: "Se o usuário te interrompeu, não repita a parte que ele não ouviu, a menos que ele peça." 
 
 ## Voz: conversa contínua
 
@@ -151,7 +157,7 @@ Provedores de áudio recebem os últimos `turn.audioSeconds` segundos (padrão 8
 Falar por cima do bot o interrompe quando ele está falando ou exibindo uma resposta que ainda chega. O plugin chama `h4b.interrupt()` antes de parar a fala, então a resposta fica só com as frases já faladas:
 
 - uma transcrição parcial precisa de `minWords` palavras (padrão 2); um resultado final sempre conta;
-- backchannels nunca interrompem e são descartados: "aham", "uhum", "tá", "ok", "uh-huh", "mhm"… (uma lista para pt, en e es; troque com `bargeIn: { ignore: [...] }`);
+- backchannels nunca interrompem: "aham", "uhum", "tá", "ok", "uh-huh", "mhm"… (uma lista para pt, en e es; troque com `bargeIn: { ignore: [...] }`). Eles não se perdem: cada um vai para o `voice.decision` (`reason: 'backchannel'`, com o `messageId` que estava sendo falado e `at`, quantos caracteres dele já tinham sido falados) e para o backend no turno seguinte como `voice.reactions`, para ele saber que trecho chamou a atenção. `reactions: false` deixa o backend sem eles. O H4B não tenta adivinhar o significado ("hum." e "hum?" viram o mesmo texto);
 - apertar para falar enquanto o bot responde também interrompe;
 - enquanto o bot ainda está pensando (nada exibido), a fala não interrompe: quando o turno termina, o kernel retoma o turno com as duas mensagens.
 

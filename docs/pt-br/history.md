@@ -38,6 +38,7 @@ Escolha o mecanismo pelo que você precisa:
 |---|---|---|---|---|
 | Registrar uma decisão do usuário (filtro, seleção, aprovação) | `h4b.runAction(nome, args)` | Sim: tool call + resultado, rota `direct` | Sim, a partir do turno seguinte | `⚡ ação direta <nome>` (`showActions: false` esconde) |
 | Dizer ao assistente o que está na tela agora | Sinal de contexto (`kind: 'context'`) | Não | Sim, em todo turno, até ser substituído ou removido | Não |
+| Contar ao assistente algo que acabou de acontecer, uma vez | Sinal de contexto com `once: true` | Não | Sim, só na próxima requisição | Não |
 | Mostrar uma mensagem do assistente fora de um turno | `h4b.push([...estímulos])` | Sim: mensagem `assistant`, rota `push` | Sim | Sim |
 | Fazer uma pergunta ao assistente em nome do usuário | `h4b.ask(...)` / `h4b.send(...)` | Sim: mensagem `user` + resposta | Sim | Sim (se houver texto) |
 

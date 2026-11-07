@@ -482,6 +482,8 @@ Em 2026-10-16 ([ADR 0013](./docs/adr/0013-sintese-de-voz-e-efeitos.md)): síntes
 
 Em 2026-11-06 ([ADR 0014](./docs/adr/0014-fontes-e-citacoes.md)): fontes e citações nas mensagens. Parte `source` no core (substituída pelo `id`, não quebra o texto), `citations` nas partes de texto com posições UTF-16 e o estímulo `message.citations`; marcadores como `[c3]` tirados no backend ou no transporte (`inlineCitations`); URLs só absolutas ou âncoras (`safeSourceUrl`). Transportes AG-UI (`h4b.sources`, `h4b.citations`), AI SDK (`source-url`, `source-document`, `data-citations`) e HTTP (`sources`, `citations`), sem mandar as fontes de volta; referências numeradas e lista no `widget` (com `sources.action`); `sourceView` e `useSources` no React e no Vue; `citedReply` no `testkit`. Primeiro uso: o site do polvo (alexlana). Pendente: transporte para o Gemini, que vai precisar converter as posições de bytes.
 
+Em 2026-11-06 ([ADR 0015](./docs/adr/0015-retorno-da-interrupcao.md)): o backend fica sabendo do que aconteceu enquanto respondia. Sinais de contexto de um turno (`once`); `conversation.interrupted` (`messageId`, `kept`, `total`, `by`) depois de toda interrupção que corta uma resposta; `interrupt({ by })`; `voice.reactions` com os backchannels e a posição falada de cada um. Pendente: reagir a backchannels ao vivo (pausar, repetir), junto com o transporte `realtime`.
+
 ### Prioritário: revisão de XSS
 
 Antes da 1.0, revisar o H4B contra XSS, de ponta a ponta. A cripto do `storage-local` só limita o tempo em que a conversa fica legível; um script injetado na página lê o cookie da chave (não pode ser `HttpOnly`, o JavaScript precisa dela), chama o `backendKey` com as credenciais da sessão e lê `h4b.messages` em memória. Pontos a revisar:
@@ -652,6 +654,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-11-06 | Interrupção e reações vão ao backend como sinais de contexto de um turno (ADR 0015) |
 | 2026-11-06 | Fontes e citações nas mensagens: parte `source`, `citations` com posição, `message.citations`, transportes, widget e bindings (ADR 0014) |
 | 2026-11-05 | Prova de conceito do agente multimodal em camadas (ADK + Gemini) com o H4B como mãos e olhos na página: arquitetura, etapas, entregáveis e critério de saída (seção 1); item 4.6, P1 e métrica ajustados |
 | 2026-11-04 | Posicionamento diante de frameworks de agente e "browser hands" (seção 1); transporte `realtime` promovido a P1; exemplo com agente ADK; itens 7 e 8 em "O que não fazer"; decisões em aberto 7 e 8 |

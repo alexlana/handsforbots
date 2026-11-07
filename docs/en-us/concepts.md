@@ -16,7 +16,7 @@ flowchart LR
   ST --> UI["UI / voice / GUI effects"]
 ```
 
-- A **trigger** signal starts a turn. A **context** signal (`kind: 'context'`) is kept and sent with every turn until replaced (same `key`) or removed: current page, selection, sensor readings, camera frames.
+- A **trigger** signal starts a turn. A **context** signal (`kind: 'context'`) is kept and sent with every turn until replaced (same `key`) or removed: current page, selection, sensor readings, camera frames. With `once: true` it goes with the next request to the backend only, for news such as an interruption ([ADR 0015](../adr/0015-retorno-da-interrupcao.md)).
 - **Parts** carry content: `text` (optionally with `citations`), media (`image`, `audio`, `video`, `file` as Blob, base64 or URL), `data` (structured values) and `source` (where an answer came from; see [Sources and citations](./sources.md)).
 - **Stimuli** are what backends (and direct commands) produce: `message.start/delta/part/end`, `message.citations`, `action.call`, `action.result`, `ui.render`, `ui.effect`, `state.snapshot/patch`, `audio`, `custom`, `error`. A synchronous backend is just a stream with one batch.
 

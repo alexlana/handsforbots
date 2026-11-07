@@ -38,6 +38,7 @@ Pick the mechanism by what you need:
 |---|---|---|---|---|
 | Record a user decision (filter, selection, approval) | `h4b.runAction(name, args)` | Yes: tool call + result, route `direct` | Yes, from the next turn on | `⚡ direct action <name>` (`showActions: false` hides it) |
 | Tell the assistant what is on screen right now | Context signal (`kind: 'context'`) | No | Yes, on every turn, until replaced or removed | No |
+| Tell the assistant something that just happened, once | Context signal with `once: true` | No | Yes, on the next request only | No |
 | Show an assistant message outside a turn | `h4b.push([...stimuli])` | Yes: `assistant` message, route `push` | Yes | Yes |
 | Ask the assistant something on the user's behalf | `h4b.ask(...)` / `h4b.send(...)` | Yes: `user` message + answer | Yes | Yes (if there is text) |
 

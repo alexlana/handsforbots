@@ -38,6 +38,15 @@ Supports [ADR 0011](../adr/0011-interrupcao-e-fim-de-turno.md) and [Interruption
 
 Also cited in the discussion that led to the ADR, without a specific page checked by us: Hamming, Picovoice, Coval, Dograh and WorkAdventure (voice agent evaluation and turn-taking write-ups).
 
+### Telling the backend
+
+Supports [ADR 0015](../adr/0015-retorno-da-interrupcao.md). Accessed 2026-11-06. Read from documentation and SDK types; not called by us.
+
+| Source | What it is | Use in H4B |
+|---|---|---|
+| [OpenAI Realtime `conversation.item.truncate` (LangChain types)](https://v03.api.js.langchain.com/interfaces/_langchain_openai.OpenAIClient.Beta.Realtime.ConversationItemTruncateEvent.html) · [openai-agents-python #4122](https://github.com/openai/openai-agents-python/pull/4122) | Client event that tells the server how much of an assistant message's audio was played (`audio_end_ms`) when the user interrupts | Precedent: the side that plays the reply tells the side that wrote it where it stopped. H4B does it in characters (`kept`), in the next request |
+| [Community thread on truncated transcripts](https://community.openai.com/t/realtime-api-interruptions-dont-properly-trim-the-transcript/1000703) | Users report the model guessing where it was interrupted when the history alone does not say | Reason to send the fact (`conversation.interrupted`) and not only the cut text |
+
 ## Speech synthesis and effects
 
 Supports [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md) and [Speech synthesis and voice effects](./speech.md). Accessed 2026-10-16. Sizes and timings measured by us are marked; the others are the authors'.

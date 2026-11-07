@@ -16,7 +16,7 @@ flowchart LR
   ST --> UI["UI / voz / efeitos na GUI"]
 ```
 
-- Um sinal **trigger** inicia um turno. Um sinal de **contexto** (`kind: 'context'`) fica guardado e vai junto em todo turno até ser substituído (mesma `key`) ou removido: página atual, seleção, leituras de sensores, quadros da câmera.
+- Um sinal **trigger** inicia um turno. Um sinal de **contexto** (`kind: 'context'`) fica guardado e vai junto em todo turno até ser substituído (mesma `key`) ou removido: página atual, seleção, leituras de sensores, quadros da câmera. Com `once: true`, vai só na próxima requisição ao backend, para notícias como uma interrupção ([ADR 0015](../adr/0015-retorno-da-interrupcao.md)).
 - **Parts** carregam o conteúdo: `text` (com `citations` opcionais), mídia (`image`, `audio`, `video`, `file` como Blob, base64 ou URL), `data` (valores estruturados) e `source` (de onde saiu uma resposta; veja [Fontes e citações](./sources.md)).
 - **Estímulos** são o que os backends (e os comandos diretos) produzem: `message.start/delta/part/end`, `message.citations`, `action.call`, `action.result`, `ui.render`, `ui.effect`, `state.snapshot/patch`, `audio`, `custom`, `error`. Um backend síncrono é só um stream com um lote.
 

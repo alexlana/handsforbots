@@ -132,7 +132,7 @@ Inside both `<CopilotKitProvider>` and `<H4BProvider>`: `useCopilotKitBridge({ a
 
 ## voice
 
-`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true | { minWords?: 2, ignore? }, endOfTurn?, echo?: textEchoFilter() | EchoFilter | false, turn?: { silence?: 800, minSilence?: 300, maxSilence?: 2000, threshold?: 0.5, timeout?: 600, audioSeconds?: 8 }, voiceName?, load?: { start?: 'first-use' | 'eager' | 'idle' | 'manual', whileLoading?: 'fallback' | 'wait' | 'silent' }, effects?, player? })`. `stt`/`tts` take a provider or a list (tried in order, falling back on network/support errors and when the browser's speech service is off).
+`voice({ stt, tts?, language?, mode?: 'push-to-talk' | 'hands-free', output?: 'auto' | 'voice' | 'text', bargeIn?: true | { minWords?: 2, ignore? }, endOfTurn?, echo?: textEchoFilter() | EchoFilter | false, turn?: { silence?: 800, minSilence?: 300, maxSilence?: 2000, threshold?: 0.5, timeout?: 600, audioSeconds?: 8 }, voiceName?, load?: { start?: 'first-use' | 'eager' | 'idle' | 'manual', whileLoading?: 'fallback' | 'wait' | 'silent' }, effects?, player?, reactions?: true })`. With `reactions`, backchannels heard over the bot go to the backend on the next turn as `voice.reactions` ([Interruption and voice conversation](./conversation.md#barge-in)). `stt`/`tts` take a provider or a list (tried in order, falling back on network/support errors and when the browser's speech service is off).
 
 | Provider | Notes |
 |----------|-------|

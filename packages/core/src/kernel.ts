@@ -49,6 +49,12 @@ export type InputOptions = {
    * ones use `interrupt`) or a function. Other modalities always queue.
    */
   whileBusy?: WhileBusy | Partial<Record<Modality, WhileBusy>> | ((signal: Signal) => WhileBusy)
+  /**
+   * After an interruption that cut a reply, tell the backend on the next
+   * turn: a one-turn context signal `conversation.interrupted` with
+   * `{ messageId, kept, total, by }` (ADR 0015). Default true.
+   */
+  reportInterruptions?: boolean
 }
 
 export type H4BOptions = {
@@ -632,7 +638,7 @@ export class H4B {
       const merged = mergeSignals(last.signal, signal)
       this.queue[this.queue.length - 1] = { kind: 'signal', signal: merged }
       this.emit('signal.merged', { signal: merged, from: [last.signal, signal], resumed: false })
-      if (policy === 'interrupt' && this.interruptible()) void this.interrupt()
+      if (policy === 'interrupt' && this.interruptible()) void this.interrupt({ by: signal.modality })
       this.invalidate()
       return
     }
@@ -651,7 +657,7 @@ export class H4B {
       return
     }
 
-    if (policy === 'interrupt' && this.interruptible(current)) void this.interrupt()
+    if (policy === 'interrupt' && this.interruptible(current)) void this.interrupt({ by: signal.modality })
     this.enqueue({ kind: 'signal', signal })
   }
 
@@ -702,6 +708,18 @@ export class H4B {
 
   get context(): Signal[] {
     return [...this.contextSignals.values()]
+  }
+
+  /** Removes one-turn context signals that a request to the transport carried (ADR 0015). */
+  private consumeOnce(sent: Signal[]) {
+    let changed = false
+    for (const signal of sent) {
+      if (!signal.once) continue
+      const key = signal.key ?? signal.source
+      // A newer signal under the same key was not sent yet: keep it.
+      if (this.contextSignals.get(key) === signal) changed = this.contextSignals.delete(key) || changed
+    }
+    if (changed) this.contextChanged()
   }
 
   private storeContext(signal: Signal) {
@@ -768,8 +786,12 @@ export class H4B {
    * the `interrupt.before` interceptors say the user stopped getting it (by
    * default, everything shown). When idle, it cuts the last assistant message
    * only if an interceptor says part of it was not delivered (e.g. speech).
+   * `by` says who cut it (default `api`); it goes to `turn.interrupted` and,
+   * unless `input.reportInterruptions` is false, to the backend on the next
+   * turn as the one-turn context signal `conversation.interrupted` (ADR 0015).
    */
-  async interrupt(options: { clearQueue?: boolean } = {}): Promise<void> {
+  async interrupt(options: { clearQueue?: boolean; by?: string } = {}): Promise<void> {
+    const by = options.by ?? 'api'
     // A turn still producing its reply (not one that finished and is being saved).
     const turnId = this.running ? this.current?.turnId : undefined
     const busy = !!turnId && this.turn?.turnId === turnId && !FINAL_PHASES.includes(this.turn.phase)
@@ -781,7 +803,7 @@ export class H4B {
     if (target && cut) this.conversation.update<AssistantMessage>(target.id, (m) => ({ ...m, interrupted: true }))
     if (this.running || options.clearQueue) this.abort(options)
     if (!target) {
-      this.emit('turn.interrupted', { turnId })
+      this.emit('turn.interrupted', { turnId, by })
       return
     }
 
@@ -794,7 +816,7 @@ export class H4B {
     }
     const keep = point ? Math.max(0, Math.min(text.length, Math.floor(point.keep))) : text.length
     if (!cut && keep >= text.length) {
-      this.emit('turn.interrupted', { turnId })
+      this.emit('turn.interrupted', { turnId, by })
       return
     }
 
@@ -804,7 +826,17 @@ export class H4B {
     const removed = parts.length === 0 && !message.toolCalls?.length
     if (removed) this.conversation.removeWhere((m) => m.id === message.id)
     else this.conversation.update<AssistantMessage>(message.id, (m) => ({ ...m, parts, interrupted: true, streaming: false }))
-    this.emit('turn.interrupted', { turnId: message.turnId, messageId: message.id, kept: text.slice(0, keep), removed })
+    this.emit('turn.interrupted', { turnId: message.turnId, messageId: message.id, kept: text.slice(0, keep), removed, by })
+    if (this.input.reportInterruptions !== false) {
+      this.signal({
+        kind: 'context',
+        key: 'conversation.interrupted',
+        once: true,
+        modality: 'gui-event',
+        source: 'h4b',
+        parts: [{ type: 'data', name: 'interrupted', value: { messageId: message.id, kept: keep, total: text.length, by } }],
+      })
+    }
     await this.persist()
   }
 
@@ -1031,6 +1063,7 @@ export class H4B {
         state: this.conversation.state,
       } satisfies TurnRequest)
       if (!request) throw new Error('Request cancelled by request.before interceptor')
+      this.consumeOnce(request.context)
 
       for await (const stimulus of transport.run(request, abortSignal)) {
         if (abortSignal.aborted) break
