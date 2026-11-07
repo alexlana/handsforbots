@@ -85,11 +85,22 @@ export type WebSpeechTTSOptions = {
   voice?: string | ((voice: SpeechSynthesisVoice) => boolean)
   rate?: number
   pitch?: number
+  /**
+   * Milliseconds a sentence may wait to start before the voice is treated as
+   * failed (`synthesis-failed`). Safari on iOS sometimes neither speaks nor
+   * reports an error, and the reply would end in silence. Default 5000; 0 waits forever.
+   */
+  startTimeout?: number
 }
+
+/** Utterance errors that only mean the speech was stopped on purpose. */
+const STOPPED = new Set(['interrupted', 'canceled'])
 
 /** Browser speech synthesis. */
 export function webSpeechTTS(options: WebSpeechTTSOptions = {}): TextToSpeech {
   const synth = () => (typeof window !== 'undefined' ? window.speechSynthesis : undefined)
+  const startTimeout = options.startTimeout ?? 5000
+  let unlocked = false
 
   const voices = async (): Promise<SpeechSynthesisVoice[]> => {
     const s = synth()
@@ -123,24 +134,58 @@ export function webSpeechTTS(options: WebSpeechTTSOptions = {}): TextToSpeech {
     prosody: { rate: true, pitch: true, volume: true },
     async speak(text, speakOptions) {
       const s = synth()
-      if (!s) throw new SpeechError('not-supported', 'Speech synthesis is not available')
+      if (!s) throw new SpeechError('not-supported', 'Speech synthesis is not available', 'speak')
       const voice = await pickVoice(speakOptions.language, speakOptions.voice)
       const { rate, pitch, volume } = utteranceProsody(options, speakOptions.prosody)
       for (const sentence of splitSentences(text)) {
         if (speakOptions.signal?.aborted) return
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
+          let timer: ReturnType<typeof setTimeout> | undefined
+          let settled = false
+          let started = false
+          const finish = (error?: SpeechError) => {
+            if (settled) return
+            settled = true
+            clearTimeout(timer)
+            if (error) reject(error)
+            else resolve()
+          }
           const utterance = new SpeechSynthesisUtterance(sentence)
           utterance.lang = speakOptions.language
           if (voice) utterance.voice = voice
           if (rate !== 1) utterance.rate = rate
           if (pitch !== 1) utterance.pitch = pitch
           if (volume !== 1) utterance.volume = volume
-          utterance.onend = () => resolve()
-          utterance.onerror = () => resolve()
-          speakOptions.signal?.addEventListener('abort', () => resolve(), { once: true })
+          utterance.onstart = () => {
+            started = true
+            clearTimeout(timer)
+          }
+          utterance.onend = () => finish()
+          utterance.onerror = (event: { error?: string }) => {
+            const reason = event?.error
+            if (speakOptions.signal?.aborted || (reason && STOPPED.has(reason))) return finish()
+            const code = reason === 'not-allowed' ? 'output-blocked' : 'synthesis-failed'
+            finish(new SpeechError(code, `speechSynthesis: ${reason ?? 'error'}`, 'speak'))
+          }
+          speakOptions.signal?.addEventListener('abort', () => finish(), { once: true })
           s.speak(utterance)
+          if (startTimeout > 0 && !settled && !started) {
+            timer = setTimeout(() => {
+              s.cancel()
+              finish(new SpeechError('synthesis-failed', `speechSynthesis did not start within ${startTimeout} ms`, 'speak'))
+            }, startTimeout)
+          }
         })
       }
+    },
+    unlock() {
+      const s = synth()
+      if (unlocked || !s || typeof SpeechSynthesisUtterance === 'undefined') return
+      unlocked = true
+      // Safari on iOS only speaks outside a gesture after something was spoken inside one.
+      const silent = new SpeechSynthesisUtterance('')
+      silent.volume = 0
+      s.speak(silent)
     },
     cancel: () => synth()?.cancel(),
   }

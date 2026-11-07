@@ -9,6 +9,7 @@ import {
   type SpeakOptions,
   type SpeechAudio,
   type SpeechEffects,
+  type SpeechErrorCode,
   type SpeechToText,
   type SpokenSentence,
   type SttSession,
@@ -126,6 +127,15 @@ export type VoiceDecision =
   | { kind: 'end-of-turn'; text: string; reason: 'stt' | 'model' | 'silence' | 'max-silence' | 'manual'; probability?: number }
   | { kind: 'end-of-turn-unavailable'; provider: string; reason: string }
 
+/**
+ * The life of one spoken chunk (a sentence or a whole short reply), for logs
+ * and debugging: `start` without `end` or `error` means the voice went silent.
+ */
+export type VoiceSpeechEvent =
+  | { phase: 'start'; provider: string; chars: number }
+  | { phase: 'end'; provider: string; ms: number; interrupted?: boolean }
+  | { phase: 'error'; provider?: string; code: SpeechErrorCode; message: string }
+
 export type VoiceService = {
   getState(): VoiceState
   subscribe(listener: () => void): () => void
@@ -171,6 +181,8 @@ declare module '@handsforbots/core' {
   interface Events {
     /** Why the voice interrupted, ignored or ended a turn (for logs and debugging). */
     'voice.decision': VoiceDecision
+    /** Each spoken chunk starting, ending or failing (for logs and debugging). */
+    'voice.speech': VoiceSpeechEvent
   }
 }
 
@@ -309,9 +321,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   const decide = (decision: VoiceDecision) => ctx.emit('voice.decision', decision)
 
   /** Shows the error in the state (for the UI) and on the kernel bus (for the developer). */
-  const fail = (error: SpeechError, patch: Partial<VoiceState> = {}) => {
+  const fail = (error: SpeechError, patch: Partial<VoiceState> = {}, source = 'voice') => {
     set({ ...patch, error })
-    ctx.emit('error', { error, source: 'voice' })
+    ctx.emit('error', { error, source })
   }
 
   /* ---------------------------------------------------------------------- */
@@ -878,6 +890,13 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
 
   const unlockAudio = () => {
     if (player.isSupported() && ttsProviders.some((p) => p.synthesize)) player.unlock()
+    for (const provider of ttsProviders) {
+      try {
+        provider.unlock?.()
+      } catch (error) {
+        ctx.emit('error', { error, source: `voice:tts:${provider.name}` })
+      }
+    }
   }
   const gestures = ['pointerdown', 'keydown', 'touchend'] as const
   if (typeof document !== 'undefined') {
@@ -974,6 +993,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         // Nobody can speak it yet: the text stays as shown.
         if (!prepared) return onSpoken?.()
         set({ speaking: true, tts: prepared.provider.name })
+        ctx.emit('voice.speech', { phase: 'start', provider: prepared.provider.name, chars: text.length })
         sentence = { text, startedAt: Date.now() }
         recentSpeech().push(sentence)
         // Without barge-in the mic would hear the bot: pause recognition while speaking.
@@ -991,9 +1011,21 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         } else {
           await prepared.provider.speak!(text, prepared.options)
         }
-        if (!controller.signal.aborted) onSpoken?.()
+        const interrupted = controller.signal.aborted
+        ctx.emit('voice.speech', {
+          phase: 'end',
+          provider: prepared.provider.name,
+          ms: Date.now() - sentence.startedAt,
+          ...(interrupted ? { interrupted } : {}),
+        })
+        if (!interrupted) onSpoken?.()
       } catch (error) {
-        if (!controller.signal.aborted) fail(error instanceof SpeechError ? error : new SpeechError('unknown', (error as Error)?.message))
+        if (!controller.signal.aborted) {
+          const speechError = speakError(error)
+          const provider = prepared?.provider.name
+          ctx.emit('voice.speech', { phase: 'error', provider, code: speechError.code, message: speechError.message })
+          fail(speechError, {}, provider ? `voice:tts:${provider}` : 'voice')
+        }
       } finally {
         if (sentence) sentence.endedAt ??= Date.now()
         chunksLeft = Math.max(0, chunksLeft - 1)
@@ -1244,4 +1276,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   })
 
   return service
+}
+
+/** Errors while speaking always carry `stage: 'speak'`, so UIs don't blame the microphone. */
+function speakError(error: unknown): SpeechError {
+  if (error instanceof SpeechError) return error.stage === 'speak' ? error : new SpeechError(error.code, error.message, 'speak')
+  const name = (error as Error)?.name
+  const message = (error as Error)?.message ?? String(error)
+  return new SpeechError(name === 'NotAllowedError' ? 'output-blocked' : 'synthesis-failed', message, 'speak')
 }

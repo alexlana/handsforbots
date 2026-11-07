@@ -25,12 +25,16 @@ export type Strings = {
   stopSpeaking: string
   voiceOn: string
   voiceOff: string
-  /** Shown when listening fails, by `voice.getState().error.code`. */
+  /** Shown when the voice fails, by `voice.getState().error` (`code`, and `stage: 'speak'` for the bot's voice). */
   micDenied: string
   speechServiceOff: string
   micMissing: string
   voiceNetwork: string
   voiceFailed: string
+  /** The browser blocked the bot's voice until the user taps the page. */
+  voiceOutputBlocked: string
+  /** The bot's voice failed; the reply is still on screen. */
+  voiceSpeakFailed: string
   disclaimer: string
   attach: string
   camera: string
@@ -84,6 +88,8 @@ const pt: Strings = {
   micMissing: 'Nenhum microfone encontrado.',
   voiceNetwork: 'Sem conexão para reconhecer a fala.',
   voiceFailed: 'Não foi possível usar a voz agora.',
+  voiceOutputBlocked: 'O navegador bloqueou o som. Toque na página para ouvir as respostas.',
+  voiceSpeakFailed: 'Não consegui falar a resposta, mas ela está aqui em texto.',
   disclaimer: 'Isenção de responsabilidade',
   attach: 'Anexar arquivo',
   camera: 'Câmera',
@@ -136,6 +142,8 @@ export const STRINGS: Record<string, Strings> = {
     micMissing: 'No microphone found.',
     voiceNetwork: 'No connection to recognize speech.',
     voiceFailed: 'Voice is not available right now.',
+    voiceOutputBlocked: 'The browser blocked the sound. Tap the page to hear the answers.',
+    voiceSpeakFailed: "I couldn't say the answer out loud, but it's here as text.",
     disclaimer: 'Disclaimer',
     attach: 'Attach file',
     camera: 'Camera',

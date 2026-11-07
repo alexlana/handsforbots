@@ -922,13 +922,15 @@ export class H4BChatElement extends BaseElement {
     speaker.textContent = state.speaking ? '⏹' : state.output === 'text' ? '🔇' : '🔈'
     speaker.title = state.speaking ? s.stopSpeaking : state.output === 'text' ? s.voiceOff : s.voiceOn
     speaker.setAttribute('aria-label', speaker.title)
-    const failure = !state.listening && state.error ? this.voiceError(state.error.code) : ''
+    const failure = !state.listening && state.error ? this.voiceError(state.error) : ''
     partial.classList.toggle('failed', !!failure)
     partial.textContent = state.listening && state.partial ? `“${state.partial}”` : state.listening ? s.listening : failure
   }
 
-  private voiceError(code: string): string {
+  private voiceError({ code, stage }: { code: string; stage?: string }): string {
     const s = this.strings
+    // Speaking failed: the reply is on screen, the microphone is not to blame.
+    if (stage === 'speak') return code === 'output-blocked' ? s.voiceOutputBlocked : s.voiceSpeakFailed
     if (code === 'not-allowed') return s.micDenied
     if (code === 'service-not-allowed') return s.speechServiceOff
     if (code === 'audio-capture') return s.micMissing
@@ -946,7 +948,7 @@ type VoiceLike = {
     speaking: boolean
     partial: string
     output: 'auto' | 'voice' | 'text'
-    error?: { code: string }
+    error?: { code: string; stage?: string }
   }
   subscribe(listener: () => void): () => void
   listen(options?: { until?: 'silence' | 'stop' }): Promise<void>

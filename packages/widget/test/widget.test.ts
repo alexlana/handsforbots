@@ -312,6 +312,13 @@ describe('<h4b-chat>', () => {
     expect(partial.textContent).toContain('dictation')
     update({ error: { code: 'unknown' } })
     expect(partial.textContent).toBe('Voice is not available right now.')
+    // Speaking failed: the microphone is not blamed.
+    update({ error: { code: 'not-allowed', stage: 'listen' } })
+    expect(partial.textContent).toBe('Unblock the mic')
+    update({ error: { code: 'output-blocked', stage: 'speak' } })
+    expect(partial.textContent).toContain('Tap the page')
+    update({ error: { code: 'synthesis-failed', stage: 'speak' } })
+    expect(partial.textContent).toContain('as text')
     update({ listening: true, error: undefined })
     expect(partial.textContent).toBe('Listening…')
     update({ listening: false })

@@ -107,6 +107,11 @@ export type TextToSpeech = {
   /** Stops what `speak` is playing. */
   cancel?(): void
   /**
+   * Called in the user's gestures (tap, click, key). Providers that need a
+   * gesture before they can speak (`speechSynthesis` on iOS) get ready here.
+   */
+  unlock?(): void
+  /**
    * Downloads and prepares what it needs (a model). The voice plugin decides
    * when to call it (`load.start`) and what to do with speech meanwhile
    * (`load.whileLoading`). Without it, the provider is ready once supported.
@@ -174,12 +179,21 @@ export type SpeechErrorCode =
   | 'audio-capture'
   | 'network'
   | 'aborted'
+  /** Speaking: the browser refused to play the bot's voice until the user interacts with the page. */
+  | 'output-blocked'
+  /** Speaking: the voice failed or never started (Safari on iOS sometimes neither speaks nor reports an error). */
+  | 'synthesis-failed'
   | 'unknown'
+
+/** Where the voice failed: hearing the user (`listen`) or saying the reply (`speak`). */
+export type SpeechStage = 'listen' | 'speak'
 
 export class SpeechError extends Error {
   constructor(
     readonly code: SpeechErrorCode,
     message?: string,
+    /** UIs use it to tell "I couldn't hear you" from "I couldn't speak". */
+    readonly stage: SpeechStage = 'listen',
   ) {
     super(message ?? code)
     this.name = 'SpeechError'

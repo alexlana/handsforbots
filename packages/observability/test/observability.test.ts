@@ -65,3 +65,27 @@ describe('perceived latency', () => {
     expect(h4b.get('observability')!.getMetrics().some((m) => m.name === 'h4b_turn_duration_ms' && m.labels?.route === 'direct')).toBe(true)
   })
 })
+
+describe('voice events', () => {
+  it('records spoken chunks and the stage of voice errors, without transcripts by default', async () => {
+    const h4b = await createH4B({ plugins: [observability()] }).start()
+    const emit = h4b.emit.bind(h4b) as (event: string, payload: unknown) => void
+    emit('voice.speech', { phase: 'start', provider: 'webspeech', chars: 12 })
+    emit('voice.speech', { phase: 'error', provider: 'webspeech', code: 'synthesis-failed', message: 'never started' })
+    emit('voice.decision', { kind: 'ignore', text: 'aham-confidencial', reason: 'backchannel' })
+    h4b.emit('error', {
+      error: Object.assign(new Error('speechSynthesis: not-allowed'), { code: 'output-blocked', stage: 'speak' }),
+      source: 'voice:tts:webspeech',
+    })
+
+    const timeline = h4b.get('observability')!.getTimeline()
+    expect(timeline.map((e) => e.name)).toEqual(
+      expect.arrayContaining(['voice.speech.start', 'voice.speech.error', 'voice.decision', 'kernel.error']),
+    )
+    const json = JSON.stringify(timeline)
+    expect(json).toContain('synthesis-failed')
+    expect(json).toContain('"stage":"speak"')
+    expect(json).toContain('output-blocked')
+    expect(json).not.toContain('aham-confidencial')
+  })
+})

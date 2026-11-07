@@ -48,7 +48,11 @@ export function webAudioPlayer(options: WebAudioPlayerOptions = {}): AudioPlayer
       const ctx = ensure()
       if (play.signal?.aborted) return
       if (!(await running(ctx))) {
-        throw new SpeechError('not-allowed', 'Audio is blocked until the user interacts with the page (call voice.unlockAudio() in a click)')
+        throw new SpeechError(
+          'output-blocked',
+          'Audio is blocked until the user interacts with the page (call voice.unlockAudio() in a click)',
+          'speak',
+        )
       }
       if (play.signal?.aborted) return
       const processed = play.effects?.process?.(audio) ?? audio

@@ -122,7 +122,25 @@ function attach(
         ...(stimulus.type === 'error' ? { error: stimulus.message } : {}),
       })
     }),
-    on('error', ({ error, source }) => record('kernel.error', { source, error: (error as Error)?.message ?? String(error) })),
+    on('error', ({ error, source }) => {
+      const { code, stage } = (error ?? {}) as { code?: unknown; stage?: unknown }
+      record('kernel.error', {
+        source,
+        error: (error as Error)?.message ?? String(error),
+        ...(typeof code === 'string' ? { code } : {}),
+        ...(typeof stage === 'string' ? { stage } : {}),
+      })
+    }),
+  )
+  // Plugin events, recorded when those plugins are installed (no dependency on them).
+  const onPlugin = on as unknown as (event: string, listener: (payload: Record<string, unknown>) => void) => () => void
+  offs.push(
+    onPlugin('voice.speech', ({ phase, ...rest }) => record(`voice.speech.${String(phase)}`, rest)),
+    onPlugin('voice.decision', (decision) => {
+      // The transcript is content: kept out unless `includeContent`.
+      const { text, ...rest } = decision
+      record('voice.decision', includeContent && text !== undefined ? decision : rest)
+    }),
   )
   return { dispose: () => offs.forEach((off) => off()) }
 }

@@ -74,7 +74,7 @@ await h4b.push([
 
 ## Events (notifications; never block the flow)
 
-`signal`, `context.changed`, `turn.status` (`received → acting → done | error | aborted`, with `route`), `stimulus`, `messages.changed` (fires on every streamed delta), `state.changed`, `action.invoked`, `service.provided`, `service.removed`, `plugin.mounted`, `plugin.disposed`, `consent.changed`, `turn.interrupted`, `signal.merged`, `error` (plus plugin events such as `voice.decision`). A failing listener never breaks others; its error goes to `onError`.
+`signal`, `context.changed`, `turn.status` (`received → acting → done | error | aborted`, with `route`), `stimulus`, `messages.changed` (fires on every streamed delta), `state.changed`, `action.invoked`, `service.provided`, `service.removed`, `plugin.mounted`, `plugin.disposed`, `consent.changed`, `turn.interrupted`, `signal.merged`, `error` (plus plugin events such as `voice.decision` and `voice.speech`). A failing listener never breaks others; its error goes to `onError`.
 
 ## Storage and tabs
 
