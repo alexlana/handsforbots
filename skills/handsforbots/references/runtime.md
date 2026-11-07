@@ -24,7 +24,7 @@ Signals (triggers), `runAction` and `push` are jobs processed **one at a time, i
 - `abort()` cancels the running job; `abort({ clearQueue: true })` also drops the queue. `reset()` does both and clears storage.
 - Exception (ADR 0011): `text`, `transcript` and `audio` triggers follow `whileBusy`. Default `interrupt`: the running transport turn is cut with `interrupt()`; if it produced no output yet it is resumed instead (its messages removed, both signals joined, run again first). `merge` joins the last queued trigger without cutting. Triggers arriving while the running one is still being routed queue, and are joined only if its route is `transport` (`signal.before` runs again on the joined signal). Direct commands and captures are never joined; `ask()` defaults to `queue`; a signal can carry its own `whileBusy`.
 - `interrupt({ clearQueue? })` aborts, marks the running turn's assistant message `interrupted: true`, cuts its text at the `interrupt.before` result (default: all of it), removes it if empty, emits `turn.interrupted`. Idle, it only cuts if an interceptor lowers `keep`. Later deltas to an interrupted message are ignored.
-- Context signals are not jobs: they apply immediately (after `signal.before` interceptors, if any).
+- Context signals are not jobs: they apply immediately (after `signal.before` interceptors, if any). With `once: true` they go with the next request to the transport only (ADR 0015); the core uses this for `conversation.interrupted` and the voice plugin for `voice.reactions`.
 
 ## Routing a trigger
 
@@ -36,7 +36,7 @@ The `memory` plugin trims `request.messages` before any transport sees it (defau
 
 | Transport | History | Context signals | Actions as tools | Notes |
 |---|---|---|---|---|
-| `agui({ url })` | Full, AG-UI format (tool calls + results) | AG-UI `context` | Yes | CUSTOM `h4b.ui.effect` / `h4b.ui.render` events |
+| `agui({ url })` | Full, AG-UI format (tool calls + results) | AG-UI `context` | Yes | CUSTOM `h4b.ui.effect` / `h4b.ui.render` / `h4b.sources` / `h4b.citations` events |
 | `http({ url, ... })` | All received, as chat messages + `message` | `context` object | `tools` | Customize with `body` / `parse` / `parseChunk` |
 | `universalLLM({ url, provider, model })` | All received (optional extra cap `contextWindow`) + the new message | `context.h4b_context` | `context.tools` | v1 PHP/Laravel backend format |
 | `openAICompatible({ baseUrl, model })` | All received (optional extra cap `contextWindow`) | In the system prompt | native `tools` | Browser key only for localhost |

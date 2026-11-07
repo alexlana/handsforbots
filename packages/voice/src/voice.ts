@@ -115,7 +115,14 @@ export type BargeInOptions = {
 
 export type VoiceDecision =
   | { kind: 'interrupt'; text: string }
-  | { kind: 'ignore'; text: string; reason: 'backchannel' | 'too-short' | 'echo' }
+  | {
+      kind: 'ignore'
+      text: string
+      reason: 'backchannel' | 'too-short' | 'echo'
+      /** For backchannels: the reply being spoken and how many of its characters were spoken then (ADR 0015). */
+      messageId?: string
+      at?: number
+    }
   | { kind: 'end-of-turn'; text: string; reason: 'stt' | 'model' | 'silence' | 'max-silence' | 'manual'; probability?: number }
   | { kind: 'end-of-turn-unavailable'; provider: string; reason: string }
 
@@ -196,6 +203,12 @@ export type VoiceOptions = {
   effects?: SpeechEffects | null
   /** Plays synthesized speech. Default `webAudioPlayer()`. */
   player?: AudioPlayer
+  /**
+   * Backchannels heard over the bot ("hum", "aham") go to the backend on the
+   * next turn as the one-turn context signal `voice.reactions`, with where in
+   * the reply each came (ADR 0015). They never interrupt. Default true.
+   */
+  reactions?: boolean
 }
 
 const toArray = <T>(value: T | T[] | undefined): T[] => (value === undefined ? [] : Array.isArray(value) ? value : [value])
@@ -492,6 +505,28 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     return last?.role === 'assistant' && !!last.streaming && !!textOf(last)
   }
 
+  /** Reactions to the reply being spoken, sent with the next turn (ADR 0015). */
+  let reactions: { messageId: string; reactions: Array<{ at: number; text: string }> } | undefined
+  const react = (text: string) => {
+    const message = ctx.app.messages.at(-1)
+    const messageId = message?.role === 'assistant' ? message.id : undefined
+    const at = messageId === undefined ? undefined : (tracks.get(messageId)?.spoken ?? 0)
+    decide({ kind: 'ignore', text, reason: 'backchannel', ...(messageId === undefined ? {} : { messageId, at }) })
+    if (options.reactions === false || messageId === undefined || at === undefined) return
+    if (reactions?.messageId !== messageId || !ctx.app.context.some((s) => s.key === 'voice.reactions')) {
+      reactions = { messageId, reactions: [] }
+    }
+    reactions.reactions.push({ at, text })
+    ctx.app.signal({
+      kind: 'context',
+      key: 'voice.reactions',
+      once: true,
+      modality: 'transcript',
+      source: 'voice',
+      parts: [{ type: 'data', name: 'reactions', value: structuredClone(reactions) }],
+    })
+  }
+
   /**
    * Whether speech heard while the bot answers should cut it. Returns false
    * for text to drop (a backchannel over the bot).
@@ -502,14 +537,14 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     if (words.length === 0) return 'pending'
     const ignore = backchannels()
     if (ignore.has(words.join(' ')) || words.every((w) => ignore.has(w))) {
-      if (final) decide({ kind: 'ignore', text, reason: 'backchannel' })
+      if (final) react(text)
       return final ? 'ignored' : 'pending'
     }
     if (!final && words.length < (bargeInOptions.minWords ?? 2)) return 'pending'
     bargedIn = true
     decide({ kind: 'interrupt', text })
     // Interrupt first: the interceptor reads how much was spoken before speech stops.
-    void ctx.app.interrupt()
+    void ctx.app.interrupt({ by: 'voice' })
     service.cancelSpeech()
     set({ interrupted: true })
     return 'interrupted'
@@ -1029,7 +1064,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       if (bargeIn && botAnswering()) {
         bargedIn = true
         decide({ kind: 'interrupt', text: '' })
-        void ctx.app.interrupt()
+        void ctx.app.interrupt({ by: 'voice' })
         service.cancelSpeech()
         set({ interrupted: true })
       } else if (state.speaking) {

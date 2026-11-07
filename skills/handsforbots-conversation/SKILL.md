@@ -1,6 +1,6 @@
 ---
 name: handsforbots-conversation
-description: Build conversation behavior on Hands for Bots v2 (H4B) - what happens when the user types or speaks while the assistant is answering (interrupt, merge or queue; h4b.setInput, h4b.interrupt, the interrupt.before hook), stop buttons, and continuous voice conversation with @handsforbots/voice (hands-free open microphone, end-of-turn detection with silence or a model such as httpEndOfTurn, LiveKit turn-detector, Smart Turn or an LLM, barge-in, backchannels, sentence-by-sentence speech, phase/endOfTurnAt state for the UI). Use when code calls h4b.interrupt, setInput, whileBusy, voice({ mode: 'hands-free' }), endTurn, discardTurn, setEndOfTurn or listens to voice.decision, when building a voice assistant UI or a stop/send/trash button on top of H4B, or when a backend must handle interrupted replies.
+description: Build conversation behavior on Hands for Bots v2 (H4B) - what happens when the user types or speaks while the assistant is answering (interrupt, merge or queue; h4b.setInput, h4b.interrupt, the interrupt.before hook), stop buttons, and continuous voice conversation with @handsforbots/voice (hands-free open microphone, end-of-turn detection with silence or a model such as httpEndOfTurn, LiveKit turn-detector, Smart Turn or an LLM, barge-in, backchannels, sentence-by-sentence speech, phase/endOfTurnAt state for the UI). Use when code calls h4b.interrupt, setInput, whileBusy, voice({ mode: 'hands-free' }), endTurn, discardTurn, setEndOfTurn or listens to voice.decision, when building a voice assistant UI or a stop/send/trash button on top of H4B, or when a backend must handle interrupted replies, the conversation.interrupted signal or voice.reactions.
 ---
 
 # Hands for Bots v2 — interruption and voice conversation
@@ -27,10 +27,17 @@ Facts to rely on:
 - Only `text`, `transcript` and `audio` triggers follow the policy. GUI events, commands, `runAction` and `push` always queue. Direct commands (menu) and captures are never joined.
 - `ask()` queues unless you pass `whileBusy`, so awaited results are never merged into user input.
 - `h4b.interrupt()` aborts, marks the assistant message of the running turn `interrupted: true`, cuts its text where `interrupt.before` interceptors say (default: everything shown), removes it if empty, emits `turn.interrupted`. Idle: it cuts the last reply only if an interceptor reduces `keep` (the voice plugin does, to what was spoken).
-- Events: `signal.merged` `{ signal, from, resumed }`, `turn.interrupted` `{ turnId, messageId?, kept?, removed? }`. `getSnapshot().queued` shows merged text.
+- `h4b.interrupt({ by })` says who cut it (default `api`; `whileBusy` passes the signal's modality; the voice plugin passes `voice`).
+- Events: `signal.merged` `{ signal, from, resumed }`, `turn.interrupted` `{ turnId, messageId?, kept?, removed?, by? }`. `getSnapshot().queued` shows merged text.
 - The widget marks interrupted replies (class `interrupted`, trailing "…", tooltip `strings.interrupted`).
 
-Backend checklist (tell the user if their server misses any): stop the LLM call when the request is aborted (otherwise interrupting saves no tokens); use the history received on each run, never a server-side copy; accept assistant messages that end mid-text. Bundled transports do not send the `interrupted` flag: map it in `request.before` if the model must know (return new objects, never mutate).
+Backend checklist (tell the user if their server misses any): stop the LLM call when the request is aborted (otherwise interrupting saves no tokens); use the history received on each run, never a server-side copy; accept assistant messages that end mid-text; read the one-turn context signals (ADR 0015) and say in the system prompt what they mean.
+
+What the backend receives on the next request (context signals with `once: true`, removed after that request; a newer one under the same key is kept):
+- `conversation.interrupted`: `{ messageId, kept, total, by }` after any interruption that cut a reply (also when it was removed, `kept: 0`). Off: `createH4B({ input: { reportInterruptions: false } })` or `setInput()`.
+- `voice.reactions`: `{ messageId, reactions: [{ at, text }] }`, backchannels heard while the bot spoke; `at` = characters of that reply already spoken. Off: `voice({ reactions: false })`. A hint, not a fact (browser STT misses short sounds); H4B does not interpret them.
+- Wire: `http`/`aiSdk` → `context['conversation.interrupted'] = [{…}]`; `agui` → `context` item `description: 'gui-event from conversation.interrupted'`, `value: 'interrupted: {json}'` (`'transcript from voice.reactions'`, `'reactions: {json}'`).
+- Your own one-off news: `h4b.signal({ kind: 'context', key, once: true, … })`.
 
 ## Continuous voice conversation
 
@@ -52,7 +59,7 @@ await h4b.get('voice').listen()
 - Buttons: "send now" `voice.endTurn()`, "trash" `voice.discardTurn()` (keeps listening), mic off and send `voice.stop()`, mic off and discard `voice.cancel()`.
 - Runtime: `voice.setEndOfTurn(provider | null)`, `voice.setEcho(filter | null)`, `voice.configure({ turn, bargeIn })`.
 - Draw from `getState()`: `phase` (`idle | listening | userSpeaking | waitingEndOfTurn | botSpeaking`), `partial` (whole pending turn), `endOfTurnAt` (epoch ms; animate a countdown from it), `interrupted`, `endOfTurn`, `error`.
-- Debug with `h4b.on('voice.decision', d => …)`: `interrupt`, `ignore` (`reason: backchannel | echo`), `end-of-turn` (`reason: stt | model | silence | max-silence | manual`), `end-of-turn-unavailable`.
+- Debug with `h4b.on('voice.decision', d => …)`: `interrupt`, `ignore` (`reason: backchannel | echo`; backchannels carry `messageId` and `at`), `end-of-turn` (`reason: stt | model | silence | max-silence | manual`), `end-of-turn-unavailable`.
 
 ### End-of-turn providers
 
@@ -65,7 +72,7 @@ Contract: `{ name, input: 'text' | 'audio', historyTurns?, remote?, consent?, is
 
 ### Barge-in and speech
 
-- Speech over the bot (speaking, or a reply streaming on screen) calls `h4b.interrupt()` before stopping the speech, so the reply keeps the sentences already spoken. Live transcripts need `minWords`; finals always count; backchannels ("aham", "tá", "ok", "uh-huh", "mhm"…, per language) are dropped. Pressing to talk while the bot answers interrupts too.
+- Speech over the bot (speaking, or a reply streaming on screen) calls `h4b.interrupt()` before stopping the speech, so the reply keeps the sentences already spoken. Live transcripts need `minWords`; finals always count; backchannels ("aham", "tá", "ok", "uh-huh", "mhm"…, per language) never interrupt; they go to `voice.decision` and to the backend as `voice.reactions`. Pressing to talk while the bot answers interrupts too.
 - While the bot is still thinking (nothing shown), speech does not interrupt: the kernel resumes the turn with both messages when the new turn ends.
 - `bargeIn: false` pauses recognition while the bot speaks instead.
 - **Echo filter** (on by default): with speakers the recognizer hears the bot, and browser echo cancellation often misses it (`speechSynthesis` plays outside the browser's audio path), so the bot would interrupt or answer itself. `textEchoFilter()` drops texts whose words mostly (`threshold` 0.6, runs of `minRun` 2) repeat the sentences spoken in the last `tail` ms (2000); all or nothing, single words pass. Replace it with any `EchoFilter` `{ name, tail?, filter({ text, final, speech, language }) → text | '' }` (synchronous: it runs on every partial), or `echo: false` for headphone-only apps. If users report the bot cutting itself off, check `voice.decision` for `reason: 'echo'` before raising `minWords`.

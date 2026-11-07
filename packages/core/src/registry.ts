@@ -103,7 +103,8 @@ export interface Events {
   /** Consent decisions, region or rule set changed. */
   'consent.changed': ConsentSnapshot
   /** `h4b.interrupt()` ran. `messageId` is absent when no assistant message was cut. */
-  'turn.interrupted': { turnId?: string; messageId?: string; kept?: string; removed?: boolean }
+  /** `by`: who cut the reply (`voice`, a modality for typed input, or what `interrupt({ by })` said; default `api`). */
+  'turn.interrupted': { turnId?: string; messageId?: string; kept?: string; removed?: boolean; by?: string }
   /** Triggers were joined into `signal` (ADR 0011); `resumed`: the running turn was restarted with it. */
   'signal.merged': { signal: Signal; from: Signal[]; resumed: boolean }
   error: { error: unknown; source: string }

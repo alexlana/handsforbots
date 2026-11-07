@@ -41,9 +41,10 @@ Events: `signal.merged` (`{ signal, from, resumed }`) and `turn.interrupted` (`{
 1. aborts the running job (transports and actions get the `AbortSignal`);
 2. marks the assistant message of that turn `interrupted: true` and cuts its text where the `interrupt.before` interceptors say the user stopped getting it: by default, everything shown;
 3. removes the message if nothing is left and it carries no tool calls;
-4. emits `turn.interrupted` and saves.
+4. emits `turn.interrupted` (with `by`, who cut it) and saves;
+5. tells the backend on the next turn (see below).
 
-When nothing is running, it only cuts the last reply if an interceptor says part of it was not delivered (the voice plugin reports what was spoken). `interrupt({ clearQueue: true })` also drops the queue. `abort()` still exists and cancels without touching the history.
+When nothing is running, it only cuts the last reply if an interceptor says part of it was not delivered (the voice plugin reports what was spoken). `interrupt({ clearQueue: true })` also drops the queue; `interrupt({ by: 'stop-button' })` says who cut it (default `api`; typed input gives its modality, the voice plugin `voice`). `abort()` still exists and cancels without touching the history.
 
 ```ts
 // A plugin that knows how much of a reply the user saw (e.g. a paced reveal):
@@ -56,7 +57,12 @@ Deltas that arrive after the cut are ignored. The widget shows interrupted repli
 
 - **Stop generating when the request is aborted.** The kernel closes the stream (AG-UI SSE, HTTP), but only the server can stop the LLM call. Otherwise an interruption saves no tokens.
 - **Use the history it receives.** Transports send the whole history on each run. A backend that keeps its own copy will diverge: it will not see joined messages, removed turns or cut replies.
-- **Accept truncated assistant messages.** An interrupted reply ends mid-text. The bundled transports do not send the `interrupted` flag; if the model should know, map it in a `request.before` interceptor (for example, append "[interrupted by the user]" to the text) or tell it in your system prompt.
+- **Accept truncated assistant messages.** An interrupted reply ends mid-text.
+- **Read what happened while it answered** ([ADR 0015](../adr/0015-retorno-da-interrupcao.md)). The next request carries one-turn context signals (`once: true`, removed after that request):
+  - `conversation.interrupted`: `{ messageId, kept, total, by }`, after an interruption that cut a reply. `kept` is how many characters stayed (what was spoken or shown), `total` how long the reply was when cut, `by` who cut it. Off with `createH4B({ input: { reportInterruptions: false } })`.
+  - `voice.reactions`: `{ messageId, reactions: [{ at, text }] }`, the backchannels heard while the bot spoke (see [Barge-in](#barge-in)). Treat them as a hint: browser recognition often misses or mishears short sounds.
+
+  On the wire they look like any context signal: `context['conversation.interrupted'] = [{ … }]` in `http` and `aiSdk`; in `agui`, a `context` item with `description: 'gui-event from conversation.interrupted'` and `value: 'interrupted: {…}'` (`'transcript from voice.reactions'`, `'reactions: {…}'`). Tell the model in your system prompt what they mean, for example: "If the user interrupted you, do not repeat the part they did not hear unless asked." 
 
 ## Voice: continuous conversation
 
@@ -151,7 +157,7 @@ Audio providers get the last `turn.audioSeconds` seconds (default 8) of the same
 Speech over the bot interrupts it when the bot is speaking or streaming a reply on screen. The plugin calls `h4b.interrupt()` before stopping the speech, so the reply keeps only the sentences already spoken:
 
 - a live transcript needs `minWords` words (default 2); a final result always counts;
-- backchannels never interrupt and are dropped: "aham", "uhum", "tá", "ok", "uh-huh", "mhm"… (a list for pt, en and es; replace it with `bargeIn: { ignore: [...] }`);
+- backchannels never interrupt: "aham", "uhum", "tá", "ok", "uh-huh", "mhm"… (a list for pt, en and es; replace it with `bargeIn: { ignore: [...] }`). They are not lost: each goes to `voice.decision` (`reason: 'backchannel'`, with the `messageId` being spoken and `at`, how many of its characters had been spoken) and to the backend on the next turn as `voice.reactions`, so it knows which part caught the user's attention. `reactions: false` keeps them out of the backend. H4B does not guess what they mean ("hum." and "hum?" are the same text);
 - pressing to talk while the bot answers also interrupts;
 - while the bot is still thinking (nothing shown yet), speech does not interrupt: when the turn ends, the kernel resumes the turn with both messages.
 

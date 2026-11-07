@@ -597,6 +597,76 @@ describe('input while busy (ADR 0011)', () => {
     expect(textOf(result.messages[0]!)).toBe('pergunta do host')
   })
 
+  describe('telling the backend about interruptions (ADR 0015)', () => {
+    const interruptedIn = (request: TurnRequest | undefined) =>
+      request?.context.find((s) => s.key === 'conversation.interrupted')?.parts[0]
+
+    it('sends conversation.interrupted with the next request only, saying who cut and how much was kept', async () => {
+      const { transport, requests, release } = gated('começando')
+      const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+      const turn = started(h4b, 1)
+      h4b.send('primeira')
+      await turn
+      await h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+      h4b.send('segunda')
+      await release()
+      await release()
+      await idle(h4b)
+      const assistant = h4b.messages[1]!
+      expect(interruptedIn(requests[1])).toEqual({
+        type: 'data',
+        name: 'interrupted',
+        value: { messageId: assistant.id, kept: 9, total: 9, by: 'text' },
+      })
+      expect(requests[1]!.context.find((s) => s.key === 'conversation.interrupted')).toMatchObject({ kind: 'context', once: true })
+      expect(h4b.context.some((s) => s.key === 'conversation.interrupted')).toBe(false)
+      h4b.send('terceira')
+      await release()
+      await idle(h4b)
+      expect(interruptedIn(requests[2])).toBeUndefined()
+    })
+
+    it('reports the part cut by an interceptor, the caller given in `by`, and nothing when disabled', async () => {
+      const transport = scripted([
+        [{ type: 'message.delta', messageId: 'a', delta: 'Olá, mundo' }],
+        [{ type: 'message.delta', messageId: 'b', delta: 'ok' }],
+        [{ type: 'message.delta', messageId: 'c', delta: 'Tchau, mundo' }],
+        [{ type: 'message.delta', messageId: 'd', delta: 'ok' }],
+      ])
+      const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+      const events = vi.fn()
+      h4b.on('turn.interrupted', events)
+      await h4b.ask('oi')
+      const off = h4b.intercept('interrupt.before', (point) => ({ ...point, keep: 4 }))
+      await h4b.interrupt({ by: 'stop-button' })
+      expect(events).toHaveBeenLastCalledWith(expect.objectContaining({ by: 'stop-button', kept: 'Olá,' }))
+      await h4b.ask('e aí?')
+      expect(interruptedIn(transport.requests[1])).toMatchObject({ value: { kept: 4, total: 10, by: 'stop-button' } })
+
+      h4b.setInput({ reportInterruptions: false })
+      await h4b.ask('mais')
+      await h4b.interrupt()
+      expect(events).toHaveBeenLastCalledWith(expect.objectContaining({ by: 'api' }))
+      off()
+      await h4b.ask('fim')
+      expect(interruptedIn(transport.requests[3])).toBeUndefined()
+    })
+
+    it('keeps a one-turn signal through direct commands and replaces it like any context signal', async () => {
+      const transport = scripted([[{ type: 'message.delta', messageId: 'a', delta: 'ok' }], [{ type: 'message.delta', messageId: 'b', delta: 'ok' }]])
+      const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()
+      h4b.signal({ kind: 'context', key: 'news', once: true, modality: 'gui-event', source: 'app', parts: [{ type: 'text', text: 'v1' }] })
+      h4b.signal({ kind: 'context', key: 'news', once: true, modality: 'gui-event', source: 'app', parts: [{ type: 'text', text: 'v2' }] })
+      h4b.signal({ kind: 'context', key: 'page', modality: 'gui-event', source: 'app', parts: [{ type: 'text', text: '/home' }] })
+      await h4b.runAction('missing')
+      expect(h4b.context.map((s) => s.key)).toEqual(['news', 'page'])
+      await h4b.ask('oi')
+      expect(transport.requests[0]!.context.map((s) => textOf(s as never))).toEqual(['v2', '/home'])
+      await h4b.ask('de novo')
+      expect(transport.requests[1]!.context.map((s) => s.key)).toEqual(['page'])
+    })
+  })
+
   it('interrupt() when idle cuts the last reply where interceptors say it stopped', async () => {
     const transport = scripted([[{ type: 'message.delta', messageId: 'a', delta: 'Olá, mundo' }]])
     const h4b = await createH4B({ plugins: [transportPlugin(transport)] }).start()

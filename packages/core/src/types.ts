@@ -93,6 +93,12 @@ export type Signal = {
   source: string
   /** Context signals with the same key replace each other. Defaults to `source`. */
   key?: string
+  /**
+   * Context signal sent with one turn only: removed once a request that
+   * carried it reaches the transport (ADR 0015). For news about what just
+   * happened, such as an interruption, rather than for what is on screen.
+   */
+  once?: boolean
   meta?: Record<string, unknown>
   timestamp: number
   /**

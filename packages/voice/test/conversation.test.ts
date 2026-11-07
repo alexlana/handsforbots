@@ -271,6 +271,59 @@ describe('speech output and barge-in', () => {
     expect(textOf(reply)).toBe('Primeira frase.')
   })
 
+  it('sends backchannels and the voice interruption to the backend on the next turn (ADR 0015)', async () => {
+    const stt = fakeSTT()
+    const tts = fakeTTS()
+    const backend = transport(['Primeira frase. Segunda frase. Terceira'])
+    const { h4b, voice: v, decisions } = await setup({ stt: stt.provider, tts: tts.provider, output: 'voice' }, backend)
+    await v.listen()
+    h4b.send('conta')
+    await h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+    stt.last().onFinal('hum')
+    tts.provider.finish() // "Primeira frase." was heard
+    await new Promise((r) => setTimeout(r, 0))
+    stt.last().onFinal('aham')
+    const reply = h4b.messages.find((m) => m.role === 'assistant')!
+    expect(decisions.filter((d) => d.kind === 'ignore')).toEqual([
+      { kind: 'ignore', text: 'hum', reason: 'backchannel', messageId: reply.id, at: 0 },
+      { kind: 'ignore', text: 'aham', reason: 'backchannel', messageId: reply.id, at: 15 },
+    ])
+    stt.last().onPartial?.('espera aí')
+    const interrupted = await h4b.when('turn.interrupted', () => true)
+    expect(interrupted).toMatchObject({ by: 'voice', kept: 'Primeira frase.' })
+
+    const next = backend.requests.length
+    h4b.send('outra coisa')
+    await vi.waitFor(() => expect(backend.requests.length).toBeGreaterThan(next))
+    const context = backend.requests.at(-1)!.context
+    expect(context.find((s) => s.key === 'voice.reactions')?.parts[0]).toEqual({
+      type: 'data',
+      name: 'reactions',
+      value: { messageId: reply.id, reactions: [{ at: 0, text: 'hum' }, { at: 15, text: 'aham' }] },
+    })
+    expect(context.find((s) => s.key === 'conversation.interrupted')?.parts[0]).toMatchObject({
+      value: { messageId: reply.id, kept: 15, by: 'voice' },
+    })
+    expect(h4b.context.some((s) => s.key === 'voice.reactions' || s.key === 'conversation.interrupted')).toBe(false)
+    await h4b.interrupt()
+  })
+
+  it('keeps reactions out of the backend with reactions: false', async () => {
+    const stt = fakeSTT()
+    const tts = fakeTTS()
+    const { h4b, voice: v, decisions } = await setup(
+      { stt: stt.provider, tts: tts.provider, output: 'voice', reactions: false },
+      transport(['Primeira frase. Segunda']),
+    )
+    await v.listen()
+    h4b.send('conta')
+    await h4b.when('stimulus', ({ stimulus }) => stimulus.type === 'message.delta')
+    stt.last().onFinal('aham')
+    expect(decisions.at(-1)).toMatchObject({ kind: 'ignore', reason: 'backchannel' })
+    expect(h4b.context.some((s) => s.key === 'voice.reactions')).toBe(false)
+    await h4b.interrupt()
+  })
+
   it('pressing to talk over the bot interrupts it', async () => {
     const stt = fakeSTT()
     const tts = fakeTTS()
