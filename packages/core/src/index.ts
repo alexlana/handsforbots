@@ -22,6 +22,24 @@ export {
   type ConsentText,
 } from './consent.js'
 export { ActionRegistry, ActionError } from './actions.js'
+export {
+  citationSegments,
+  citedSources,
+  inlineCitations,
+  isCitation,
+  safeSourceUrl,
+  sourcesOf,
+  sourceView,
+  stripInlineCitations,
+  toSourcePart,
+  utf8OffsetToIndex,
+  validCitations,
+  type CitationSegment,
+  type InlineCitationsChunk,
+  type InlineCitationsOptions,
+  type SafeSourceUrlOptions,
+  type SourceView,
+} from './citations.js'
 export { Conversation } from './conversation.js'
 export { EventBus, type Listener } from './events.js'
 export { createId } from './id.js'

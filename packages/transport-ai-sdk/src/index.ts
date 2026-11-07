@@ -1,4 +1,4 @@
-import { createId, definePlugin, textOf, type Message, type Part, type Stimulus, type Transport, type TurnRequest } from '@handsforbots/core'
+import { createId, definePlugin, textOf, toSourcePart, type Message, type Part, type SourcePart, type Stimulus, type Transport, type TurnRequest } from '@handsforbots/core'
 
 /** The subset of the AI SDK UIMessage shape this transport sends. */
 export type UIMessagePart =
@@ -92,7 +92,8 @@ export async function toUIMessages(messages: Message[]): Promise<UIMessage[]> {
   const toolParts = new Map<string, Extract<UIMessagePart, { type: 'dynamic-tool' }>>()
   for (const message of messages) {
     if (message.role === 'user') {
-      result.push({ id: message.id, role: 'user', parts: await Promise.all(message.parts.map(toUIPart)) })
+      const parts = message.parts.filter((p) => p.type !== 'source') // sources are not sent back (ADR 0014)
+      result.push({ id: message.id, role: 'user', parts: await Promise.all(parts.map(toUIPart)) })
     } else if (message.role === 'assistant') {
       const parts: UIMessagePart[] = []
       const text = textOf(message)
@@ -113,7 +114,7 @@ export async function toUIMessages(messages: Message[]): Promise<UIMessage[]> {
   return result
 }
 
-async function toUIPart(part: Part): Promise<UIMessagePart> {
+async function toUIPart(part: Exclude<Part, SourcePart>): Promise<UIMessagePart> {
   if (part.type === 'text') return { type: 'text', text: part.text }
   if (part.type === 'data') return { type: 'text', text: `${part.name}: ${JSON.stringify(part.value)}` }
   const url =
@@ -196,6 +197,16 @@ export function createChunkMapper(): (chunk: any) => Stimulus[] {
             part: { type: chunk.mediaType?.startsWith('image/') ? 'image' : 'file', mimeType: chunk.mediaType, source: { kind: 'url', url: chunk.url } },
           },
         ]
+      case 'source-url':
+      case 'source-document': {
+        // AI SDK sources (ADR 0014). A document source has no URL: a text-only reference.
+        const part = toSourcePart({
+          id: chunk.sourceId,
+          title: chunk.title || (chunk.type === 'source-url' ? chunk.url : chunk.filename) || chunk.sourceId,
+          ...(chunk.type === 'source-url' ? { url: chunk.url } : {}),
+        })
+        return part ? [{ type: 'message.part', messageId, part }] : []
+      }
       case 'tool-input-available':
         if (chunk.providerExecuted) providerExecuted.add(chunk.toolCallId)
         return [{ type: 'action.call', callId: chunk.toolCallId, name: chunk.toolName, args: chunk.input ?? {}, messageId }]
@@ -215,9 +226,10 @@ export function createChunkMapper(): (chunk: any) => Stimulus[] {
           if (name === 'ui-effect') return [{ type: 'ui.effect', name: chunk.data?.name, value: chunk.data?.value }]
           if (name === 'ui-render') return [{ type: 'ui.render', component: chunk.data?.component, props: chunk.data?.props, slot: chunk.data?.slot }]
           if (name === 'state') return [{ type: 'state.snapshot', state: chunk.data }]
+          if (name === 'citations') return [{ type: 'message.citations', messageId, citations: Array.isArray(chunk.data?.citations) ? chunk.data.citations : [] }]
           return [{ type: 'custom', name: `ai-sdk.data.${name}`, value: chunk.data }]
         }
-        return [] // text-end, reasoning-*, step markers, sources, metadata
+        return [] // text-end, reasoning-*, step markers, metadata
     }
   }
 }

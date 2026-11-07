@@ -10,7 +10,12 @@ export type MediaSource =
   | { kind: 'base64'; data: string }
   | { kind: 'url'; url: string }
 
-export type TextPart = { type: 'text'; text: string }
+export type TextPart = {
+  type: 'text'
+  text: string
+  /** Spans of `text` backed by sources of the same message (ADR 0014). */
+  citations?: Citation[]
+}
 export type MediaPart = {
   type: 'image' | 'audio' | 'video' | 'file'
   mimeType: string
@@ -20,7 +25,45 @@ export type MediaPart = {
 /** Structured data: sensor readings, GUI events, quick replies, etc. */
 export type DataPart = { type: 'data'; name: string; value: unknown }
 
-export type Part = TextPart | MediaPart | DataPart
+/**
+ * Where information in an assistant message came from (ADR 0014). Sources
+ * with the same `id` in one message replace each other. A source no citation
+ * points to was consulted; one a citation points to was cited.
+ */
+export type SourcePart = {
+  type: 'source'
+  /** Unique within the message; citations refer to it. */
+  id: string
+  /** Plain text, never HTML. */
+  title: string
+  /** Path of headings down to the excerpt, plain text. */
+  trail?: string[]
+  /**
+   * Absolute `http(s)` URL or a same-page anchor (`#section`). Relative paths
+   * are not allowed; renderers drop any other value (`safeSourceUrl`). Without
+   * a URL the source is a text-only reference.
+   */
+  url?: string
+  /** The passage used, plain text, never HTML. */
+  excerpt?: string
+}
+
+/**
+ * A span of a text part backed by one or more sources (ADR 0014). Positions
+ * are UTF-16 code units (JavaScript string indexes) into that part's `text`;
+ * transports convert other units (such as Gemini's bytes). `start === end`
+ * cites a point: renderers place the reference there.
+ */
+export type Citation = {
+  /** Inclusive. */
+  start: number
+  /** Exclusive. Renderers place the reference here. */
+  end: number
+  /** `id`s of `source` parts of the same message. */
+  sourceIds: string[]
+}
+
+export type Part = TextPart | MediaPart | DataPart | SourcePart
 
 /* -------------------------------------------------------------------------- */
 /* Signals (input)                                                            */
@@ -138,7 +181,10 @@ export type Message = UserMessage | AssistantMessage | ToolMessage
 export type Stimulus =
   | { type: 'message.start'; messageId: string }
   | { type: 'message.delta'; messageId: string; delta: string }
+  /** Adds a part. A `source` part replaces the one with the same `id` in the message. */
   | { type: 'message.part'; messageId: string; part: Part }
+  /** Adds citations to the message's last text part; positions are into that part (ADR 0014). */
+  | { type: 'message.citations'; messageId: string; citations: Citation[] }
   | { type: 'message.end'; messageId: string }
   /** The backend asks the client to run a registered action (frontend tool). */
   | { type: 'action.call'; callId: string; name: string; args: unknown; messageId?: string }

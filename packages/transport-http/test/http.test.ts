@@ -115,6 +115,29 @@ describe('http transport', () => {
     expect(result.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant'])
   })
 
+  it('reads sources and citations from JSON and SSE responses', async () => {
+    const source = { id: 'c1', title: 'Autotrac', url: 'https://example.com/autotrac#cap-1' }
+    const server = fakeServer((_, index) =>
+      index === 0
+        ? json({ text: 'Autotrac rastreia.', sources: [source, { title: 'sem id' }], citations: [{ start: 0, end: 18, sourceIds: ['c1'] }] })
+        : sse([{ sources: [source] }, { delta: 'Autotrac ' }, { delta: 'rastreia.' }, { citations: [{ start: 0, end: 18, sourceIds: ['c1'] }] }, '[DONE]']),
+    )
+    const h4b = await createH4B({ plugins: [http({ url: 'u', fetch: server.fetch })] }).start()
+    for (const question of ['a', 'b']) {
+      const result = await h4b.ask(question)
+      const message = result.messages.find((m) => m.role === 'assistant')!
+      expect(message).toMatchObject({
+        parts: [
+          { type: 'source', ...source },
+          { type: 'text', text: 'Autotrac rastreia.', citations: [{ start: 0, end: 18, sourceIds: ['c1'] }] },
+        ],
+      })
+    }
+    // Sources are not sent back to the backend.
+    expect(JSON.stringify(server.calls[1]!.body.messages)).not.toContain('Autotrac"')
+    expect(server.calls[1]!.body.messages[1]).toEqual({ role: 'assistant', content: 'Autotrac rastreia.' })
+  })
+
   it('reports HTTP errors with a snippet of the body', async () => {
     const server = fakeServer(() => new Response('upstream timeout', { status: 504 }))
     const h4b = await createH4B({ plugins: [http({ url: 'u', fetch: server.fetch })], onError: () => {} }).start()

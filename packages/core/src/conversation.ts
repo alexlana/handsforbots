@@ -83,11 +83,18 @@ export class Conversation {
     this.onMessages(this._messages)
   }
 
+  /**
+   * Appends to the last text part. `source` parts do not break the text: a
+   * delta after them continues the text before them, so citation positions
+   * stay within one part (ADR 0014).
+   */
   appendText(messageId: string, delta: string) {
     this.update<AssistantMessage>(messageId, (message) => {
       const parts = [...message.parts]
-      const last = parts[parts.length - 1]
-      if (last?.type === 'text') parts[parts.length - 1] = { type: 'text', text: last.text + delta }
+      let index = parts.length - 1
+      while (index >= 0 && parts[index]!.type === 'source') index--
+      const last = parts[index]
+      if (last?.type === 'text') parts[index] = { ...last, text: last.text + delta }
       else parts.push({ type: 'text', text: delta })
       return { ...message, parts }
     })

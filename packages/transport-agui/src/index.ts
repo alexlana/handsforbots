@@ -9,6 +9,7 @@ import {
   createId,
   definePlugin,
   textOf,
+  toSourcePart,
   type Message,
   type Part,
   type Signal,
@@ -46,6 +47,10 @@ export type AguiTransportOptions = {
 export const CUSTOM_EVENTS = {
   uiEffect: 'h4b.ui.effect',
   uiRender: 'h4b.ui.render',
+  /** `{ messageId?, sources: Array<Omit<SourcePart, 'type'>> }` → one `message.part` per source (ADR 0014). */
+  sources: 'h4b.sources',
+  /** `{ messageId?, citations: Citation[] }` → `message.citations` (ADR 0014). */
+  citations: 'h4b.citations',
 } as const
 
 export const agui = definePlugin<AguiTransportOptions>({
@@ -198,6 +203,7 @@ function toAguiContext(signal: Signal): AguiContext {
 /** Text and data parts as plain text; data parts become `name: json`. */
 function partsToText(parts: Part[]): string {
   return parts
+    .filter((part) => part.type !== 'source') // sources are for the page (ADR 0014)
     .map((part) => {
       if (part.type === 'text') return part.text
       if (part.type === 'data') return `${part.name}: ${JSON.stringify(part.value)}`
@@ -211,6 +217,7 @@ async function toContentParts(parts: Part[]): Promise<ContentPart[]> {
   for (const part of parts) {
     if (part.type === 'text') result.push({ type: 'text', text: part.text })
     else if (part.type === 'data') result.push({ type: 'text', text: `${part.name}: ${JSON.stringify(part.value)}` })
+    else if (part.type === 'source') continue // sources are for the page; the backend has them (ADR 0014)
     else {
       const source =
         part.source.kind === 'url'
@@ -248,6 +255,13 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
   const openMessages = new Set<string>()
   let lastChunkMessage: string | undefined
   let lastChunkCall: string | undefined
+  /** Message that sources and citations without `messageId` go to: the latest one seen. */
+  let lastMessage: string | undefined
+  const targetOf = (value: any): string => {
+    const id = typeof value?.messageId === 'string' && value.messageId ? value.messageId : (lastMessage ?? createId('msg'))
+    lastMessage = id
+    return id
+  }
 
   const finishCall = (id: string): Stimulus[] => {
     const call = calls.get(id)
@@ -267,8 +281,10 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
     switch (raw.type as string) {
       case 'TEXT_MESSAGE_START':
         openMessages.add(event.messageId)
+        lastMessage = event.messageId
         return [{ type: 'message.start', messageId: event.messageId }]
       case 'TEXT_MESSAGE_CONTENT':
+        lastMessage = event.messageId
         return [{ type: 'message.delta', messageId: event.messageId, delta: event.delta }]
       case 'TEXT_MESSAGE_END':
         openMessages.delete(event.messageId)
@@ -281,6 +297,7 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
           out.push({ type: 'message.start', messageId })
         }
         lastChunkMessage = messageId
+        lastMessage = messageId
         if (event.delta) out.push({ type: 'message.delta', messageId, delta: event.delta })
         return out
       }
@@ -327,6 +344,18 @@ export function createEventMapper(): (event: BaseEvent) => Stimulus[] {
         }
         if (event.name === CUSTOM_EVENTS.uiRender) {
           return [{ type: 'ui.render', component: event.value?.component, props: event.value?.props, slot: event.value?.slot }]
+        }
+        if (event.name === CUSTOM_EVENTS.sources) {
+          const messageId = targetOf(event.value)
+          const sources: unknown[] = Array.isArray(event.value?.sources) ? event.value.sources : []
+          return sources.flatMap((source): Stimulus[] => {
+            const part = toSourcePart(source)
+            return part ? [{ type: 'message.part', messageId, part }] : []
+          })
+        }
+        if (event.name === CUSTOM_EVENTS.citations) {
+          const citations = Array.isArray(event.value?.citations) ? event.value.citations : []
+          return [{ type: 'message.citations', messageId: targetOf(event.value), citations }]
         }
         return [{ type: 'custom', name: event.name, value: event.value }]
       case 'RUN_ERROR':

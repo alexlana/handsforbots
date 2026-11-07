@@ -17,3 +17,4 @@ Registro curto das decisões da v2: contexto, decisão e consequências. Para mu
 | [0011](./0011-interrupcao-e-fim-de-turno.md) | Interrupção e retomada no core (texto e voz), fim de turno plugável e barge-in completo na voz | Aceita |
 | [0012](./0012-apagar-sobras-sem-montar.md) | Apagar sobras de consentimento negado sem montar o plugin (substitui parte do 0010) | Aceita |
 | [0013](./0013-sintese-de-voz-e-efeitos.md) | Síntese de voz com provedores que devolvem áudio, política de carga dos modelos e efeitos em JSON (Web Audio, WAM, SSML) com pontes para SSML e FFmpeg | Aceita |
+| [0014](./0014-fontes-e-citacoes.md) | Fontes como parte da mensagem e citações como anotações com posição no texto (marcadores ficam no backend); URLs só absolutas ou âncoras | Aceita |

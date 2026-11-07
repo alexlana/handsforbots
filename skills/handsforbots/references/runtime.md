@@ -60,7 +60,7 @@ Every outcome of a call made inside the kernel (assistant tool call, direct comm
 
 ## Stimuli a backend (or `push`) can send
 
-`message.start | message.delta | message.part | message.end` (assistant text and parts), `action.call` (client runs an action), `action.result` (a tool the backend already ran — recorded), `ui.render` (rich content; without `slot` it becomes a `data` part named `ui` in the message, kept in history), `ui.effect` (one-off GUI effect, not in history), `state.snapshot | state.patch` (shared state, JSON Patch), `audio`, `custom`, `error`.
+`message.start | message.delta | message.part | message.end` (assistant text and parts; a `source` part replaces the one with the same `id`), `message.citations` (citations into the last text part, UTF-16 positions; see `docs/en-us/sources.md`), `action.call` (client runs an action), `action.result` (a tool the backend already ran — recorded), `ui.render` (rich content; without `slot` it becomes a `data` part named `ui` in the message, kept in history), `ui.effect` (one-off GUI effect, not in history), `state.snapshot | state.patch` (shared state, JSON Patch), `audio`, `custom`, `error`.
 
 Push an assistant message outside a turn:
 

@@ -2,6 +2,8 @@ import {
   createId,
   definePlugin,
   textOf,
+  toSourcePart,
+  type Citation,
   type Message,
   type Part,
   type Signal,
@@ -43,6 +45,10 @@ export type HttpTransportOptions = {
 
 export type ChunkResult = {
   text?: string
+  /** Sources for the streamed message (`SourcePart` fields without `type`; ADR 0014). */
+  sources?: unknown[]
+  /** Citations into the streamed message's text (ADR 0014). */
+  citations?: unknown[]
   toolCalls?: { index?: number; id?: string; name?: string; arguments?: string }[]
   stimuli?: Stimulus[]
   done?: boolean
@@ -191,6 +197,7 @@ export function toChatMessages(messages: Message[], window?: number): ChatMessag
 
 function partsText(parts: Part[]): string {
   return parts
+    .filter((p) => p.type !== 'source')
     .map((p) => (p.type === 'text' ? p.text : p.type === 'data' ? `${p.name}: ${JSON.stringify(p.value)}` : `[${p.type}]`))
     .join('\n')
 }
@@ -253,7 +260,8 @@ const toolCallStimulus = (call: any): Stimulus | undefined => {
  * Understands common response shapes: plain text; `{ response | content | text
  * | message }`; arrays of messages (`{ text, image, buttons }`, Rasa-like);
  * OpenAI chat completions (`choices[0].message`, tool calls); and top-level
- * `tool_calls`. `error`/`status >= 400` become errors.
+ * `tool_calls`. `error`/`status >= 400` become errors. A message may carry
+ * `sources` and `citations` (ADR 0014).
  */
 export function parseResponse(json: any): Stimulus[] {
   if (json == null) return []
@@ -278,10 +286,13 @@ function messageItem(item: any): Stimulus[] {
   const text = item.response ?? item.content ?? item.text ?? item.message ?? item.output
   const out: Stimulus[] = []
   const replies = item.buttons ?? item.quick_replies
-  if (typeof text === 'string' || item.image || replies?.length) {
+  const sources = Array.isArray(item.sources) ? item.sources : []
+  if (typeof text === 'string' || item.image || replies?.length || sources.length) {
     const messageId = createId('msg')
     out.push({ type: 'message.start', messageId })
+    out.push(...sourceStimuli(messageId, sources))
     if (typeof text === 'string' && text) out.push({ type: 'message.delta', messageId, delta: text })
+    if (Array.isArray(item.citations)) out.push({ type: 'message.citations', messageId, citations: item.citations })
     if (item.image) {
       out.push({ type: 'message.part', messageId, part: { type: 'image', mimeType: 'image/*', source: { kind: 'url', url: item.image } } })
     }
@@ -302,6 +313,14 @@ function messageItem(item: any): Stimulus[] {
   return out
 }
 
+/** `message.part` stimuli for the valid sources of a response (ADR 0014). */
+function sourceStimuli(messageId: string, sources: unknown[] | undefined): Stimulus[] {
+  return (sources ?? []).flatMap((value): Stimulus[] => {
+    const part = toSourcePart(value)
+    return part ? [{ type: 'message.part', messageId, part }] : []
+  })
+}
+
 /** Default SSE chunk parser: OpenAI-style `choices[0].delta` or `{ delta | content | response | text }`. */
 export const parseChunk: ChunkParser = (data) => {
   if (data === '[DONE]') return { done: true }
@@ -315,7 +334,12 @@ export const parseChunk: ChunkParser = (data) => {
     }
   }
   const text = data?.delta ?? data?.content ?? data?.response ?? data?.text
-  return typeof text === 'string' ? { text } : { stimuli: parseResponse(data) }
+  const sources = Array.isArray(data?.sources) ? data.sources : undefined
+  const citations = Array.isArray(data?.citations) ? data.citations : undefined
+  if (typeof text === 'string' || sources || citations) {
+    return { ...(typeof text === 'string' ? { text } : {}), ...(sources ? { sources } : {}), ...(citations ? { citations } : {}) }
+  }
+  return { stimuli: parseResponse(data) }
 }
 
 async function* streamStimuli(body: ReadableStream<Uint8Array>, parse: ChunkParser): AsyncGenerator<Stimulus> {
@@ -347,6 +371,7 @@ async function* streamStimuli(body: ReadableStream<Uint8Array>, parse: ChunkPars
         }
         const chunk = parse(data)
         if (!chunk) continue
+        yield* sourceStimuli(messageId, chunk.sources)
         if (chunk.text) {
           if (!started) {
             started = true
@@ -362,6 +387,7 @@ async function* streamStimuli(body: ReadableStream<Uint8Array>, parse: ChunkPars
           if (call.arguments) entry.arguments += call.arguments
           calls.set(key, entry)
         }
+        if (chunk.citations) yield { type: 'message.citations', messageId, citations: chunk.citations as Citation[] }
         for (const stimulus of chunk.stimuli ?? []) yield stimulus
         if (chunk.done) break outer
       }

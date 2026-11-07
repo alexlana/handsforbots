@@ -1,4 +1,5 @@
 import {
+  computed,
   inject,
   onScopeDispose,
   provide,
@@ -7,20 +8,23 @@ import {
   toValue,
   watch,
   type App,
+  type ComputedRef,
   type InjectionKey,
   type MaybeRefOrGetter,
   type Plugin,
   type ShallowRef,
 } from 'vue'
-import type {
-  ActionDefinition,
-  Events,
-  H4B,
-  H4BSnapshot,
-  Message,
-  Modality,
-  Services,
-  TurnStatus,
+import {
+  sourceView,
+  type ActionDefinition,
+  type Events,
+  type H4B,
+  type H4BSnapshot,
+  type Message,
+  type Modality,
+  type Services,
+  type SourceView,
+  type TurnStatus,
 } from '@handsforbots/core'
 
 export const H4BKey: InjectionKey<H4B> = Symbol('h4b')
@@ -73,6 +77,13 @@ export function useH4BState<T = H4BSnapshot>(
 export const useMessages = (): Readonly<ShallowRef<Message[]>> => useH4BState((s) => s.messages)
 export const useTurn = (): Readonly<ShallowRef<TurnStatus | undefined>> => useH4BState((s) => s.turn)
 export const useBusy = (): Readonly<ShallowRef<boolean>> => useH4BState((s) => s.busy)
+
+/**
+ * A message's sources split from its text (ADR 0014): `segments` (text and
+ * references), `cited` (numbered) and `consulted`. Render titles and excerpts
+ * as text, and links only through `safeSourceUrl`.
+ */
+export const useSources = (message: MaybeRefOrGetter<Message>): ComputedRef<SourceView> => computed(() => sourceView(toValue(message)))
 export const useSharedState = <T = unknown>(): Readonly<ShallowRef<T>> => useH4BState((s) => s.state as T)
 
 /** Listens to a kernel notification for the component's (or scope's) lifetime. */

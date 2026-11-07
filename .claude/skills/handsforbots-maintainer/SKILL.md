@@ -72,7 +72,8 @@ Se mudar algum destes, atualize `docs/*/history.md`, `docs/*/concepts.md`, `skil
 - `storage.before` roda antes de todo salvamento (`h4b.persist()`, em série, nunca lança); o `storageBackend` envia `X-H4B-Consent` e salva de novo quando as finalidades concedidas mudam; `storageLocal.forget()` apaga conversa, preferência e chave (`KeySource.forget`).
 - `tabSync`: `mode` `sync` (padrão; mesma thread → merge por id ordenado por `createdAt`; thread diferente → substitui), `notify` (`tabs.activity` + sinal de contexto `tab-sync.activity`), `off`.
 - Transportes de chat enviam ações gravadas como `tool_calls` + mensagens `tool`; o `rasa` não envia histórico.
-- O widget esconde mensagens sem texto/imagem/`ui` e mostra mensagens `tool` como cartões de ação (`showActions`).
+- O widget esconde mensagens sem texto/imagem/`ui`/`source` e mostra mensagens `tool` como cartões de ação (`showActions`).
+- Fontes e citações (ADR 0014): `message.part` com `source` substitui a de mesmo `id` na mensagem, e partes `source` não quebram o texto (`appendText` continua a última parte de texto antes delas). `message.citations` anexa à última parte de texto; malformadas são descartadas com `error` (`source: 'message.citations'`); sem parte de texto, nada é anexado. Posições em UTF-16; `interrupt()` corta as citações além do ponto mantido. Marcadores no texto são do backend/transporte (`inlineCitations`), nunca do widget. URLs só por `safeSourceUrl` (http(s) absoluta sem credenciais ou `#âncora`; relativa nunca). Transportes não mandam fontes de volta; AG-UI `h4b.sources`/`h4b.citations` sem `messageId` vão para a última mensagem vista. Widget numera pela primeira citação; `sources.action` roda a ação com origem `user`.
 
 ## Documentação
 

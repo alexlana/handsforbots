@@ -54,8 +54,19 @@ function redactValue(value: unknown, options: RedactOptions): unknown {
 
 function redactParts(parts: Part[], options: RedactOptions): Part[] {
   return parts.map((part): Part => {
+    // Citations are dropped: their positions do not fit the redacted text.
     if (part.type === 'text') return { type: 'text', text: redactText(part.text, options) }
     if (part.type === 'data') return { ...part, value: redactValue(part.value, options) }
+    if (part.type === 'source') {
+      return {
+        type: 'source',
+        id: part.id,
+        title: redactText(part.title, options),
+        ...(part.trail ? { trail: part.trail.map((t) => redactText(t, options)) } : {}),
+        ...(part.url === undefined ? {} : { url: redactText(part.url, options) }),
+        ...(part.excerpt === undefined ? {} : { excerpt: redactText(part.excerpt, options) }),
+      }
+    }
     if (options.media === 'keep') return part
     return {
       type: 'data',

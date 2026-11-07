@@ -49,9 +49,11 @@ await h4b.start()
 
 Main API: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `interrupt()`, `setInput()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). `withConsent(plugin, purpose | false)` gates a plugin on a consent purpose, or never gates it. Guide: [Consent](./consent.md).
 
+Sources and citations ([guide](./sources.md)): `sourceView`, `sourcesOf`, `citedSources`, `citationSegments`, `validCitations`, `isCitation`, `safeSourceUrl`, `toSourcePart`, `inlineCitations` / `stripInlineCitations` (markers such as `[c3]` → citations, for backends and transports) and `utf8OffsetToIndex`.
+
 ## transport-agui
 
-`agui({ url, headers?, agent?, forwardedProps? })`: HTTP POST + SSE. `headers` may be a function (refresh tokens, trace headers). `agent` accepts any AG-UI agent (e.g. `new HttpAgent()` from `@ag-ui/client`, or an in-process one). CUSTOM events named `h4b.ui.effect` and `h4b.ui.render` become GUI effects and rich content.
+`agui({ url, headers?, agent?, forwardedProps? })`: HTTP POST + SSE. `headers` may be a function (refresh tokens, trace headers). `agent` accepts any AG-UI agent (e.g. `new HttpAgent()` from `@ag-ui/client`, or an in-process one). CUSTOM events named `h4b.ui.effect` and `h4b.ui.render` become GUI effects and rich content; `h4b.sources` (`{ messageId?, sources: [...] }`) and `h4b.citations` (`{ messageId?, citations }`) become [sources and citations](./sources.md). Sources are not sent back in the history.
 
 ## transport-rasa
 
@@ -70,7 +72,7 @@ responses:
 
 ## transport-http
 
-- `http({ url, method?, headers?, session?, body?, parse?, parseChunk?, sendToolResults? })`: generic turn API. `session: { url, method, extract }` opens one backend session per thread (falls back to the thread id). Responses: plain text, `{ response | content | text | message }`, arrays of messages (`text`, `image`, `buttons`), chat completions, `tool_calls`; `text/event-stream` is streamed (OpenAI-style deltas, fragmented tool calls).
+- `http({ url, method?, headers?, session?, body?, parse?, parseChunk?, sendToolResults? })`: generic turn API. `session: { url, method, extract }` opens one backend session per thread (falls back to the thread id). Responses: plain text, `{ response | content | text | message }`, arrays of messages (`text`, `image`, `buttons`), chat completions, `tool_calls`; `text/event-stream` is streamed (OpenAI-style deltas, fragmented tool calls). `sources` and `citations` in a response or an SSE chunk become [sources and citations](./sources.md).
 - `universalLLM({ url, provider?, model?, systemPrompt?, contextWindow?, parameters?, stream?, backendSession? })`: the v1 UniversalLLM request format, plus history, tools and context.
 - `openAICompatible({ baseUrl, model, systemPrompt?, apiKey?, stream?, temperature? })`: `/chat/completions` with native tools. A key in the browser is public: use it for local development (e.g. Ollama at `http://localhost:11434/v1`) or point `baseUrl` at your proxy.
 
@@ -90,21 +92,21 @@ export async function POST(req: Request) {
 }
 ```
 
-Data parts `data-ui-effect`, `data-ui-render` and `data-state` become GUI effects, rich content and shared state.
+Data parts `data-ui-effect`, `data-ui-render` and `data-state` become GUI effects, rich content and shared state. `source-url` and `source-document` parts become [sources](./sources.md) (a document as a text-only reference) and `data-citations` (`{ citations }`) becomes citations.
 
 ## widget
 
-`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?, renderers? })`
+`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?, renderers?, sources?: { hosts?, action?, consulted? } | false })`
 
-A Web Component (`<h4b-chat>`, shadow DOM) usable in any page or framework: safe Markdown, images, quick replies, action cards labelled by origin, a status line shared by all routes, paced bot messages, menu suggestions while typing, microphone and speaker controls (with `voice`), a message telling the user why listening failed (strings `micDenied`, `speechServiceOff`, `micMissing`, `voiceNetwork`, `voiceFailed`, replaceable through `strings`), attach and camera buttons (with `files` / `camera`), paste and drop. Style it with CSS variables (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) or `::part()`. Add components for rich content with `renderers: { name: (props) => HTMLElement }`; `gallery` is built in.
+A Web Component (`<h4b-chat>`, shadow DOM) usable in any page or framework: safe Markdown, images, quick replies, action cards labelled by origin, a status line shared by all routes, paced bot messages, menu suggestions while typing, microphone and speaker controls (with `voice`), a message telling the user why listening failed (strings `micDenied`, `speechServiceOff`, `micMissing`, `voiceNetwork`, `voiceFailed`, replaceable through `strings`), attach and camera buttons (with `files` / `camera`), paste and drop. Style it with CSS variables (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) or `::part()`. Add components for rich content with `renderers: { name: (props) => HTMLElement }`; `gallery` is built in. Sources of a reply show as numbered references and a list (cited, then consulted); `sources.action` runs a registered action instead of following the link ([Sources and citations](./sources.md#widget)).
 
 ## react
 
-`<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)` (registered while mounted, always calls the latest handler), `useContextSignal(key, value)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useStore(service)` (for stateful services like `voice`).
+`<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)` (registered while mounted, always calls the latest handler), `useContextSignal(key, value)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useStore(service)` (for stateful services like `voice`), `useSources(message)` ([sources](./sources.md) split from the text).
 
 ## vue
 
-`app.use(h4bVue(h4b))` (or `provideH4B(h4b)` in a component), `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)`, `useContextSignal(key, refOrGetter)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useService(key)` (follows the service being provided or removed later), `useStore(refOrGetter)`. State comes back as read-only shallow refs that trigger only when the selected value changes; registrations end with the component (or `effectScope`).
+`app.use(h4bVue(h4b))` (or `provideH4B(h4b)` in a component), `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)`, `useContextSignal(key, refOrGetter)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useService(key)` (follows the service being provided or removed later), `useStore(refOrGetter)`, `useSources(refOrGetter)` ([sources](./sources.md) split from the text, as a computed ref). State comes back as read-only shallow refs that trigger only when the selected value changes; registrations end with the component (or `effectScope`).
 
 ```ts
 const voiceState = useStore(useService('voice'))   // listening, speaking, partial…
@@ -284,7 +286,7 @@ Rule sets and helpers for `createH4B({ consent })` (the mechanism itself is in `
 
 ## testkit
 
-For plugin and transport authors: `scriptedTransport`, `reply`, `eventually`, `waitForIdle` and `transportConformance(name, { create(scenario) })`, a Vitest suite (text answer, client action round trip, backend error, abort) that every transport in this repository passes.
+For plugin and transport authors: `scriptedTransport`, `reply`, `citedReply` (sources, clean text and citations, like a RAG backend), `eventually`, `waitForIdle` and `transportConformance(name, { create(scenario) })`, a Vitest suite (text answer, client action round trip, backend error, abort) that every transport in this repository passes.
 
 ## observability
 
