@@ -649,6 +649,7 @@ P3 — reavaliar com demanda
 | 6 | Cripto local da sessão | Decidida no [ADR 0008](./docs/adr/0008-persistencia-e-abas.md) para limitar o tempo de legibilidade (chave em cookie que expira ou no backend). A proteção contra XSS segue em aberto: revisão prioritária (seção 3) |
 | 7 | Provedor de referência do transporte `realtime` | Gemini Live (via ADK ou direto) vs. OpenAI Realtime; decidir por pt-BR, vídeo, chamadas de ferramenta na sessão e token efêmero para o navegador |
 | 8 | "Mãos" genéricas de reserva | Ações genéricas (clicar, preencher, rolar) com destaque visível, sob `exposeTo`, confirmação e histórico, para partes do app sem ação declarada vs. só ações declaradas. Recomendação: só ações declaradas até haver demanda; reavaliar se agentes de navegador passarem a ignorar o WebMCP |
+| 9 | Compensar a demora do resultado final do reconhecedor por navegador e aparelho | Desde 2026-11-08 a pausa do mãos-livres conta das últimas palavras ouvidas, não do final, e os padrões (`silence` 800, `minSilence` 300, `maxSilence` 2000) não mudaram. O `silence` efetivo ficou menor, e onde o final demora perto de 800 ms (Chrome no celular) o turno sai quase junto com ele. Não há compensação nem padrão por navegador. Antes de criar uma, medir o intervalo entre `pauseSince` e a chegada do final em vários navegadores, versões do Chrome e aparelhos. Importa para a experiência ser igual entre dispositivos; fora do foco por enquanto |
 
 ---
 
@@ -656,6 +657,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-11-08 | Mãos-livres conta a pausa das últimas palavras ouvidas, não do resultado final; estado ganha `pauseSince` e `endOfTurnCheckAt`. Envios sem modelo de fim de turno ficam mais rápidos com os mesmos padrões; compensação por navegador fica em aberto (decisão 9) |
 | 2026-11-06 | Interrupção e reações vão ao backend como sinais de contexto de um turno (ADR 0015) |
 | 2026-11-06 | Fontes e citações nas mensagens: parte `source`, `citations` com posição, `message.citations`, transportes, widget e bindings (ADR 0014) |
 | 2026-11-05 | Prova de conceito do agente multimodal em camadas (ADK + Gemini) com o H4B como mãos e olhos na página: arquitetura, etapas, entregáveis e critério de saída (seção 1); item 4.6, P1 e métrica ajustados |
