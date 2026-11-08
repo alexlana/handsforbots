@@ -111,7 +111,29 @@ segments.map((s) => (s.kind === 'text' ? s.text : <sup>{s.sourceIds.join(',')}</
 cited.map((s) => <a href={safeSourceUrl(s.url)}>{s.number}. {s.title}</a>)
 ```
 
-Funções de mais baixo nível: `sourcesOf`, `citedSources` (id → número), `citationSegments(parteDeTexto, idsConhecidos)`, `validCitations`, `isCitation`, `toSourcePart` (para transportes).
+Funções de mais baixo nível: `sourcesOf`, `citedSources` (id → número), `citationSegments(parteDeTexto, idsConhecidos)`, `validCitations`, `isCitation`, `toSourcePart` (para transportes). `sourceGroups(vista)` agrupa as fontes citadas e as consultadas por artigo.
+
+### Agrupando as seções de um artigo
+
+`sourceGroups(sourceView(mensagem))` agrupa essas fontes por artigo. O cliente continua desenhando a lista. A palavra que introduz as seções, o separador entre os títulos e os estilos ficam no cliente: a seção volta como os títulos que restaram, para o cliente juntar.
+
+Um artigo é o título mais a página, a url sem o `#…`. O mesmo título em duas páginas são dois artigos. Uma fonte sem url, ou cuja url é só uma `#âncora`, não tem página e agrupa pelo título. Nada é normalizado, então `https://example.com/a` e `https://example.com/a/` continuam separados. O helper não chama `safeSourceUrl`.
+
+A seção é o trail depois do título. Se o trail começa pelo título, esse primeiro item sai. Trail vazio, ou só o título, significa que a fonte é o artigo.
+
+Um lugar só — o artigo, ou a mesma seção repetida — é uma linha, com os números das citações juntos. Vários lugares: a primeira linha é o artigo e leva todos os números citados; cada linha seguinte é uma seção e leva o seu. A referência acha a linha pelo id da fonte. Esse id fica na linha da seção, mesmo quando a linha do artigo mostra o mesmo número. Quando o artigo e uma seção aparecem juntos, os dois números ficam na linha do artigo e a seção continua na lista.
+
+A ordem das linhas é a da primeira citação. Os números de cada linha vão em ordem. Uma fonte só consultada entra no artigo, sem número. Se essa seção também foi citada, ela fica nessa linha. Um artigo em que nada foi citado fica `consulted` (o artigo inteiro apagado, seções incluídas) e vem depois dos artigos citados, na ordem de chegada.
+
+O link do artigo é a página. O link da seção é a url dela, com a âncora; se as cópias dessa seção discordam, o link é a página. O `excerpt` é o primeiro da linha. Passe todo link por `safeSourceUrl`.
+
+```ts
+for (const artigo of sourceGroups(sourceView(mensagem))) {
+  const [linha, ...secoes] = artigo.lines
+  // uma linha: `secoes` está vazio; `linha.section` é [] ou o único caminho
+  // várias: `linha.numbers` lista todos os números citados, e cada seção fica com o seu
+}
+```
 
 ## Segurança
 

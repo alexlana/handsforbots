@@ -122,6 +122,200 @@ export function sourceView(source: Message | Part[]): SourceView {
   }
 }
 
+/** One row of an article from `sourceGroups`. The client draws it and joins `section`. */
+export type SourceGroupLine = {
+  /** Citation numbers on this row, ascending. Empty when the row was only consulted. */
+  numbers: number[]
+  /**
+   * Sources on this row: cited ones first, by number, then consulted ones in
+   * arrival order. A reference finds its row by id. A section's id stays on
+   * the section row, including when the article row also shows that number.
+   */
+  ids: string[]
+  /** Trail below the title. Empty when the row is the article itself. */
+  section: string[]
+  /**
+   * Unfiltered link. The article row is the page, without the hash. A section
+   * row keeps its url, anchor included, or falls back to the page when the
+   * copies disagree. Render it through `safeSourceUrl`.
+   */
+  url?: string
+  /** First excerpt on the row, in the same order as `ids`. */
+  excerpt?: string
+}
+
+/**
+ * One article in the source list: the same title on the same page.
+ * `consulted` means nothing in it was cited, so the client dims the whole
+ * article, sections included. `lines` is a single row when the article is one
+ * place, or the article row plus one row per section.
+ */
+export type SourceGroup = {
+  title: string
+  /** The page, which is the url without the hash. Absent when the sources have no page. */
+  url?: string
+  /** Nothing in the article was cited. */
+  consulted: boolean
+  lines: SourceGroupLine[]
+}
+
+type GroupedSource = {
+  id: string
+  number?: number
+  section: string[]
+  url?: string
+  excerpt?: string
+  consultedAt?: number
+}
+
+type Article = {
+  title: string
+  page?: string
+  firstNumber?: number
+  consultedAt?: number
+  sources: GroupedSource[]
+}
+
+/**
+ * Groups the sources `sourceView` returned, by article, for a client that
+ * draws its own list (ADR 0014). There is no DOM: the label that introduces
+ * the sections, the separator and the styles stay in the client, and urls are
+ * not filtered.
+ *
+ * An article is the title plus the page (the url without `#`). A source with
+ * no url, or whose url is only a `#anchor`, has no page and groups by title.
+ * The same title on two pages stays two articles. The url is not normalized,
+ * so a trailing slash keeps two pages apart.
+ *
+ * The section is the trail after the title. A trail that starts with the
+ * title drops that item. An empty trail, or a trail that is only the title,
+ * means the source is the article.
+ *
+ * One place — the article, or the same section repeated — is one row, with
+ * its citation numbers together. Several places: the article row carries
+ * every cited number, and each section row carries its own. Rows follow the
+ * first citation. Articles where nothing was cited follow them, in arrival
+ * order. Numbers on a row are sorted. A consulted source joins its article
+ * with no number; a section that was also cited stays on that cited row.
+ */
+export function sourceGroups(view: SourceView): SourceGroup[] {
+  const groups: Article[] = []
+  const byKey = new Map<string, Article>()
+
+  const add = (part: SourcePart, number: number | undefined, consultedAt: number | undefined) => {
+    const page = pageOf(part.url)
+    const key = JSON.stringify([part.title, page ?? null])
+    let group = byKey.get(key)
+    if (!group) {
+      group = { title: part.title, ...(page !== undefined ? { page } : {}), sources: [] }
+      byKey.set(key, group)
+      groups.push(group)
+    }
+    if (number !== undefined) group.firstNumber = group.firstNumber === undefined ? number : Math.min(group.firstNumber, number)
+    else if (group.consultedAt === undefined) group.consultedAt = consultedAt
+    group.sources.push({
+      id: part.id,
+      ...(number !== undefined ? { number } : {}),
+      section: sectionOf(part.title, part.trail),
+      ...(part.url !== undefined ? { url: part.url } : {}),
+      ...(part.excerpt !== undefined ? { excerpt: part.excerpt } : {}),
+      ...(consultedAt !== undefined ? { consultedAt } : {}),
+    })
+  }
+
+  for (const source of view.cited) add(source, source.number, undefined)
+  for (const [index, source] of view.consulted.entries()) add(source, undefined, index)
+
+  return groups
+    .sort((a, b) => {
+      if (a.firstNumber !== undefined && b.firstNumber !== undefined) return a.firstNumber - b.firstNumber
+      if (a.firstNumber !== undefined) return -1
+      if (b.firstNumber !== undefined) return 1
+      return (a.consultedAt ?? 0) - (b.consultedAt ?? 0)
+    })
+    .map((group) => toGroup(group.sources, group.title, group.page))
+}
+
+/** The page a source belongs to: its url without the hash. A bare `#anchor` is not a page. */
+function pageOf(url: string | undefined): string | undefined {
+  if (!url || url.startsWith('#')) return undefined
+  const hash = url.indexOf('#')
+  return hash === -1 ? url : url.slice(0, hash)
+}
+
+/** Trail below the title. The title is dropped only when it is the first item. */
+function sectionOf(title: string, trail: string[] | undefined): string[] {
+  if (!trail?.length) return []
+  if (trail[0] === title) return trail.slice(1)
+  return trail.slice()
+}
+
+const samePath = (a: string[], b: string[]) => a.length === b.length && a.every((item, index) => item === b[index])
+
+function orderSources(sources: GroupedSource[]): GroupedSource[] {
+  const cited = sources.filter((s) => s.number !== undefined).sort((a, b) => a.number! - b.number!)
+  const consulted = sources.filter((s) => s.number === undefined).sort((a, b) => a.consultedAt! - b.consultedAt!)
+  return [...cited, ...consulted]
+}
+
+function numbersOf(sources: GroupedSource[]): number[] {
+  return sources.flatMap((s) => (s.number === undefined ? [] : [s.number])).sort((a, b) => a - b)
+}
+
+/** The section link: the shared url, or the page when the copies disagree. */
+function sectionLink(sources: GroupedSource[], page: string | undefined): string | undefined {
+  const urls: string[] = []
+  for (const source of sources) {
+    if (source.url !== undefined && !urls.includes(source.url)) urls.push(source.url)
+  }
+  const only = urls[0]
+  if (urls.length === 1 && only !== undefined) return only
+  if (urls.length > 1) return page
+  return undefined
+}
+
+function line(sources: GroupedSource[], section: string[], url: string | undefined, numbers: number[]): SourceGroupLine {
+  const excerpt = sources.find((s) => s.excerpt !== undefined)?.excerpt
+  return {
+    numbers,
+    ids: sources.map((s) => s.id),
+    section,
+    ...(url !== undefined ? { url } : {}),
+    ...(excerpt !== undefined ? { excerpt } : {}),
+  }
+}
+
+function toGroup(sources: GroupedSource[], title: string, page: string | undefined): SourceGroup {
+  const ordered = orderSources(sources)
+  const places: string[][] = []
+  for (const source of ordered) {
+    if (!places.some((place) => samePath(place, source.section))) places.push(source.section)
+  }
+  const place = places.length === 1 ? places[0]! : undefined
+  const lines = place
+    ? [line(ordered, place, place.length === 0 ? page : sectionLink(ordered, page), numbersOf(ordered))]
+    : [
+        line(
+          ordered.filter((s) => s.section.length === 0),
+          [],
+          page,
+          numbersOf(ordered),
+        ),
+        ...places
+          .filter((section) => section.length > 0)
+          .map((section) => {
+            const onSection = ordered.filter((s) => samePath(s.section, section))
+            return line(onSection, section, sectionLink(onSection, page), numbersOf(onSection))
+          }),
+      ]
+  return {
+    title,
+    ...(page !== undefined ? { url: page } : {}),
+    consulted: sources.every((s) => s.number === undefined),
+    lines,
+  }
+}
+
 const unique = (ids: string[]) => [...new Set(ids)]
 const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id, i) => id === b[i])
 

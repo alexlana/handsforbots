@@ -6,6 +6,7 @@ import {
   inlineCitations,
   safeSourceUrl,
   sourcesOf,
+  sourceGroups,
   sourceView,
   stripInlineCitations,
   textOf,
@@ -218,6 +219,210 @@ describe('sourceView', () => {
       cited: [{ ...source('b'), number: 1 }],
       consulted: [source('a')],
     })
+  })
+})
+
+describe('sourceGroups', () => {
+  const page = 'https://example.com/artigo'
+  const numbered = (id: string, number: number, extra: Partial<SourcePart> = {}): SourcePart & { number: number } => ({
+    ...source(id, extra),
+    number,
+  })
+  const grouped = (cited: Array<SourcePart & { number: number }>, consulted: SourcePart[] = []) =>
+    sourceGroups({ segments: [], cited, consulted })
+
+  it('gives several sections one article row and a row each, in citation order', () => {
+    const groups = grouped([
+      numbered('c5', 5, { title: 'Artigo', trail: ['Artigo', 'Capítulo 2'], url: `${page}#cap-2` }),
+      numbered('c1', 1, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#cap-1`, excerpt: 'Um' }),
+      numbered('c4', 4, { title: 'Artigo', trail: ['Artigo', 'Capítulo 3', 'Módulo'], url: `${page}#mod`, excerpt: 'Quatro' }),
+    ])
+    expect(groups).toEqual([
+      {
+        title: 'Artigo',
+        url: page,
+        consulted: false,
+        lines: [
+          { numbers: [1, 4, 5], ids: [], section: [], url: page },
+          { numbers: [1], ids: ['c1'], section: ['Capítulo 1'], url: `${page}#cap-1`, excerpt: 'Um' },
+          { numbers: [4], ids: ['c4'], section: ['Capítulo 3', 'Módulo'], url: `${page}#mod`, excerpt: 'Quatro' },
+          { numbers: [5], ids: ['c5'], section: ['Capítulo 2'], url: `${page}#cap-2` },
+        ],
+      },
+    ])
+    const section = groups[0]!.lines.find((line) => line.ids.includes('c4'))
+    expect(section?.section).toEqual(['Capítulo 3', 'Módulo'])
+    expect(section?.numbers).toEqual([4])
+  })
+
+  it('collapses one repeated section into a single row', () => {
+    expect(
+      grouped([
+        numbered('c4', 4, { title: 'Artigo', trail: ['Capítulo 1'], url: `${page}#cap-1`, excerpt: 'Depois' }),
+        numbered('c1', 1, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#cap-1`, excerpt: 'Antes' }),
+      ]),
+    ).toEqual([
+      {
+        title: 'Artigo',
+        url: page,
+        consulted: false,
+        lines: [{ numbers: [1, 4], ids: ['c1', 'c4'], section: ['Capítulo 1'], url: `${page}#cap-1`, excerpt: 'Antes' }],
+      },
+    ])
+  })
+
+  it('collapses the article itself and links the page, without the hash', () => {
+    expect(
+      grouped([
+        numbered('c1', 1, { title: 'Artigo', url: `${page}#top`, excerpt: 'A' }),
+        numbered('c4', 4, { title: 'Artigo', trail: ['Artigo'], url: `${page}#other`, excerpt: 'B' }),
+      ]),
+    ).toEqual([
+      {
+        title: 'Artigo',
+        url: page,
+        consulted: false,
+        lines: [{ numbers: [1, 4], ids: ['c1', 'c4'], section: [], url: page, excerpt: 'A' }],
+      },
+    ])
+  })
+
+  it('keeps the article and a section as two rows, and the reference finds the section', () => {
+    const groups = grouped([
+      numbered('c4', 4, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#cap-1`, excerpt: 'A seção' }),
+      numbered('c1', 1, { title: 'Artigo', url: page, excerpt: 'O artigo' }),
+    ])
+    expect(groups[0]!.lines).toEqual([
+      { numbers: [1, 4], ids: ['c1'], section: [], url: page, excerpt: 'O artigo' },
+      { numbers: [4], ids: ['c4'], section: ['Capítulo 1'], url: `${page}#cap-1`, excerpt: 'A seção' },
+    ])
+  })
+
+  it('keeps the same title on two pages apart, slash included', () => {
+    const groups = grouped([
+      numbered('b', 2, { title: 'Artigo', url: 'https://example.com/a/#2' }),
+      numbered('a', 1, { title: 'Artigo', url: 'https://example.com/a#1' }),
+    ])
+    expect(groups.map((group) => group.url)).toEqual(['https://example.com/a', 'https://example.com/a/'])
+    expect(groups.map((group) => group.lines[0]!.numbers)).toEqual([[1], [2]])
+  })
+
+  it('groups a source with no url, or only an anchor, by title', () => {
+    const groups = grouped([
+      numbered('bare', 2, { title: 'Artigo' }),
+      numbered('anchor', 1, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: '#cap-1' }),
+    ])
+    expect(groups).toEqual([
+      {
+        title: 'Artigo',
+        consulted: false,
+        lines: [
+          { numbers: [1, 2], ids: ['bare'], section: [] },
+          { numbers: [1], ids: ['anchor'], section: ['Capítulo 1'], url: '#cap-1' },
+        ],
+      },
+    ])
+  })
+
+  it('keeps an agreed section url and falls back to the page when copies disagree', () => {
+    const agreed = grouped([
+      numbered('a', 1, { title: 'Artigo', trail: ['Capítulo 1'], url: '#cap-1' }),
+      numbered('b', 2, { title: 'Artigo', trail: ['Capítulo 1'] }),
+    ])
+    expect(agreed[0]!.lines[0]!.url).toBe('#cap-1')
+
+    const disagreed = grouped([
+      numbered('a', 1, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#a` }),
+      numbered('b', 2, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: page }),
+    ])
+    expect(disagreed[0]!.lines[0]!.url).toBe(page)
+
+    const anchors = grouped([
+      numbered('a', 1, { title: 'Artigo', trail: ['Capítulo 1'], url: '#a' }),
+      numbered('b', 2, { title: 'Artigo', trail: ['Capítulo 1'], url: '#b' }),
+    ])
+    expect(anchors[0]!.url).toBeUndefined()
+    expect(anchors[0]!.lines[0]!.url).toBeUndefined()
+  })
+
+  it('drops only a leading title from the trail', () => {
+    expect(
+      grouped([numbered('a', 1, { title: 'Artigo', trail: ['Outra', 'Parte'], url: page })])[0]!.lines[0]!.section,
+    ).toEqual(['Outra', 'Parte'])
+    expect(grouped([numbered('b', 1, { title: 'Artigo', trail: ['Artigo', 'Artigo'], url: page })])[0]!.lines[0]!.section).toEqual([
+      'Artigo',
+    ])
+  })
+
+  it('joins consulted sources into the article, and dims an article nothing cited', () => {
+    const groups = grouped(
+      [numbered('c1', 1, { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#cap-1` })],
+      [
+        source('antes', { title: 'Antes' }),
+        source('again', { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#outra`, excerpt: 'De novo' }),
+        source('extra', { title: 'Artigo', trail: ['Artigo', 'Capítulo 2'], url: `${page}#cap-2` }),
+        source('depois', { title: 'Depois', trail: ['Depois', 'Um'], url: 'https://example.com/depois#um' }),
+        source('depois2', { title: 'Depois', trail: ['Depois', 'Dois'], url: 'https://example.com/depois#dois' }),
+      ],
+    )
+    expect(groups.map((group) => [group.title, group.consulted])).toEqual([
+      ['Artigo', false],
+      ['Antes', true],
+      ['Depois', true],
+    ])
+    expect(groups[0]!.lines).toEqual([
+      { numbers: [1], ids: [], section: [], url: page },
+      { numbers: [1], ids: ['c1', 'again'], section: ['Capítulo 1'], url: page, excerpt: 'De novo' },
+      { numbers: [], ids: ['extra'], section: ['Capítulo 2'], url: `${page}#cap-2` },
+    ])
+    expect(groups[2]).toEqual({
+      title: 'Depois',
+      url: 'https://example.com/depois',
+      consulted: true,
+      lines: [
+        { numbers: [], ids: [], section: [], url: 'https://example.com/depois' },
+        { numbers: [], ids: ['depois'], section: ['Um'], url: 'https://example.com/depois#um' },
+        { numbers: [], ids: ['depois2'], section: ['Dois'], url: 'https://example.com/depois#dois' },
+      ],
+    })
+  })
+
+  it('leaves the url unfiltered for the renderer', () => {
+    const groups = grouped([numbered('c1', 1, { title: 'Artigo', url: 'javascript:alert(1)#x' })])
+    expect(groups[0]!.url).toBe('javascript:alert(1)')
+    expect(groups[0]!.lines[0]!.url).toBe('javascript:alert(1)')
+    expect(safeSourceUrl(groups[0]!.url)).toBeUndefined()
+  })
+
+  it('groups what sourceView numbered, without renumbering', () => {
+    const view = sourceView([
+      source('c1', { title: 'Artigo', trail: ['Artigo', 'Capítulo 1'], url: `${page}#cap-1` }),
+      source('other', { title: 'Outro', url: 'https://example.com/outro' }),
+      source('mid', { title: 'Meio', url: 'https://example.com/meio' }),
+      source('c4', { title: 'Artigo', trail: ['Artigo', 'Capítulo 3', 'Módulo'], url: `${page}#mod` }),
+      source('c5', { title: 'Artigo', trail: ['Artigo', 'Capítulo 2'], url: `${page}#cap-2` }),
+      source('idle', { title: 'Artigo', trail: ['Artigo', 'Apêndice'], url: `${page}#ap` }),
+      {
+        type: 'text',
+        text: 'abcdefghij',
+        citations: [
+          { start: 0, end: 1, sourceIds: ['c1'] },
+          { start: 1, end: 3, sourceIds: ['other'] },
+          { start: 3, end: 5, sourceIds: ['mid'] },
+          { start: 5, end: 7, sourceIds: ['c4'] },
+          { start: 7, end: 9, sourceIds: ['c5'] },
+        ],
+      },
+    ])
+    expect(sourceGroups(view).map((group) => ({ title: group.title, lines: group.lines.map((line) => line.numbers) }))).toEqual([
+      { title: 'Artigo', lines: [[1, 4, 5], [1], [4], [5], []] },
+      { title: 'Outro', lines: [[2]] },
+      { title: 'Meio', lines: [[3]] },
+    ])
+  })
+
+  it('returns nothing for a message without sources', () => {
+    expect(sourceGroups({ segments: [], cited: [], consulted: [] })).toEqual([])
   })
 })
 

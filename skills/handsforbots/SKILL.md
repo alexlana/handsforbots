@@ -82,7 +82,7 @@ React/Vue: `useContextSignal(key, value)`. Declarative HTML (`data-h4b-context`,
 | Observe | `h4b.on(event, fn)`, `await h4b.when(event, predicate, { timeout })` |
 | Transform or veto | `h4b.intercept('signal.before' | 'request.before' | 'action.before' | 'stimulus.before' | 'storage.before' | 'interrupt.before', fn)` |
 | Bind a UI | `h4b.subscribe(fn)` + `h4b.getSnapshot()`, or `@handsforbots/react` hooks / `@handsforbots/vue` composables |
-| Show where an answer came from (RAG) | Backend sends `source` parts + `message.citations` (positions in the text, no `[c3]` markers); render with `sourceView(message)` / `useSources(message)` and links only through `safeSourceUrl` (widget does it). See `docs/en-us/sources.md` |
+| Show where an answer came from (RAG) | Backend sends `source` parts + `message.citations` (positions in the text, no `[c3]` markers); render with `sourceView(message)` / `useSources(message)`. Group sections of one article with `sourceGroups(view)`. Links only through `safeSourceUrl` (widget does it). See `docs/en-us/sources.md` |
 
 Everything goes through **one queue**: turns, `runAction` and `push` run one at a time, in order. A `runAction` issued during a long LLM turn waits for it. Typed and spoken messages are the exception: by default one sent during a reply interrupts it (the reply keeps what was shown, `interrupted: true`), and one sent before any reply came out is joined with the pending message. Choose with `createH4B({ input: { whileBusy: 'interrupt' | 'merge' | 'queue' } })` or `h4b.setInput()` at runtime; `ask()` queues unless given `whileBusy`. Full rules: the `handsforbots-conversation` skill. Details and pitfalls: `references/runtime.md`.
 

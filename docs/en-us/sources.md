@@ -111,7 +111,29 @@ segments.map((s) => (s.kind === 'text' ? s.text : <sup>{s.sourceIds.join(',')}</
 cited.map((s) => <a href={safeSourceUrl(s.url)}>{s.number}. {s.title}</a>)
 ```
 
-Lower-level helpers: `sourcesOf`, `citedSources` (id → number), `citationSegments(textPart, knownIds)`, `validCitations`, `isCitation`, `toSourcePart` (for transports).
+Lower-level helpers: `sourcesOf`, `citedSources` (id → number), `citationSegments(textPart, knownIds)`, `validCitations`, `isCitation`, `toSourcePart` (for transports). `sourceGroups(view)` groups the cited and consulted sources by article.
+
+### Grouping sections of one article
+
+`sourceGroups(sourceView(message))` groups those sources by article. The client still draws the list. The word that introduces the sections, the separator between headings and the styles stay in the client: a section comes back as the remaining headings, for the client to join.
+
+An article is the title plus the page, the url with the `#…` removed. The same title on two pages is two articles. A source with no url, or a url that is only a `#anchor`, has no page and groups by title. Nothing is normalized, so `https://example.com/a` and `https://example.com/a/` stay apart. The helper does not call `safeSourceUrl`.
+
+The section is the trail after the title. When the trail starts with the title, that first item is dropped. An empty trail, or a trail that is only the title, means the source is the article.
+
+One place — the article, or the same section repeated — is a single row, with its citation numbers together. Several places: the first row is the article and carries every cited number; each following row is a section and carries its own. A reference finds its row by source id. That id stays on the section row, including when the article row shows the same number. When the article itself and a section both appear, both numbers stay on the article row and the section stays in the list.
+
+Rows follow the first citation. Numbers on a row are sorted. A consulted source joins its article with no number. A section that was also cited stays on that row. An article where nothing was cited is `consulted` (dim the whole article, sections included) and follows the cited articles, in arrival order.
+
+The article's link is the page. A section's link is its url, anchor included; when the copies of that section disagree, the link is the page. `excerpt` is the first one on the row. Pass every link through `safeSourceUrl`.
+
+```ts
+for (const article of sourceGroups(sourceView(message))) {
+  const [head, ...sections] = article.lines
+  // one row: `sections` is empty; `head.section` is [] or the only path
+  // several: `head.numbers` lists every cited number, and each section row has its own
+}
+```
 
 ## Security
 

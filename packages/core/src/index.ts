@@ -29,6 +29,7 @@ export {
   isCitation,
   safeSourceUrl,
   sourcesOf,
+  sourceGroups,
   sourceView,
   stripInlineCitations,
   toSourcePart,
@@ -38,6 +39,8 @@ export {
   type InlineCitationsChunk,
   type InlineCitationsOptions,
   type SafeSourceUrlOptions,
+  type SourceGroup,
+  type SourceGroupLine,
   type SourceView,
 } from './citations.js'
 export { Conversation } from './conversation.js'

@@ -49,7 +49,7 @@ await h4b.start()
 
 Main API: `signal()`, `send()`, `ask()`, `runAction()`, `push()`, `interrupt()`, `setInput()`, `abort()`, `reset()`, `persist()`, `actions.register()`, `provide()/get()`, `on()/when()`, `intercept()`, `addMatcher()`, `capture()`, `subscribe()/getSnapshot()`, `use(plugin)`, `stop()`, `consent` (`state()`, `granted()`, `set()`, `setRegion()`, `ready()`, `snapshot()`, `subscribe()`). `withConsent(plugin, purpose | false)` gates a plugin on a consent purpose, or never gates it. Guide: [Consent](./consent.md).
 
-Sources and citations ([guide](./sources.md)): `sourceView`, `sourcesOf`, `citedSources`, `citationSegments`, `validCitations`, `isCitation`, `safeSourceUrl`, `toSourcePart`, `inlineCitations` / `stripInlineCitations` (markers such as `[c3]` → citations, for backends and transports) and `utf8OffsetToIndex`.
+Sources and citations ([guide](./sources.md)): `sourceView`, `sourceGroups`, `sourcesOf`, `citedSources`, `citationSegments`, `validCitations`, `isCitation`, `safeSourceUrl`, `toSourcePart`, `inlineCitations` / `stripInlineCitations` (markers such as `[c3]` → citations, for backends and transports) and `utf8OffsetToIndex`.
 
 ## transport-agui
 

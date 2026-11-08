@@ -42,7 +42,7 @@ await h4b.start()
 - [Escrevendo plugins](./writing-plugins.md)
 - [Histórico](./history.md): leitura, registro de decisões da interface, linha do tempo
 - [Interrupção e conversa por voz](./conversation.md): mensagens enviadas enquanto o assistente responde, botões de parar, conversa com microfone aberto, modelos de fim de turno, barge-in
-- [Fontes e citações](./sources.md): fontes nas mensagens do assistente, citações como trechos do texto, transportes, referências e lista no widget, URLs seguras
+- [Fontes e citações](./sources.md): fontes nas mensagens do assistente, citações como trechos do texto, transportes, referências e lista no widget, agrupamento das seções de um artigo, URLs seguras
 - [Síntese de voz e efeitos](./speech.md): a voz do navegador, um backend ou modelos na página (Piper, Kokoro, transformers.js), quando os modelos baixam e quem fala enquanto isso, efeitos em JSON, presets, exportação para SSML e FFmpeg
 - [Persistência, memória e privacidade](./persistence.md): o que é enviado, guardado e armazenado, criptografia, retenção, abas
 - [Consentimento](./consent.md): trabalhar com a sua ferramenta de consentimento, regras por legislação e região, apagar ao revogar, anonimização para revisão humana
