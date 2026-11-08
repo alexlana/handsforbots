@@ -89,3 +89,21 @@ describe('voice events', () => {
     expect(json).not.toContain('aham-confidencial')
   })
 })
+
+describe('speech provider trace', () => {
+  it('records voice.tts events by name, with the worker number', async () => {
+    const h4b = await createH4B({ plugins: [observability()] }).start()
+    const emit = h4b.emit.bind(h4b) as (event: string, payload: unknown) => void
+    emit('voice.tts', { provider: 'piper', event: 'worker.init', worker: 3, attempt: 1 })
+    emit('voice.tts', { provider: 'piper', event: 'load.done', ms: 900 })
+    const timeline = h4b.get('observability')!.getTimeline()
+    expect(timeline.map((e) => e.name)).toEqual(expect.arrayContaining(['voice.tts.worker.init', 'voice.tts.load.done']))
+    expect(JSON.stringify(timeline)).toContain('"worker":3')
+  })
+
+  it('records the browser once, at start', async () => {
+    const h4b = await createH4B({ plugins: [observability()] }).start()
+    const event = h4b.get('observability')!.getTimeline().find((e) => e.name === 'client.environment')
+    expect(JSON.stringify(event)).toContain(navigator.userAgent)
+  })
+})

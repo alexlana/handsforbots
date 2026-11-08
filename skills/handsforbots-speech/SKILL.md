@@ -56,6 +56,8 @@ voice({ tts: [piper, webSpeechTTS()] })
 - The worker starts on the first `load`/`synthesize`; `load.start` still decides when. `name` is fixed on the page (default `'worker'`). Signals are forwarded; audio is transferred without a copy.
 - A worker that cannot start (no module workers: Firefox < 114, Safari < 15; missing file) makes `load` reject, so the next provider speaks. Keep `webSpeechTTS()` last.
 - `piper.terminate()` stops the worker (voice turned off). Don't set `ort.env.wasm.proxy` inside the worker.
+- Requests wait for the worker's `ready` and the config is sent again then (WebKit can drop messages to a loading module worker). Worker file and page must use the same `@handsforbots/voice-models` version: an older `serveTTS` never says `ready`, so requests would wait forever.
+- Debugging: `voice.tts` events (`h4b.on('voice.tts', …)`, recorded by `observability` as `voice.tts.<event>`) show the model loading (`load.start`/`.progress`/`.done`/`.error`), what happened to speech asked for while it loads (`speech.while-loading`: `fallback`/`wait`/`silent`) and, for `workerTTS`, each worker numbered (`worker.created`, `worker.init` with `attempt`, `worker.ready`, `worker.info` with `inits`, `request`, `reply`, `request.error`). The `devPanel` export carries the browser.
 
 ## When models download and who speaks meanwhile
 

@@ -14,6 +14,7 @@ import {
   type SpokenSentence,
   type SttSession,
   type TextToSpeech,
+  type TtsTraceEvent,
   type TurnHistoryEntry,
 } from './types.js'
 
@@ -136,6 +137,16 @@ export type VoiceSpeechEvent =
   | { phase: 'end'; provider: string; ms: number; interrupted?: boolean }
   | { phase: 'error'; provider?: string; code: SpeechErrorCode; message: string }
 
+/**
+ * A speech provider's model and internals, for logs and debugging: the voice
+ * plugin reports `load.start`, `load.progress` (each quarter of the download),
+ * `load.done`, `load.error`, `load.aborted` and `speech.while-loading` (a
+ * chunk asked for before the model is ready: `action` `fallback` with `to`,
+ * `wait` or `silent`, and the `policy` that chose it); the rest comes from the
+ * provider's own `trace` (`workerTTS`: the worker's life and each request).
+ */
+export type VoiceTtsEvent = { provider: string } & TtsTraceEvent
+
 export type VoiceService = {
   getState(): VoiceState
   subscribe(listener: () => void): () => void
@@ -183,6 +194,8 @@ declare module '@handsforbots/core' {
     'voice.decision': VoiceDecision
     /** Each spoken chunk starting, ending or failing (for logs and debugging). */
     'voice.speech': VoiceSpeechEvent
+    /** Each speech provider loading its model and, when it traces, its internals (for logs and debugging). */
+    'voice.tts': VoiceTtsEvent
   }
 }
 
@@ -784,6 +797,31 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   /* Models: when they download and which provider speaks meanwhile. */
 
   const statuses = new Map<TextToSpeech, TtsStatus>()
+
+  /* Debugging: each provider's loading and internals go to `voice.tts`. */
+
+  const trace = (p: TextToSpeech, event: TtsTraceEvent) => {
+    const defined = Object.fromEntries(Object.entries(event).filter(([, value]) => value !== undefined))
+    ctx.emit('voice.tts', { ...(defined as TtsTraceEvent), provider: p.name })
+  }
+  const traced = new Map<TextToSpeech, () => void>()
+  /** Follows the `trace` of the current providers (called again by `setTTS`). */
+  const followTraces = (providers: TextToSpeech[]) => {
+    for (const [p, off] of traced) {
+      if (providers.includes(p)) continue
+      off()
+      traced.delete(p)
+    }
+    for (const p of providers) {
+      if (!p.trace || traced.has(p)) continue
+      try {
+        traced.set(p, p.trace((event) => trace(p, event)))
+      } catch (error) {
+        ctx.emit('error', { error, source: `voice:tts:${p.name}` })
+      }
+    }
+  }
+  followTraces(ttsProviders)
   const loads = new Map<TextToSpeech, Promise<boolean>>()
   const loadControllers = new Set<AbortController>()
   /** The loading policy has been triggered: failed downloads move on to the next model. */
@@ -807,22 +845,42 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     const controller = new AbortController()
     loadControllers.add(controller)
     let lastProgress = 0
+    /** Quarters of the download already reported on `voice.tts`. */
+    let quarter = 0
+    const startedAt = Date.now()
+    trace(p, { event: 'load.start', size: p.size })
     setStatus(p, { state: 'loading', loaded: 0, total: p.size })
     const promise = p
       .load((progress) => {
+        if (controller.signal.aborted) return
+        const total = progress.total ?? p.size
+        const reached = total ? Math.min(3, Math.floor((progress.loaded / total) * 4)) : 0
+        if (reached > quarter) {
+          quarter = reached
+          trace(p, { event: 'load.progress', loaded: progress.loaded, total, file: progress.file })
+        }
         const now = Date.now()
-        if (controller.signal.aborted || now - lastProgress < 100) return
+        if (now - lastProgress < 100) return
         lastProgress = now
-        setStatus(p, { state: 'loading', loaded: progress.loaded, total: progress.total ?? p.size })
+        setStatus(p, { state: 'loading', loaded: progress.loaded, total })
       }, controller.signal)
       .then(() => {
-        if (controller.signal.aborted) return false
+        if (controller.signal.aborted) {
+          trace(p, { event: 'load.aborted', ms: Date.now() - startedAt })
+          return false
+        }
+        trace(p, { event: 'load.done', ms: Date.now() - startedAt })
         setStatus(p, { state: 'ready', loaded: statusOf(p).loaded, total: statusOf(p).total })
         return true
       })
       .catch((error) => {
-        if (controller.signal.aborted) return false
-        setStatus(p, { state: 'failed', error: (error as Error)?.message ?? String(error) })
+        if (controller.signal.aborted) {
+          trace(p, { event: 'load.aborted', ms: Date.now() - startedAt })
+          return false
+        }
+        const message = (error as Error)?.message ?? String(error)
+        trace(p, { event: 'load.error', ms: Date.now() - startedAt, message })
+        setStatus(p, { state: 'failed', error: message })
         ctx.emit('error', { error, source: `voice:tts:${p.name}` })
         if (loadingWanted) void loadPreferred()
         return false
@@ -849,15 +907,23 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     const first = preferred()
     if (!first || ready(first)) return first
     if (loadStart === 'first-use') void loadPreferred()
+    // What happens to this chunk while the model is not ready, for the log.
+    const meanwhile = (action: 'fallback' | 'wait' | 'silent', to?: string) =>
+      trace(first, { event: 'speech.while-loading', policy: whileLoading, action, to, state: statusOf(first).state })
     switch (whileLoading) {
-      case 'fallback':
-        return ttsProviders.find((p) => p !== first && usable(p) && ready(p))
+      case 'fallback': {
+        const other = ttsProviders.find((p) => p !== first && usable(p) && ready(p))
+        meanwhile(other ? 'fallback' : 'silent', other?.name)
+        return other
+      }
       case 'wait': {
         // Only a download in progress is waited for: with `manual`, nothing speaks before `loadSpeech()`.
         const running = loads.get(first)
+        meanwhile(running ? 'wait' : 'silent')
         return running?.then(() => choose())
       }
       case 'silent':
+        meanwhile('silent')
         return undefined
       default: {
         const never: never = whileLoading
@@ -960,11 +1026,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         return audio && { provider, options: speakOptions, plan, audio }
       } catch (error) {
         if (signal.aborted) return undefined
-        ctx.emit('error', { error, source: `voice:tts:${provider.name}` })
         // This sentence goes to the next ready provider (the backend is down, the model choked).
         const failed: TextToSpeech = provider
         provider = ttsProviders.slice(ttsProviders.indexOf(failed) + 1).find((p) => usable(p) && ready(p))
-        if (!provider) throw error
+        // The last failure is reported once, by the chunk, under this provider's name.
+        if (!provider) throw new ProviderFailure(failed.name, error)
+        ctx.emit('error', { error, source: `voice:tts:${failed.name}` })
       }
     }
     return undefined
@@ -1021,8 +1088,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
         if (!interrupted) onSpoken?.()
       } catch (error) {
         if (!controller.signal.aborted) {
-          const speechError = speakError(error)
-          const provider = prepared?.provider.name
+          const failure = error instanceof ProviderFailure ? error : undefined
+          const speechError = speakError(failure ? failure.error : error)
+          const provider = failure?.provider ?? prepared?.provider.name
           ctx.emit('voice.speech', { phase: 'error', provider, code: speechError.code, message: speechError.message })
           fail(speechError, {}, provider ? `voice:tts:${provider}` : 'voice')
         }
@@ -1220,6 +1288,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       service.cancelSpeech()
       for (const p of ttsProviders) if (!next.includes(p)) statuses.delete(p)
       ttsProviders = next
+      followTraces(next)
       set({ supported: { ...state.supported, tts: next.length > 0 }, tts: next[0]?.name })
       publishStatus()
       if (loadingWanted || loadStart === 'eager') void loadPreferred()
@@ -1262,6 +1331,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   ctx.onDispose(() => {
     disposed = true
     unfollowEffects?.()
+    followTraces([])
     for (const controller of loadControllers) controller.abort()
     if (typeof document !== 'undefined') {
       for (const type of gestures) document.removeEventListener(type, unlockAudio, { capture: true })
@@ -1276,6 +1346,14 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   })
 
   return service
+}
+
+/** The last provider that failed a sentence, so the error is reported once and under its name. */
+class ProviderFailure {
+  constructor(
+    readonly provider: string,
+    readonly error: unknown,
+  ) {}
 }
 
 /** Errors while speaking always carry `stage: 'speak'`, so UIs don't blame the microphone. */

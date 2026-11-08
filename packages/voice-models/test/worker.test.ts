@@ -230,4 +230,86 @@ describe('workerTTS + serveTTS', () => {
     expect(workers[0]!.terminated).toBe(false)
     tts.terminate()
   })
+
+  it('traces each worker and request, with a number per worker', async () => {
+    const { create } = channelWorker(provider())
+    const tts = workerTTS({ worker: create })
+    const events: Record<string, unknown>[] = []
+    const off = tts.trace((event) => events.push(event))
+    await tts.load!(() => {}, new AbortController().signal)
+    await tts.synthesize!('olá', { language: 'pt-BR' })
+    await eventually(() => expect(events.some((e) => e.event === 'worker.info')).toBe(true))
+    const worker = events.find((e) => e.event === 'worker.created')!.worker
+    expect(typeof worker).toBe('number')
+    expect(events.every((e) => e.worker === worker)).toBe(true)
+    const names = events.map((e) => e.event)
+    expect(names.slice(0, 3)).toEqual(['worker.created', 'worker.init', 'request'])
+    expect(names).toEqual(expect.arrayContaining(['worker.ready', 'worker.info', 'reply']))
+    expect(events.filter((e) => e.event === 'worker.init').map((e) => e.attempt)).toEqual([1, 2])
+    expect(events.find((e) => e.event === 'request' && e.type === 'synthesize')).toMatchObject({ chars: 3 })
+    expect(events.filter((e) => e.event === 'reply').map((e) => e.type)).toEqual(['load', 'synthesize'])
+    expect(JSON.stringify(events)).not.toContain('olá')
+
+    tts.terminate()
+    expect(events.at(-1)).toMatchObject({ event: 'worker.terminated', worker })
+    off()
+  })
+
+  it('holds requests until the worker is listening, so a lost first init does no harm', async () => {
+    // A worker whose first messages are lost, as WebKit can do while a module worker loads.
+    let created: ReturnType<ReturnType<typeof channelWorker>['create']> | undefined
+    const { create } = channelWorker(provider())
+    const lossy = () => {
+      const worker = create()
+      created = worker
+      let dropped = false
+      const post = worker.postMessage
+      worker.postMessage = (message, transfer) => {
+        if (!dropped) {
+          dropped = true
+          return
+        }
+        post(message, transfer)
+      }
+      return worker
+    }
+    const tts = workerTTS({ worker: lossy })
+    const events: Record<string, unknown>[] = []
+    tts.trace((event) => events.push(event))
+    const audio = await tts.synthesize!('abcd', { language: 'en' })
+    expect(Array.from(audio.samples)).toEqual([4, 0.5])
+    expect(created).toBeDefined()
+    await eventually(() => expect(events.find((e) => e.event === 'worker.info')).toMatchObject({ inits: 1 }))
+    expect(events.find((e) => e.event === 'worker.ready')).toMatchObject({ queued: 1 })
+    tts.terminate()
+  })
+
+  it('says what was asked when the config never arrived', async () => {
+    const { port1, port2 } = new MessageChannel()
+    serveTTS(() => provider(), port1 as unknown as TtsWorkerScope)
+    port1.start()
+    port2.start()
+    const replies: any[] = []
+    port2.addEventListener('message', (event) => replies.push(event.data))
+    port2.postMessage({ tag: 'h4b:tts', type: 'synthesize', id: 7, text: 'x', options: { language: 'en' } })
+    await eventually(() => expect(replies.some((r) => r.type === 'error')).toBe(true))
+    expect(replies[0]).toMatchObject({ type: 'ready' })
+    expect(replies.find((r) => r.type === 'error').error.message).toBe(
+      'serveTTS got a synthesize request before its config (no init reached this worker)',
+    )
+    port1.close()
+  })
+
+  it('removes a request aborted while it waits for the worker', async () => {
+    const synthesize = vi.fn(async () => ({ samples: new Float32Array(1), sampleRate: 16000 }))
+    const { create } = channelWorker(provider({ synthesize }))
+    const tts = workerTTS({ worker: create })
+    const controller = new AbortController()
+    const speech = tts.synthesize!('x', { language: 'en', signal: controller.signal })
+    controller.abort()
+    await expect(speech).rejects.toMatchObject({ name: 'AbortError' })
+    await tts.load!(() => {}, new AbortController().signal)
+    expect(synthesize).not.toHaveBeenCalled()
+    tts.terminate()
+  })
 })

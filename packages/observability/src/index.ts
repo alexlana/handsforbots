@@ -69,6 +69,10 @@ function attach(
   const offs: (() => void)[] = []
   const VISIBLE = new Set(['message.delta', 'message.part', 'ui.render', 'ui.effect', 'action.call', 'action.result', 'audio'])
 
+  // Which browser: many failures (audio, workers, speech) happen in one engine only.
+  const nav = (globalThis as { navigator?: { userAgent?: string; language?: string } }).navigator
+  if (nav?.userAgent) record('client.environment', { userAgent: nav.userAgent, language: nav.language })
+
   offs.push(
     on('turn.status', (status) => {
       const labels = { turnId: status.turnId, route: status.route ?? 'pending' }
@@ -136,6 +140,8 @@ function attach(
   const onPlugin = on as unknown as (event: string, listener: (payload: Record<string, unknown>) => void) => () => void
   offs.push(
     onPlugin('voice.speech', ({ phase, ...rest }) => record(`voice.speech.${String(phase)}`, rest)),
+    // Models loading and the speech worker's life: `voice.tts.load.start`, `voice.tts.worker.init`...
+    onPlugin('voice.tts', ({ event, ...rest }) => record(`voice.tts.${String(event)}`, rest)),
     onPlugin('voice.decision', (decision) => {
       // The transcript is content: kept out unless `includeContent`.
       const { text, ...rest } = decision

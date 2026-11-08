@@ -16,6 +16,7 @@ export {
   type VoiceOptions,
   type VoiceService,
   type VoiceSpeechEvent,
+  type VoiceTtsEvent,
   type VoiceState,
 } from './voice.js'
 export {

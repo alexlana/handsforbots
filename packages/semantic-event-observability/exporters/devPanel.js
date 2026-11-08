@@ -87,6 +87,7 @@ export function createDevPanelExporter(config = {}) {
 			const bundle = {
 				identity,
 				exportedAt: new Date().toISOString(),
+				environment: clientEnvironment(),
 				timeline: contextRef?.getTimeline?.() || [],
 				metrics: contextRef?.getMetrics?.() || [],
 				policy: contextRef?.getPolicyStats?.() || {},
@@ -95,6 +96,17 @@ export function createDevPanelExporter(config = {}) {
 		})
 
 		document.body.appendChild(host)
+	}
+}
+
+/** The browser the bundle came from: many bugs live in one engine only. */
+export function clientEnvironment() {
+	const nav = typeof navigator !== 'undefined' ? navigator : undefined
+	return {
+		userAgent: nav?.userAgent,
+		language: nav?.language,
+		platform: nav?.userAgentData?.platform ?? nav?.platform,
+		viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : undefined,
 	}
 }
 

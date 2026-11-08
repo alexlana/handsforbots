@@ -340,3 +340,106 @@ describe('encodeWav', () => {
     expect(view.getInt16(46, true)).toBe(0x7fff)
   })
 })
+
+describe('debugging speech (voice.tts)', () => {
+  const traced = (h4b: ReturnType<typeof createH4B>) => {
+    const events: Record<string, unknown>[] = []
+    ;(h4b.on as unknown as (e: string, l: (p: Record<string, unknown>) => void) => void)('voice.tts', (e) => events.push(e))
+    return events
+  }
+
+  it('reports the model loading: start, each quarter, done', async () => {
+    const model = fakeModel()
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ tts: model.provider, player, load: { start: 'manual' } })] })
+    const events = traced(h4b)
+    await h4b.start()
+    const v = h4b.get('voice') as VoiceService
+    const loaded = v.loadSpeech()
+    for (const loaded of [100, 300, 400, 600, 999]) model.progress(loaded, 1000)
+    model.finishLoad()
+    await loaded
+    expect(events.map((e) => [e.event, e.loaded])).toEqual([
+      ['load.start', undefined],
+      ['load.progress', 300],
+      ['load.progress', 600],
+      ['load.progress', 999],
+      ['load.done', undefined],
+    ])
+    expect(events[0]).toMatchObject({ provider: 'model', size: 1000 })
+  })
+
+  it('reports a failed load with its message', async () => {
+    const broken = fakeModel('broken', { failLoad: true })
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ tts: broken.provider, player, load: { start: 'eager' } })] })
+    const events = traced(h4b)
+    await h4b.start()
+    await eventually(() => expect(events.at(-1)).toMatchObject({ event: 'load.error', provider: 'broken', message: '404' }))
+  })
+
+  it('says what happens to a chunk asked for while the model downloads', async () => {
+    const model = fakeModel()
+    const browser = fakeSpeaker()
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ language: 'pt-BR', output: 'voice', tts: [model.provider, browser.provider], player })] })
+    h4b.provide('transport', transport('Olá.'))
+    const events = traced(h4b)
+    await h4b.start()
+    await h4b.ask('oi')
+    await eventually(() =>
+      expect(events.find((e) => e.event === 'speech.while-loading')).toMatchObject({
+        provider: 'model',
+        policy: 'fallback',
+        action: 'fallback',
+        to: 'browser',
+        state: 'loading',
+      }),
+    )
+  })
+
+  it('says when nobody speaks while the model downloads', async () => {
+    const model = fakeModel()
+    const { player } = fakePlayer()
+    const h4b = createH4B({
+      plugins: [voice({ language: 'pt-BR', output: 'voice', tts: model.provider, player, load: { whileLoading: 'silent' } })],
+    })
+    h4b.provide('transport', transport('Olá.'))
+    const events = traced(h4b)
+    await h4b.start()
+    await h4b.ask('oi')
+    await eventually(() => expect(events.find((e) => e.event === 'speech.while-loading')).toMatchObject({ policy: 'silent', action: 'silent' }))
+  })
+
+  it('reports the last synthesis failure once, under the provider name', async () => {
+    const model = fakeModel('piper', { failSynth: true })
+    const { player } = fakePlayer()
+    const { h4b, voice: v } = await setup({ tts: model.provider, player, load: { start: 'eager' } })
+    const errors: { source: string }[] = []
+    const speech: Record<string, unknown>[] = []
+    h4b.on('error', (e) => errors.push(e as { source: string }))
+    h4b.on('voice.speech', (e) => speech.push(e as Record<string, unknown>))
+    model.finishLoad()
+    await eventually(() => expect(v.getState().ttsStatus.piper?.state).toBe('ready'))
+    await h4b.ask('oi')
+    await eventually(() => expect(errors).toHaveLength(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(errors).toEqual([expect.objectContaining({ source: 'voice:tts:piper' })])
+    expect(speech).toEqual([expect.objectContaining({ phase: 'error', provider: 'piper', message: 'model choked' })])
+  })
+
+  it("forwards the provider's own trace and stops on setTTS", async () => {
+    let listener: ((e: { event: string; [k: string]: string | number | boolean | undefined }) => void) | undefined
+    const off = vi.fn()
+    const model = fakeModel('piper')
+    model.provider.trace = (l) => ((listener = l), off)
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ tts: model.provider, player, load: { start: 'manual' } })] })
+    const events = traced(h4b)
+    await h4b.start()
+    listener!({ event: 'worker.created', worker: 1, ignored: undefined })
+    expect(events).toEqual([{ event: 'worker.created', worker: 1, provider: 'piper' }])
+    await (h4b.get('voice') as VoiceService).setTTS(fakeSpeaker().provider)
+    expect(off).toHaveBeenCalled()
+  })
+})

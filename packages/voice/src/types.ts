@@ -121,7 +121,16 @@ export type TextToSpeech = {
   size?: number
   /** Prosody it applies itself; the player does the rest it can (pitch, volume). */
   prosody?: ProsodySupport
+  /**
+   * What happens inside the provider, for logs and debugging (a worker
+   * starting, a request and its reply). The voice plugin subscribes and emits
+   * each step as `voice.tts`. Returns the unsubscribe function.
+   */
+  trace?(listener: (event: TtsTraceEvent) => void): () => void
 }
+
+/** One step inside a provider: `event` names it, the rest are plain values (no content). */
+export type TtsTraceEvent = { event: string } & Record<string, string | number | boolean | undefined>
 
 /** One sentence's effects, built by `SpeechEffects.connect`. */
 export type EffectsInstance = {
