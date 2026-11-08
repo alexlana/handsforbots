@@ -89,7 +89,7 @@ After each final result the plugin waits. Every pause counts from the **last wor
 - **With a provider:** asks it after `minSilence` ms. A probability ≥ `threshold` sends at once; anything lower waits up to `maxSilence` ms. If the answer takes longer than `timeout` ms, or fails, silence decides.
 - **Recognizer that detects turns itself** (`capabilities.endOfTurn`, results marked `{ endOfTurn: true | false }`): sends on `endOfTurn: true`, at the latest after `maxSilence`; the provider is not called.
 
-Speaking again before that keeps the turn open. If the recognizer shows words but never finalizes them, they are sent after `maxSilence`. If the turn already went out and the reply has not started, the kernel joins the continuation to it (input policy above).
+Speaking again before that keeps the turn open. If the recognizer shows words but never finalizes them, they are sent `maxSilence` after the last words, with no countdown in the state (the plugin cannot tell a pause from slow recognition until a final arrives). If the turn already went out and the reply has not started, the kernel joins the continuation to it (input policy above).
 
 | Control | Call |
 |---|---|
@@ -218,7 +218,7 @@ The three times are timestamps, not time left, so your UI renders when they chan
 - **No provider**, or a recognizer that decides: it does not move; the turn goes out at `endOfTurnAt`.
 - **With a provider**, while `endOfTurnCheckAt` is set: nobody knows yet what the provider will answer, and the turn may go out at any moment from `endOfTurnCheckAt` on. Show that the wait may end early (a quicker or dashed line, say) instead of promising the whole countdown.
 - The provider answers "not finished": `endOfTurnCheckAt` is cleared and `endOfTurnAt` is now exact.
-- The provider is slow or fails: `endOfTurnCheckAt` is cleared and `endOfTurnAt` moves earlier, to `pauseSince + silence`. Keep the start, change the duration.
+- The provider is slow or fails: `endOfTurnCheckAt` is cleared and `endOfTurnAt` moves earlier, to `pauseSince + silence`. Keep the start, change the duration. With the defaults this deadline has usually passed when `timeout` runs out (the provider is asked at `minSilence`, and `minSilence + timeout` > `silence`), so the turn goes out at once; a later deadline only shows up when the provider fails quickly.
 
 Every interruption, ignored backchannel or echo and end of turn is reported on `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Log it while tuning.
 

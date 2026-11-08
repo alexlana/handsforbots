@@ -89,7 +89,7 @@ Depois de cada resultado final, o plugin espera. Toda pausa conta a partir das *
 - **Com provedor:** consulta depois de `minSilence` ms. Probabilidade ≥ `threshold` envia na hora; abaixo disso, espera até `maxSilence` ms. Se a resposta demora mais que `timeout` ms, ou falha, o silêncio decide.
 - **Reconhecedor que detecta o turno sozinho** (`capabilities.endOfTurn`, resultados marcados com `{ endOfTurn: true | false }`): envia em `endOfTurn: true`, no máximo depois de `maxSilence`; o provedor não é chamado.
 
-Voltar a falar antes disso mantém o turno aberto. Se o reconhecedor mostra palavras mas nunca as finaliza, elas são enviadas depois de `maxSilence`. Se o turno já saiu e a resposta ainda não começou, o kernel junta a continuação a ele (política de entrada acima).
+Voltar a falar antes disso mantém o turno aberto. Se o reconhecedor mostra palavras mas nunca as finaliza, elas são enviadas `maxSilence` depois das últimas palavras, sem contagem no estado (o plugin não distingue uma pausa de um reconhecimento lento até chegar um final). Se o turno já saiu e a resposta ainda não começou, o kernel junta a continuação a ele (política de entrada acima).
 
 | Controle | Chamada |
 |---|---|
@@ -218,7 +218,7 @@ Os três são horários, não tempo restante, então a interface só renderiza q
 - **Sem provedor**, ou com reconhecedor que decide sozinho: não muda; o turno sai em `endOfTurnAt`.
 - **Com provedor**, enquanto `endOfTurnCheckAt` existe: ninguém sabe ainda o que o provedor vai responder, e o turno pode sair a qualquer momento a partir de `endOfTurnCheckAt`. Mostre que a espera pode acabar antes (uma linha mais rápida ou tracejada, por exemplo) em vez de prometer a contagem inteira.
 - O provedor responde "não terminou": `endOfTurnCheckAt` some e `endOfTurnAt` passa a ser exato.
-- O provedor demora ou falha: `endOfTurnCheckAt` some e `endOfTurnAt` fica mais cedo, em `pauseSince + silence`. Mantenha o começo e mude a duração.
+- O provedor demora ou falha: `endOfTurnCheckAt` some e `endOfTurnAt` fica mais cedo, em `pauseSince + silence`. Mantenha o começo e mude a duração. Com os padrões, esse prazo quase sempre já passou quando o `timeout` acaba (o provedor é consultado em `minSilence`, e `minSilence + timeout` > `silence`), então o turno sai na hora; um prazo ainda à frente só aparece quando o provedor falha rápido.
 
 Toda interrupção, backchannel ou eco ignorado e fim de turno é informado em `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Registre isso enquanto ajusta.
 

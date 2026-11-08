@@ -145,12 +145,15 @@ describe('hands-free end of turn', () => {
     const predict = vi.fn(() => 0.1)
     const model: EndOfTurn = { name: 'model', input: 'text', isSupported: () => true, predict }
     const { h4b, voice: v, decisions } = await setup({ stt: stt.provider, endOfTurn: model })
+    const states: ReturnType<VoiceService['getState']>[] = []
+    v.subscribe(() => states.push(v.getState()))
     await v.listen()
     stt.last().onPartial?.('então')
     const heard = Date.now()
     await vi.advanceTimersByTimeAsync(100)
     stt.last().onFinal('então')
     expect(v.getState()).toMatchObject({ pauseSince: heard, endOfTurnCheckAt: heard + 300, endOfTurnAt: heard + 2000 })
+    expect(states.some((s) => s.endOfTurnCheckAt !== undefined && s.endOfTurnAt === undefined)).toBe(false)
     await vi.advanceTimersByTimeAsync(200)
     await flush()
     expect(predict).toHaveBeenCalledTimes(1)

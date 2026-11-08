@@ -476,16 +476,16 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       !sttDecides && endOfTurn && endOfTurnReady && allowed(endOfTurn) && (endOfTurn.input === 'text' || audioFrames.length > 0)
         ? endOfTurn
         : undefined
-    const wait = (delay: number, reason: 'silence' | 'max-silence') => {
+    /** Publishes the whole pause in one update, so the UI never sees half of it. */
+    const wait = (delay: number, reason: 'silence' | 'max-silence', checkAt?: number) => {
       clearTimeout(turnTimer)
       const deadline = at + delay
-      set({ pauseSince: at, endOfTurnAt: deadline })
+      set({ pauseSince: at, endOfTurnAt: deadline, endOfTurnCheckAt: checkAt })
       turnTimer = setTimeout(() => sendTurn(reason), Math.max(0, deadline - Date.now()))
     }
     if (!model) return wait(sttDecides ? ms.maxSilence() : ms.silence(), sttDecides ? 'max-silence' : 'silence')
 
-    set({ endOfTurnCheckAt: at + ms.minSilence() })
-    wait(ms.maxSilence(), 'max-silence')
+    wait(ms.maxSilence(), 'max-silence', at + ms.minSilence())
     askTimer = setTimeout(async () => {
       const text = turnText('')
       const controller = new AbortController()
@@ -519,8 +519,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       asking = undefined
       if (probability === undefined) {
         controller.abort()
-        set({ endOfTurnCheckAt: undefined })
-        wait(ms.silence(), 'silence') // the model failed or is slow: silence decides
+        wait(ms.silence(), 'silence') // the model failed or is slow: silence decides (often at once)
       } else if (probability >= ms.threshold()) {
         sendTurn('model', probability)
       } else {
@@ -692,7 +691,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
             // or goes out with these words if the recognizer never delivers one.
             if (turn.texts.length > 0) {
               clearTurnTimers()
-              turnTimer = setTimeout(() => service.endTurn(), ms.maxSilence())
+              turnTimer = setTimeout(() => service.endTurn(), Math.max(0, turn.heardAt + ms.maxSilence() - Date.now()))
             }
             set({ ...noPause, partial: turnText() })
           },
