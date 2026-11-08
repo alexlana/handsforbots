@@ -422,8 +422,9 @@ describe('debugging speech (voice.tts)', () => {
     model.finishLoad()
     await eventually(() => expect(v.getState().ttsStatus.piper?.state).toBe('ready'))
     await h4b.ask('oi')
-    await eventually(() => expect(errors).toHaveLength(1))
-    await new Promise((r) => setTimeout(r, 20))
+    // The chunk is over once the voice.speech error is out; every error comes before it.
+    await eventually(() => expect(speech).toHaveLength(1))
+    await eventually(() => expect(v.getState().speaking).toBe(false))
     expect(errors).toEqual([expect.objectContaining({ source: 'voice:tts:piper' })])
     expect(speech).toEqual([expect.objectContaining({ phase: 'error', provider: 'piper', message: 'model choked' })])
   })
