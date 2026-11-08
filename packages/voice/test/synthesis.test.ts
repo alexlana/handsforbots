@@ -11,6 +11,7 @@ import {
   type PlayOptions,
   type SpeechAudio,
   type SpeechEffects,
+  type SpeechToText,
   type TextToSpeech,
   type VoiceService,
 } from '../src/index.js'
@@ -190,9 +191,10 @@ describe('models: when they load and who speaks meanwhile', () => {
     const model = fakeModel()
     const browser = fakeSpeaker()
     const { player, plays } = fakePlayer()
+    // `output: 'voice'` (from setup): speech is how this app answers, so the download starts on mount.
     const { h4b, voice: v } = await setup({ tts: [model.provider, browser.provider], player })
-    expect(model.load).not.toHaveBeenCalled()
-    expect(v.getState().ttsStatus).toEqual({ model: { state: 'unloaded', total: 1000 }, browser: { state: 'ready' } })
+    expect(model.load).toHaveBeenCalledTimes(1)
+    expect(v.getState().ttsStatus).toEqual({ model: { state: 'loading', loaded: 0, total: 1000 }, browser: { state: 'ready' } })
 
     h4b.send('oi')
     await eventually(() => expect(browser.spoken).toEqual(['Olá.']))
@@ -246,6 +248,49 @@ describe('models: when they load and who speaks meanwhile', () => {
     model.finishLoad()
     expect(await loaded).toBe(true)
     expect(v.getState().ttsStatus.model).toMatchObject({ state: 'ready' })
+  })
+
+  it("first-use: the microphone alone downloads nothing; turning the bot's voice on does", async () => {
+    const stt: SpeechToText = { name: 'mic', capabilities: {}, isSupported: () => true, listen: () => ({ stop() {}, abort() {} }) }
+    const model = fakeModel()
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ stt, tts: model.provider, player, output: 'text' })] })
+    await h4b.start()
+    const v = h4b.get('voice') as VoiceService
+    await v.listen()
+    expect(model.load).not.toHaveBeenCalled()
+    // The widget's speaker button turns the bot's voice on with `auto`.
+    v.setOutput('auto')
+    expect(model.load).toHaveBeenCalledTimes(1)
+    expect(v.getState().ttsStatus.model?.state).toBe('loading')
+  })
+
+  it("first-use: downloads on mount when the app answers with voice (output: 'voice')", async () => {
+    const model = fakeModel()
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ tts: model.provider, player, output: 'voice' })] })
+    await h4b.start()
+    expect(model.load).toHaveBeenCalledTimes(1)
+  })
+
+  it("first-use: the default output ('auto') downloads nothing on mount", async () => {
+    const model = fakeModel()
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ tts: model.provider, player })] })
+    await h4b.start()
+    expect(model.load).not.toHaveBeenCalled()
+  })
+
+  it('manual: turning voice on downloads nothing', async () => {
+    const stt: SpeechToText = { name: 'mic', capabilities: {}, isSupported: () => true, listen: () => ({ stop() {}, abort() {} }) }
+    const model = fakeModel()
+    const { player } = fakePlayer()
+    const h4b = createH4B({ plugins: [voice({ stt, tts: model.provider, player, load: { start: 'manual' } })] })
+    await h4b.start()
+    const v = h4b.get('voice') as VoiceService
+    await v.listen()
+    v.setOutput('voice')
+    expect(model.load).not.toHaveBeenCalled()
   })
 
   it('eager: a failed model moves the download on to the next one', async () => {

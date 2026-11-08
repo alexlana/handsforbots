@@ -63,7 +63,7 @@ voice({ tts: [piper, webSpeechTTS()] })
 
 | `load.start` | Downloads | `load.whileLoading` | Meanwhile |
 |---|---|---|---|
-| `first-use` (default) | on the first sentence | `fallback` (default) | next ready provider speaks; the model takes over when ready |
+| `first-use` (default) | when the user turns the bot's voice on (`setOutput('voice' | 'auto')`, the widget's speaker button) or on the first sentence; on mount with `output: 'voice'`; never just for `listen()` | `fallback` (default) | next ready provider speaks; the model takes over when ready |
 | `eager` | on mount | `wait` | speech waits for a download in progress; none in progress → silent |
 | `idle` | when the page is idle (≤ 5 s) | `silent` | nothing is spoken until ready |
 | `manual` | on `voice.loadSpeech(name?)` | | |

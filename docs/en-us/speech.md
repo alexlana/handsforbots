@@ -88,7 +88,7 @@ voice({
 
 | Value | The model starts downloading… | Good for |
 |---|---|---|
-| `'first-use'` (default) | the first time the bot speaks | sites where few visitors talk to the bot |
+| `'first-use'` (default) | when the user turns the bot's voice on (`setOutput('voice')` or `setOutput('auto')`, as the widget's speaker button does) or the bot first speaks, whichever comes first; on mount if you set `output: 'voice'`. The microphone alone downloads nothing | sites where few visitors talk to the bot |
 | `'eager'` | when the plugin mounts | apps where speech is the main thing |
 | `'idle'` | when the page is idle (`requestIdleCallback`, at most 5 s later) | downloading early without competing with the page load |
 | `'manual'` | only when you call `voice.loadSpeech()` | asking first ("Download a better voice, 82 MB?"), Wi-Fi only, after consent |

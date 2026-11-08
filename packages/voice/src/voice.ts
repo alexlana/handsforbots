@@ -37,7 +37,9 @@ export type TtsStatus = {
 /**
  * When providers with a model (`load`) start downloading. `eager`: when the
  * plugin starts. `idle`: once the page is idle after that. `first-use`
- * (default): when a reply is first spoken. `manual`: only on `loadSpeech()`.
+ * (default): when the user turns the bot's voice on (`setOutput` with `voice`
+ * or `auto`) or a reply is first spoken, whichever comes first; on mount when
+ * the app sets `output: 'voice'` (speech is the default way to answer). `manual`: only on `loadSpeech()`.
  */
 export type SpeechLoadStart = 'eager' | 'idle' | 'first-use' | 'manual'
 
@@ -944,6 +946,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       break
     }
     case 'first-use':
+      // Speech is how this app answers: the model is needed from the start.
+      if (options.output === 'voice') void loadPreferred()
+      break
     case 'manual':
       break
     default: {
@@ -1245,6 +1250,8 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     },
     setOutput(output) {
       set({ output })
+      // The user turned the bot's voice on (the widget's speaker button sets `auto`).
+      if (output !== 'text' && loadStart === 'first-use') void loadPreferred()
       if (output === 'text') service.cancelSpeech()
     },
     setEndOfTurn(provider) {

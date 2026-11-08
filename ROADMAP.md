@@ -484,6 +484,8 @@ Em 2026-11-06 ([ADR 0014](./docs/adr/0014-fontes-e-citacoes.md)): fontes e cita�
 
 Em 2026-11-06 ([ADR 0015](./docs/adr/0015-retorno-da-interrupcao.md)): o backend fica sabendo do que aconteceu enquanto respondia. Sinais de contexto de um turno (`once`); `conversation.interrupted` (`messageId`, `kept`, `total`, `by`) depois de toda interrupção que corta uma resposta; `interrupt({ by })`; `voice.reactions` com os backchannels e a posição falada de cada um. Pendente: reagir a backchannels ao vivo (pausar, repetir), junto com o transporte `realtime`.
 
+Em 2026-11-08 ([ADR 0016](./docs/adr/0016-baixar-a-voz-ao-ligar.md)): com `load.start: 'first-use'`, o modelo de voz começa a baixar quando a pessoa liga a voz do bot (`setOutput('voice' | 'auto')`, o botão de alto-falante do widget) e ao montar com `output: 'voice'`, não só na primeira fala do bot. Junto, depuração da voz: eventos `voice.tts` (carga do modelo, fala durante a carga, vida do Worker numerada), handshake `ready` no `workerTTS`/`serveTTS` com `init` reenviado, um só `error` por falha de síntese e o navegador no export do `devPanel`.
+
 ### Prioritário: revisão de XSS
 
 Antes da 1.0, revisar o H4B contra XSS, de ponta a ponta. A cripto do `storage-local` só limita o tempo em que a conversa fica legível; um script injetado na página lê o cookie da chave (não pode ser `HttpOnly`, o JavaScript precisa dela), chama o `backendKey` com as credenciais da sessão e lê `h4b.messages` em memória. Pontos a revisar:

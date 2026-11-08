@@ -89,7 +89,7 @@ voice({
 
 | Valor | O modelo começa a baixar… | Bom para |
 |---|---|---|
-| `'first-use'` (padrão) | na primeira vez que o bot fala | sites onde poucos visitantes falam com o bot |
+| `'first-use'` (padrão) | quando a pessoa liga a voz do bot (`setOutput('voice')` ou `setOutput('auto')`, como faz o botão de alto-falante do widget) ou o bot fala pela primeira vez, o que vier primeiro; ao montar, se você definir `output: 'voice'`. O microfone sozinho não baixa nada | sites onde poucos visitantes falam com o bot |
 | `'eager'` | quando o plugin monta | apps em que a voz é o principal |
 | `'idle'` | quando a página fica ociosa (`requestIdleCallback`, no máximo 5 s depois) | baixar cedo sem disputar com o carregamento da página |
 | `'manual'` | só quando você chama `voice.loadSpeech()` | perguntar antes ("Baixar uma voz melhor, 82 MB?"), só no Wi-Fi, depois do consentimento |

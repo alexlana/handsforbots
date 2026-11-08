@@ -19,3 +19,4 @@ Registro curto das decisões da v2: contexto, decisão e consequências. Para mu
 | [0013](./0013-sintese-de-voz-e-efeitos.md) | Síntese de voz com provedores que devolvem áudio, política de carga dos modelos e efeitos em JSON (Web Audio, WAM, SSML) com pontes para SSML e FFmpeg | Aceita |
 | [0014](./0014-fontes-e-citacoes.md) | Fontes como parte da mensagem e citações como anotações com posição no texto (marcadores ficam no backend); URLs só absolutas ou âncoras | Aceita |
 | [0015](./0015-retorno-da-interrupcao.md) | Sinais de contexto de um turno (`once`); `conversation.interrupted` e `voice.reactions` contam ao backend o que aconteceu enquanto ele respondia | Aceita |
+| [0016](./0016-baixar-a-voz-ao-ligar.md) | `first-use` baixa o modelo de voz quando a pessoa liga a voz do bot (ou ao montar com `output: 'voice'`), não só na primeira fala; o microfone não baixa (substitui parte do 0013) | Aceita |
