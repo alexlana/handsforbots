@@ -83,7 +83,7 @@ voice({
 
 ### Quando o turno termina
 
-Depois de cada resultado final, o plugin espera:
+Depois de cada resultado final, o plugin espera. Toda pausa conta a partir das **últimas palavras ouvidas**, incluindo resultados parciais, e não de quando o reconhecedor entrega o resultado final (o Chrome entrega meio segundo ou mais depois que a pessoa para). Se o final chega com a espera já vencida, o turno sai na hora:
 
 - **Sem provedor de fim de turno** (ou carregando, com falha, lento ou sem consentimento): envia depois de `silence` ms de silêncio.
 - **Com provedor:** consulta depois de `minSilence` ms. Probabilidade ≥ `threshold` envia na hora; abaixo disso, espera até `maxSilence` ms. Se a resposta demora mais que `timeout` ms, ou falha, o silêncio decide.
@@ -206,10 +206,19 @@ As respostas são faladas **frase a frase enquanto chegam**, então o bot começ
 |---|---|
 | `phase` | `idle`, `listening`, `userSpeaking`, `waitingEndOfTurn`, `botSpeaking` |
 | `partial` | no mãos-livres, o turno pendente inteiro mais as palavras sendo reconhecidas |
-| `endOfTurnAt` | quando o turno pendente será enviado se a pessoa ficar quieta (epoch ms); anime uma contagem a partir dele em vez de consultar |
+| `pauseSince` | quando as últimas palavras do turno pendente foram ouvidas (epoch ms); a pausa começa aqui |
+| `endOfTurnAt` | o momento mais tarde em que o turno pendente será enviado se a pessoa ficar quieta (epoch ms) |
+| `endOfTurnCheckAt` | quando o provedor de fim de turno é consultado (epoch ms); só existe enquanto ele ainda pode enviar o turno **antes** de `endOfTurnAt` |
 | `interrupted` | a pessoa cortou a última resposta; volta a `false` quando a próxima começa |
 | `endOfTurn` | nome do provedor de fim de turno em uso |
 | `listening`, `speaking`, `error`, `stt`, `tts`, `lastInput`, `output`, `mode` | como antes |
+
+Os três são horários, não tempo restante, então a interface só renderiza quando eles mudam, não a cada instante. Para desenhar a pausa, comece uma animação CSS quando `pauseSince` mudar, com duração de `endOfTurnAt - pauseSince` ms e atraso negativo de `pauseSince - Date.now()` ms: a pausa costuma ter começado antes de o estado chegar, então a linha já começa andada. Esconda quando `endOfTurnAt` for `undefined` (a pessoa voltou a falar ou o turno saiu). `endOfTurnAt` pode mudar:
+
+- **Sem provedor**, ou com reconhecedor que decide sozinho: não muda; o turno sai em `endOfTurnAt`.
+- **Com provedor**, enquanto `endOfTurnCheckAt` existe: ninguém sabe ainda o que o provedor vai responder, e o turno pode sair a qualquer momento a partir de `endOfTurnCheckAt`. Mostre que a espera pode acabar antes (uma linha mais rápida ou tracejada, por exemplo) em vez de prometer a contagem inteira.
+- O provedor responde "não terminou": `endOfTurnCheckAt` some e `endOfTurnAt` passa a ser exato.
+- O provedor demora ou falha: `endOfTurnCheckAt` some e `endOfTurnAt` fica mais cedo, em `pauseSince + silence`. Mantenha o começo e mude a duração.
 
 Toda interrupção, backchannel ou eco ignorado e fim de turno é informado em `h4b.on('voice.decision', d => …)`: `{ kind: 'interrupt' | 'ignore' | 'end-of-turn' | 'end-of-turn-unavailable', … }`. Registre isso enquanto ajusta.
 

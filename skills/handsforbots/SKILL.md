@@ -97,7 +97,7 @@ Everything goes through **one queue**: turns, `runAction` and `push` run one at 
 | Discard what was said (trash button) | `voice.cancel()` |
 | Continuous conversation: open mic, sent when the user stops talking, talking over the bot interrupts it | `voice({ mode: 'hands-free', endOfTurn?: httpEndOfTurn({ url }) })`, then `voice.listen()` (details: `handsforbots-conversation` skill) |
 | Hands-free "send now" / "trash" | `voice.endTurn()` / `voice.discardTurn()` |
-| Draw the conversation state | `getState().phase` (`listening`, `userSpeaking`, `waitingEndOfTurn` until `endOfTurnAt`, `botSpeaking`), `interrupted` |
+| Draw the conversation state | `getState().phase` (`listening`, `userSpeaking`, `waitingEndOfTurn` from `pauseSince` until `endOfTurnAt`, earlier possible while `endOfTurnCheckAt` is set, `botSpeaking`), `interrupted` |
 | Live transcript | `getState().partial` (in hold-to-talk: everything said so far) |
 
 - Show the microphone only when `getState().supported.stt` is true. `webSpeechSTT` is unsupported outside a secure context (plain `http`), so there is no need to check `isSecureContext` to decide that.

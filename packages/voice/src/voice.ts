@@ -61,8 +61,23 @@ export type VoiceState = {
   speaking: boolean
   /** Live transcript while the user speaks (hands-free: the whole pending turn). */
   partial: string
-  /** When the pending hands-free turn will be sent if the user stays quiet (epoch ms). */
+  /**
+   * Hands-free pause: when the last words were heard (epoch ms). Set together
+   * with `endOfTurnAt`; draw the countdown from `pauseSince` to `endOfTurnAt`.
+   */
+  pauseSince?: number
+  /**
+   * When the pending hands-free turn will be sent if the user stays quiet
+   * (epoch ms): the latest moment, counted from `pauseSince`.
+   */
   endOfTurnAt?: number
+  /**
+   * When the end-of-turn model is asked whether the user finished (epoch ms).
+   * Present only while the model may still send the turn before `endOfTurnAt`;
+   * cleared once it answers "not finished" (then `endOfTurnAt` is exact) or
+   * fails (then `endOfTurnAt` moves to the `silence` deadline).
+   */
+  endOfTurnCheckAt?: number
   /** The user talked over the last reply and cut it short. Cleared when the next reply starts. */
   interrupted: boolean
   /** Modality of the user's last trigger. */
@@ -96,11 +111,15 @@ export type ListenOptions = {
 
 /** How long hands-free waits before sending what the user said (ms). */
 export type TurnTiming = {
-  /** Without an end-of-turn provider (or when it fails): wait this long after the last words. Default 800. */
+  /**
+   * Without an end-of-turn provider (or when it fails): wait this long after the
+   * last words. Pauses are counted from the last words heard (live transcripts
+   * included), not from when the recognizer delivers its final result. Default 800.
+   */
   silence?: number
   /** With a provider: ask it after this pause. Default 300. */
   minSilence?: number
-  /** With a provider that says "not finished": send anyway after this pause. Default 2000. */
+  /** With a provider that says "not finished" (or a recognizer that decides): send anyway after this pause. Default 2000. */
   maxSilence?: number
   /** Probability from which the provider's answer counts as "finished". Default 0.5. */
   threshold?: number
@@ -395,8 +414,19 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
   /* Hands-free turn: finals accumulate until the end of the turn           */
   /* ---------------------------------------------------------------------- */
 
-  type Turn = { texts: string[]; live: string; confidence?: number; stt?: string; lastFinalAt: number }
-  let turn: Turn = { texts: [], live: '', lastFinalAt: 0 }
+  type Turn = {
+    texts: string[]
+    live: string
+    confidence?: number
+    stt?: string
+    /** When the live transcript last changed in the utterance being recognized (0: none yet). */
+    heardAt: number
+    /** When the last words of the pending turn were heard: where the pause starts. */
+    pauseSince: number
+  }
+  let turn: Turn = { texts: [], live: '', heardAt: 0, pauseSince: 0 }
+  /** State with no pause being timed. */
+  const noPause = { pauseSince: undefined, endOfTurnAt: undefined, endOfTurnCheckAt: undefined } as const
   let turnTimer: ReturnType<typeof setTimeout> | undefined
   let askTimer: ReturnType<typeof setTimeout> | undefined
   let asking: AbortController | undefined
@@ -418,9 +448,9 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     clearTurnTimers()
     const text = turnText('')
     const done = turn
-    turn = { texts: [], live: turn.live, lastFinalAt: 0 }
+    turn = { texts: [], live: turn.live, heardAt: turn.live ? turn.heardAt : 0, pauseSince: 0 }
     bargedIn = false
-    set({ endOfTurnAt: undefined, partial: turn.live })
+    set({ ...noPause, partial: turn.live })
     if (!text) return
     decide({ kind: 'end-of-turn', text, reason, probability })
     ctx.signal({
@@ -433,15 +463,15 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
 
   const discardPending = () => {
     clearTurnTimers()
-    turn = { texts: [], live: '', lastFinalAt: 0 }
+    turn = { texts: [], live: '', heardAt: 0, pauseSince: 0 }
     bargedIn = false
-    set({ endOfTurnAt: undefined, partial: '' })
+    set({ ...noPause, partial: '' })
   }
 
-  /** Waits after a final result, asking the model if there is one. */
+  /** Waits after a final result, asking the model if there is one. The pause counts from the last words heard. */
   const scheduleEndOfTurn = (sttDecides: boolean) => {
     clearTurnTimers()
-    const at = turn.lastFinalAt
+    const at = turn.pauseSince
     const model =
       !sttDecides && endOfTurn && endOfTurnReady && allowed(endOfTurn) && (endOfTurn.input === 'text' || audioFrames.length > 0)
         ? endOfTurn
@@ -449,11 +479,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     const wait = (delay: number, reason: 'silence' | 'max-silence') => {
       clearTimeout(turnTimer)
       const deadline = at + delay
-      set({ endOfTurnAt: deadline })
+      set({ pauseSince: at, endOfTurnAt: deadline })
       turnTimer = setTimeout(() => sendTurn(reason), Math.max(0, deadline - Date.now()))
     }
     if (!model) return wait(sttDecides ? ms.maxSilence() : ms.silence(), sttDecides ? 'max-silence' : 'silence')
 
+    set({ endOfTurnCheckAt: at + ms.minSilence() })
     wait(ms.maxSilence(), 'max-silence')
     askTimer = setTimeout(async () => {
       const text = turnText('')
@@ -488,9 +519,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       asking = undefined
       if (probability === undefined) {
         controller.abort()
+        set({ endOfTurnCheckAt: undefined })
         wait(ms.silence(), 'silence') // the model failed or is slow: silence decides
       } else if (probability >= ms.threshold()) {
         sendTurn('model', probability)
+      } else {
+        set({ endOfTurnCheckAt: undefined }) // not finished: endOfTurnAt is now exact
       }
     }, Math.max(0, at + ms.minSilence() - Date.now()))
   }
@@ -651,6 +685,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
             if (entry.held) return set({ partial: heldText(entry.held, text) })
             bargeInCheck(text, false)
             if (!handsFree) return set({ partial: text })
+            if (text.trim() && (text !== turn.live || !turn.heardAt)) turn.heardAt = Date.now()
             turn.live = text
             if (!text.trim()) return set({ partial: turnText() })
             // The user keeps talking: the pending turn waits for the next final result,
@@ -659,7 +694,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
               clearTurnTimers()
               turnTimer = setTimeout(() => service.endTurn(), ms.maxSilence())
             }
-            set({ partial: turnText(), endOfTurnAt: undefined })
+            set({ ...noPause, partial: turnText() })
           },
           onFinal(text, meta) {
             if (entry.discarded) return
@@ -667,7 +702,10 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
             const trimmed = withoutEcho(heard, true).trim()
             if (heard && !trimmed) {
               decide({ kind: 'ignore', text: heard, reason: 'echo' })
-              if (handsFree && !entry.held) turn.live = ''
+              if (handsFree && !entry.held) {
+                turn.live = ''
+                turn.heardAt = 0
+              }
               if (isCurrent()) set({ partial: entry.held ? heldText(entry.held) : handsFree ? turnText() : '' })
               return
             }
@@ -689,7 +727,10 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
               if (duplicate) return
             }
             if (bargeInCheck(trimmed, true) === 'ignored') {
-              if (handsFree) turn.live = ''
+              if (handsFree) {
+                turn.live = ''
+                turn.heardAt = 0
+              }
               if (isCurrent()) set({ partial: handsFree ? turnText() : '' })
               return
             }
@@ -707,7 +748,10 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
             turn.texts.push(trimmed)
             turn.live = ''
             turn.stt = provider.name
-            turn.lastFinalAt = Date.now()
+            // Recognizers deliver the final result some time after the user stops
+            // talking: the pause starts at the last words heard, not now.
+            turn.pauseSince = turn.heardAt || Date.now()
+            turn.heardAt = 0
             if (meta?.confidence !== undefined) turn.confidence = Math.min(turn.confidence ?? 1, meta.confidence)
             set({ partial: turnText() })
             const sttDecides = !!provider.capabilities.endOfTurn

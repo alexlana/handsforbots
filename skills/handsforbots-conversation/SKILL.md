@@ -1,6 +1,6 @@
 ---
 name: handsforbots-conversation
-description: Build conversation behavior on Hands for Bots v2 (H4B) - what happens when the user types or speaks while the assistant is answering (interrupt, merge or queue; h4b.setInput, h4b.interrupt, the interrupt.before hook), stop buttons, and continuous voice conversation with @handsforbots/voice (hands-free open microphone, end-of-turn detection with silence or a model such as httpEndOfTurn, LiveKit turn-detector, Smart Turn or an LLM, barge-in, backchannels, sentence-by-sentence speech, phase/endOfTurnAt state for the UI). Use when code calls h4b.interrupt, setInput, whileBusy, voice({ mode: 'hands-free' }), endTurn, discardTurn, setEndOfTurn or listens to voice.decision, when building a voice assistant UI or a stop/send/trash button on top of H4B, or when a backend must handle interrupted replies, the conversation.interrupted signal or voice.reactions.
+description: Build conversation behavior on Hands for Bots v2 (H4B) - what happens when the user types or speaks while the assistant is answering (interrupt, merge or queue; h4b.setInput, h4b.interrupt, the interrupt.before hook), stop buttons, and continuous voice conversation with @handsforbots/voice (hands-free open microphone, end-of-turn detection with silence or a model such as httpEndOfTurn, LiveKit turn-detector, Smart Turn or an LLM, barge-in, backchannels, sentence-by-sentence speech, phase/pauseSince/endOfTurnAt/endOfTurnCheckAt state for the UI). Use when code calls h4b.interrupt, setInput, whileBusy, voice({ mode: 'hands-free' }), endTurn, discardTurn, setEndOfTurn or listens to voice.decision, when building a voice assistant UI or a stop/send/trash button on top of H4B, or when a backend must handle interrupted replies, the conversation.interrupted signal or voice.reactions.
 ---
 
 # Hands for Bots v2 — interruption and voice conversation
@@ -54,11 +54,11 @@ voice({
 await h4b.get('voice').listen()
 ```
 
-- Finals pile up into **one pending turn**, sent when the turn ends: after `silence` ms without a provider; with one, asked after `minSilence`, sent if probability ≥ `threshold`, else at `maxSilence`; a slow (`timeout`) or failing provider falls back to `silence`. Speaking again keeps the turn open.
+- Finals pile up into **one pending turn**, sent when the turn ends. Pauses count from the last words heard (partials included), not from the late final result. After `silence` ms without a provider; with one, asked after `minSilence`, sent if probability ≥ `threshold`, else at `maxSilence`; a slow (`timeout`) or failing provider falls back to `silence`. Speaking again keeps the turn open.
 - A recognizer that detects turns itself decides alone and the provider is not called: `websocketSTT({ ..., endOfTurn: true, parse })` with `parse` returning `{ final, endOfTurn }` (services such as AssemblyAI or Soniox, behind your server's token endpoint), or any provider with `capabilities.endOfTurn` that passes `{ endOfTurn }` to `onFinal`.
 - Buttons: "send now" `voice.endTurn()`, "trash" `voice.discardTurn()` (keeps listening), mic off and send `voice.stop()`, mic off and discard `voice.cancel()`.
 - Runtime: `voice.setEndOfTurn(provider | null)`, `voice.setEcho(filter | null)`, `voice.configure({ turn, bargeIn })`.
-- Draw from `getState()`: `phase` (`idle | listening | userSpeaking | waitingEndOfTurn | botSpeaking`), `partial` (whole pending turn), `endOfTurnAt` (epoch ms; animate a countdown from it), `interrupted`, `endOfTurn`, `error`.
+- Draw from `getState()`: `phase` (`idle | listening | userSpeaking | waitingEndOfTurn | botSpeaking`), `partial` (whole pending turn), `pauseSince` + `endOfTurnAt` (epoch ms: start and latest end of the pause; animate from `pauseSince` for `endOfTurnAt - pauseSince` ms with a negative delay of `pauseSince - Date.now()`), `endOfTurnCheckAt` (set only while an end-of-turn provider may still send before `endOfTurnAt`: show that the wait may end early; cleared when it says "not finished", and `endOfTurnAt` moves to `pauseSince + silence` if it fails), `interrupted`, `endOfTurn`, `error`.
 - Debug with `h4b.on('voice.decision', d => …)`: `interrupt`, `ignore` (`reason: backchannel | echo`; backchannels carry `messageId` and `at`), `end-of-turn` (`reason: stt | model | silence | max-silence | manual`), `end-of-turn-unavailable`.
 
 ### End-of-turn providers
@@ -85,7 +85,7 @@ Providers declare `remote` (text or audio leaves the page; `webSpeechSTT` is rem
 
 ## Pitfalls
 
-- Don't build your own silence timer or "is the bot talking" flag on top of the plugin: use `phase` and `endOfTurnAt`.
+- Don't build your own silence timer or "is the bot talking" flag on top of the plugin: use `phase`, `pauseSince`, `endOfTurnAt` and `endOfTurnCheckAt`.
 - Don't call `voice.cancelSpeech()` before `h4b.interrupt()` in custom barge-in code: interrupt first, so the voice plugin can report how much was spoken.
 - Don't send `partial` to the backend yourself; the plugin sends the turn.
 - `bargeInChars` no longer exists; use `bargeIn: { minWords }`.
