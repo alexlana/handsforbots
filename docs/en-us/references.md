@@ -83,6 +83,20 @@ Supports [ADR 0013](../adr/0013-sintese-de-voz-e-efeitos.md) and [Speech synthes
 | [Transferable objects (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects) | The synthesized samples come back from the worker by transferring their buffer, without a copy |
 | [Vite: `worker.format`](https://vite.dev/config/worker-options) | `'es'` is needed for workers that import modules on demand; the default `iife` cannot |
 
+## Recognition on the VPS (to be tested)
+
+Supports open decision 10 in the [ROADMAP](../../ROADMAP.md). Accessed 2026-11-09. We have not run any of these models. Sizes and the language-switch behavior are the authors'.
+
+| Source | What it is | Notes |
+|---|---|---|
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) | C/C++ port of Whisper, with a CLI, quantization and an example server | Candidate STT on the Hostinger VPS. If the test passes, H4B talks to it through `httpSTT` or `websocketSTT` |
+| [Memory table and quantization](https://github.com/ggml-org/whisper.cpp#memory-usage) | Disk and RAM for the full models; `q5_0` quantization example | From the project, not measured by us: base 142 MiB / ~388 MB RAM; small 466 MiB / ~852 MB. The note that prompted the test cited those disk sizes as RAM |
+| [ggml models](https://github.com/ggml-org/whisper.cpp/blob/master/models/README.md) | Official list. No `.en` suffix means multilingual; `.en` is English-only. A `-q5_0` suffix is quantized | The test uses `base` or `small` without `.en`. The file `ggml-base.bin-q4_0` from the note is not on this list |
+| [ggml-base-q5_1 and ggml-small-q5_1 on Hugging Face](https://huggingface.co/ggerganov/whisper.cpp/tree/main) | Preconverted quantized copies | Sizes published on 2026-10-26 by a third-party index of those files: base `q5_1` ~60 MB, small `q5_1` ~190 MB, and larger `q8_0` files. Check the file when downloading. Quantized RAM is not in the official table |
+| [q5_0 quantization (issue 1103)](https://github.com/ggml-org/whisper.cpp/issues/1103#issuecomment-1634413142) | 2023 comment with disk size after quantizing | base `q5_0` ~60 MB, small `q5_0` ~190 MB, on disk. Not RAM |
+| [`--prompt` (discussion 348)](https://github.com/ggml-org/whisper.cpp/discussions/348) | The flag already existed: it becomes `initial_prompt` and biases vocabulary (names, terms) | In the test, the list is the jargon we actually say. It is not a guarantee |
+| [Language switching in one file (issue 3334)](https://github.com/ggml-org/whisper.cpp/issues/3334) · [issue 1800](https://github.com/ggerganov/whisper.cpp/issues/1800) | The model tends to pick one language per span and rewrites the other into it | The Claudinei effect from inside Whisper. Reason to compare with and without `--prompt`, with `-l pt` (transcribe, not `--translate`) |
+
 ## Agent frameworks and "browser hands"
 
 Supports the "Relação com frameworks de agente e browser hands" section of the [ROADMAP](../../ROADMAP.md) (positioning, `realtime` transport moved to P1). Accessed 2026-11-04. Nothing here was tested by us.
