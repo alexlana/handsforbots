@@ -109,6 +109,15 @@ Everything goes through **one queue**: turns, `runAction` and `push` run one at 
 
 Provider options: `docs/en-us/plugins.md#voice`.
 
+## Focusing the text field
+
+Two switches, each one on or off: focus when the screen loads, and focus when the user clicks a plain spot (message text, empty space, the page around the field). Clicks on buttons, links, other fields and text selections keep their own behavior. Turning a switch off leaves the caret where it is. A phone may ignore the load focus until the first tap.
+
+- Widget composer: `widget({ autofocus: { onLoad: true, onClick: false } })`. `autofocus: true` is the load switch. It focuses when the window opens, including a page that loads already open. A click does not open a closed window.
+- Plain JS, your own field: `<input data-h4b-text>` and `bindTextFocus({ onLoad, onClick, input?, within? })` from `@handsforbots/widget`. `input` is the element, a CSS selector, or a getter. With `input` omitted, the first `[data-h4b-text]` is the field. The returned function removes the listener. `within` limits the clicks; the default is the document.
+- React: `useTextFocus(ref, { onLoad, onClick })` from `@handsforbots/react`. The ref names the field. The `autoFocus` prop is the load switch for a choice that stays fixed; the hook follows the switch when it changes.
+- Vue: `v-text-focus="{ onLoad, onClick }"` (registered by `h4bVue`; `vTextFocus` is the same directive) or `useTextFocus(ref, options)` from `@handsforbots/vue`. `v-text-focus="true"` is the load switch. The `autofocus` attribute is that load switch applied once.
+
 ## Writing a plugin
 
 `definePlugin({ name, inject?, provides?, config?, apply(ctx, config) })`. Register everything through `ctx` (`registerAction`, `on`, `intercept`, `provide`, `addMatcher`, `capture`, `effect`, `onDispose`) so it is undone on dispose. Don't import other plugins at runtime: `ctx.get('voice')` and react to `service.provided` / `service.removed`. Extend `Services`, `Events` and `Hooks` with declaration merging for types. Full guide: `docs/en-us/writing-plugins.md`.

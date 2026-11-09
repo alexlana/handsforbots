@@ -18,10 +18,13 @@ function scripted(reply: (request: TurnRequest) => any[]): Transport & { request
   }
 }
 
+const live: { stop: () => Promise<void> }[] = []
+
 async function mount(options = {}, transport = scripted(() => [])) {
   const h4b = createH4B({ plugins: [widget({ pace: 0, ...options })] })
   h4b.provide('transport', transport)
   await h4b.start()
+  live.push(h4b)
   const element = document.querySelector('h4b-chat') as H4BChatElement
   const $ = (selector: string) => element.shadowRoot!.querySelector(selector) as HTMLElement
   const $$ = (selector: string) => [...element.shadowRoot!.querySelectorAll(selector)] as HTMLElement[]
@@ -34,8 +37,13 @@ function type(input: HTMLElement, text: string) {
   input.closest('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
 }
 
-afterEach(() => {
+function click(target: EventTarget) {
+  target.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }))
+}
+
+afterEach(async () => {
   vi.useRealTimers()
+  await Promise.all(live.splice(0).map((h4b) => h4b.stop()))
   document.body.innerHTML = ''
   sessionStorage.clear()
 })
@@ -527,5 +535,60 @@ describe('<h4b-chat> queued messages', () => {
     const reply = $('.msg.assistant')
     expect(reply.classList.contains('interrupted')).toBe(true)
     expect(reply.title).toBe('Interrupted')
+  })
+})
+
+describe('composer focus', () => {
+  function inputOf(element: H4BChatElement) {
+    return element.shadowRoot!.querySelector('#chat_input') as HTMLInputElement
+  }
+
+  it('focuses the composer when the window opens', async () => {
+    const closed = await mount({ autofocus: true })
+    expect(closed.element.isOpen).toBe(false)
+    expect(closed.element.shadowRoot!.activeElement).toBeNull()
+    closed.element.setOpen(true)
+    expect(closed.element.shadowRoot!.activeElement).toBe(inputOf(closed.element))
+
+    document.body.innerHTML = ''
+    const open = await mount({ startOpen: true, autofocus: { onLoad: true } })
+    expect(open.element.shadowRoot!.activeElement).toBe(inputOf(open.element))
+  })
+
+  it('leaves the composer alone when the switches are off', async () => {
+    const { element } = await mount({ startOpen: true })
+    expect(element.shadowRoot!.activeElement).toBeNull()
+    element.setOpen(false)
+    element.setOpen(true)
+    expect(element.shadowRoot!.activeElement).toBeNull()
+  })
+
+  it('focuses the composer on a click anywhere, and keeps controls and selections', async () => {
+    const { element, $ } = await mount({ startOpen: true, autofocus: { onClick: true } })
+    const input = inputOf(element)
+    const focus = vi.spyOn(input, 'focus')
+    const note = document.createElement('p')
+    note.textContent = 'nota'
+    document.body.append(note)
+    click(note)
+    expect(focus).toHaveBeenCalled()
+
+    input.blur()
+    focus.mockClear()
+    click($('form button[type="submit"]'))
+    expect(focus).not.toHaveBeenCalled()
+
+    click($('.log'))
+    expect(focus).toHaveBeenCalled()
+  })
+
+  it('does not open or focus a closed window when the page is clicked', async () => {
+    const { element } = await mount({ autofocus: { onLoad: true, onClick: true } })
+    const note = document.createElement('p')
+    note.textContent = 'nota'
+    document.body.append(note)
+    click(note)
+    expect(element.isOpen).toBe(false)
+    expect(element.shadowRoot!.activeElement).toBeNull()
   })
 })

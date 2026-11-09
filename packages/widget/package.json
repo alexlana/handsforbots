@@ -6,13 +6,18 @@
   "type": "module",
   "sideEffects": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./focus": "./src/focus.ts"
   },
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./focus": {
+        "types": "./dist/focus.d.ts",
+        "import": "./dist/focus.js"
       }
     }
   },

@@ -11,6 +11,7 @@ import {
   type Signal,
   type TurnStatus,
 } from '@handsforbots/core'
+import { autofocusFlags, bindTextFocus, canFocus, type AutofocusOptions } from './focus.js'
 import { stringsFor, type Strings } from './i18n.js'
 import { escapeHtml, renderMarkdown } from './markdown.js'
 import { renderCitedText, sourceList, type SourcesOptions } from './sources.js'
@@ -20,6 +21,7 @@ export { renderMarkdown, escapeHtml } from './markdown.js'
 export { stringsFor, STRINGS, type Strings } from './i18n.js'
 export { PALETTES } from './styles.js'
 export { renderCitedText, type SourcesOptions } from './sources.js'
+export { bindTextFocus, type AutofocusOptions, type TextFocusOptions, type TextFocusTarget } from './focus.js'
 
 export type QuickReply = { label: string; payload?: string }
 
@@ -96,7 +98,13 @@ export type WidgetOptions = {
   showActions?: boolean
   /** Components for rich content, by name (merged with the built-in `gallery`). */
   renderers?: Record<string, Renderer>
-  autofocus?: boolean
+  /**
+   * Focus the composer. `true` focuses it when the window opens, including a
+   * page load that starts with the window open. An object turns each behavior
+   * on or off: `onLoad` is that open focus, `onClick` focuses when the user
+   * clicks anywhere that is not a control or a text selection.
+   */
+  autofocus?: boolean | AutofocusOptions
   /**
    * Let users see where the conversation is kept, pick a retention (when the
    * storage offers choices), see or change consent (when `createH4B` has
@@ -325,6 +333,12 @@ export class H4BChatElement extends BaseElement {
       this.els.privacyButton.setAttribute('aria-expanded', String(open))
     })
 
+    this.cleanups.push(
+      bindTextFocus({
+        input: this.els.input,
+        onClick: autofocusFlags(this.options.autofocus).onClick,
+      }),
+    )
     let open = this.dataset.alwaysOpen !== undefined || !!this.options.startOpen
     try {
       const remembered = sessionStorage.getItem(OPEN_KEY)
@@ -354,7 +368,7 @@ export class H4BChatElement extends BaseElement {
     }
     if (open) {
       this.scrollToEnd(true)
-      if (this.options.autofocus) this.els.input.focus()
+      if (autofocusFlags(this.options.autofocus).onLoad && canFocus(this.els.input)) this.els.input.focus()
     }
   }
 

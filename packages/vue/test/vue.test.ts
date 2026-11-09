@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { createH4B, textOf, type H4B } from '@handsforbots/core'
 import type {} from '@handsforbots/voice'
-import { afterEach, describe, expect, it } from 'vitest'
-import { createApp, defineComponent, effectScope, h, nextTick, ref, type App, type Component } from 'vue'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createApp, defineComponent, effectScope, h, nextTick, ref, withDirectives, type App, type Component } from 'vue'
 import {
   h4bVue,
   useAction,
@@ -13,6 +13,8 @@ import {
   useSources,
   useStimulus,
   useStore,
+  useTextFocus,
+  vTextFocus,
 } from '../src/index.js'
 
 const apps: App[] = []
@@ -179,5 +181,57 @@ describe('vue bindings', () => {
       { kind: 'ref', sourceIds: ['c1'] },
     ])
     expect(view!.value.cited).toEqual([{ type: 'source', id: 'c1', title: 'Autotrac', number: 1 }])
+  })
+})
+
+describe('text focus', () => {
+  it('registers v-text-focus and focuses the element it sits on', async () => {
+    const h4b = createH4B()
+    const app = createApp(
+      defineComponent({
+        setup() {
+          return () =>
+            h('div', [
+              withDirectives(h('input', { 'aria-label': 'mensagem' }), [[vTextFocus, { onLoad: true, onClick: true }]]),
+              h('p', 'nota'),
+              h('button', { type: 'button' }, 'Enviar'),
+            ])
+        },
+      }),
+    ).use(h4bVue(h4b))
+    expect(app.directive('text-focus')).toBeTruthy()
+    const el = document.createElement('div')
+    document.body.append(el)
+    app.mount(el)
+    apps.push(app)
+    const input = el.querySelector('input')!
+    expect(document.activeElement).toBe(input)
+    input.blur()
+    const focus = vi.spyOn(input, 'focus')
+    el.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(focus).not.toHaveBeenCalled()
+    el.querySelector('p')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(focus).toHaveBeenCalled()
+  })
+
+  it('follows a template ref and turns the load switch off', async () => {
+    const h4b = createH4B()
+    const onLoad = ref(false)
+    const { el } = mount(
+      h4b,
+      defineComponent({
+        setup() {
+          const input = ref<HTMLInputElement | null>(null)
+          useTextFocus(input, () => ({ onLoad: onLoad.value, onClick: false }))
+          return () => h('input', { ref: input, 'aria-label': 'mensagem' })
+        },
+      }),
+    )
+    await nextTick()
+    const input = el.querySelector('input')!
+    expect(document.activeElement).not.toBe(input)
+    onLoad.value = true
+    await nextTick()
+    expect(document.activeElement).toBe(input)
   })
 })

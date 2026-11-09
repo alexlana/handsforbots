@@ -25,6 +25,9 @@
     "@handsforbots/core": "workspace:^",
     "vue": ">=3.3"
   },
+  "dependencies": {
+    "@handsforbots/widget": "workspace:^"
+  },
   "devDependencies": {
     "@handsforbots/core": "workspace:^",
     "@handsforbots/voice": "workspace:^",

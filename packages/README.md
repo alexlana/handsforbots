@@ -7,9 +7,9 @@
 | [`@handsforbots/transport-rasa`](./transport-rasa) | Rasa REST channel; `custom.h4b` drives GUI actions |
 | [`@handsforbots/transport-http`](./transport-http) | Generic HTTP turns (sessions, SSE, tool calls) + `universalLLM` and `openAICompatible` presets |
 | [`@handsforbots/transport-ai-sdk`](./transport-ai-sdk) | Vercel AI SDK UI message stream (tested against real `streamText`) |
-| [`@handsforbots/widget`](./widget) | `<h4b-chat>` Web Component: layouts, themes, rich content, voice/attach/camera controls |
-| [`@handsforbots/react`](./react) | React bindings: provider, store hooks, `useAction`, `useContextSignal`, `useStore` |
-| [`@handsforbots/vue`](./vue) | Vue composables: `h4bVue` plugin, store refs, `useAction`, `useContextSignal`, `useService`, `useStore` |
+| [`@handsforbots/widget`](./widget) | `<h4b-chat>` Web Component: layouts, themes, rich content, voice/attach/camera controls, composer focus |
+| [`@handsforbots/react`](./react) | React bindings: provider, store hooks, `useAction`, `useContextSignal`, `useStore`, `useTextFocus` |
+| [`@handsforbots/vue`](./vue) | Vue composables: `h4bVue` plugin, store refs, `useAction`, `useContextSignal`, `useService`, `useStore`, `useTextFocus`, `v-text-focus` |
 | [`@handsforbots/copilotkit`](./copilotkit) | CopilotKit bridge: actions as frontend tools, context, input through the CopilotKit agent |
 | [`@handsforbots/assistant-ui`](./assistant-ui) | assistant-ui runtime backed by H4B |
 | [`@handsforbots/menu`](./menu) | Direct commands without the LLM: slash, patterns, fuzzy phrases, suggestions |

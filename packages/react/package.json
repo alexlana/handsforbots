@@ -25,6 +25,9 @@
     "@handsforbots/core": "workspace:^",
     "react": ">=18"
   },
+  "dependencies": {
+    "@handsforbots/widget": "workspace:^"
+  },
   "devDependencies": {
     "@handsforbots/core": "workspace:^",
     "@testing-library/react": "^16.3.0",

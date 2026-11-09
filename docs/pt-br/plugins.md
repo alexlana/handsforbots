@@ -96,17 +96,43 @@ Data parts `data-ui-effect`, `data-ui-render` e `data-state` viram efeitos na GU
 
 ## widget
 
-`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?, renderers?, sources?: { hosts?, action?, consulted? } | false })`
+`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?: boolean | { onLoad?: boolean, onClick?: boolean }, renderers?, sources?: { hosts?, action?, consulted? } | false })`
 
 Um Web Component (`<h4b-chat>`, shadow DOM) que funciona em qualquer página ou framework: Markdown seguro, imagens, respostas rápidas, cartões de ação identificados por origem, linha de status comum a todas as rotas, cadência entre mensagens do bot, sugestões do menu ao digitar, controles de microfone e alto-falante (com `voice`), uma mensagem que diz ao usuário por que a escuta falhou e por que a voz do bot não saiu (textos `micDenied`, `speechServiceOff`, `micMissing`, `voiceNetwork`, `voiceFailed`, `voiceOutputBlocked`, `voiceSpeakFailed`, substituíveis em `strings`), botões de anexo e câmera (com `files` / `camera`), colar e arrastar. Estilize com variáveis CSS (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) ou `::part()`. Adicione componentes para conteúdo rico com `renderers: { nome: (props) => HTMLElement }`; `gallery` já vem pronto. As fontes de uma resposta aparecem como referências numeradas e uma lista (citadas, depois consultadas); `sources.action` roda uma ação registrada em vez de seguir o link ([Fontes e citações](./sources.md#widget)).
 
+`autofocus` foca o compositor. Cada comportamento é um interruptor. `true` ou `{ onLoad: true }` foca quando a janela abre, inclusive numa página que carrega com a janela já aberta. `{ onClick: true }` foca quando a pessoa clica em qualquer lugar da página que seja um ponto livre: o texto das mensagens, um espaço vazio, a página em volta do chat. Cliques em botões, links, outros campos e seleções de texto continuam fazendo o que já faziam. Com a janela fechada, o clique não a abre. No celular, o foco ao carregar costuma ser ignorado até o primeiro toque.
+
+Para um campo que você mesmo desenha, marque-o e ligue os mesmos interruptores. `bindTextFocus` devolve uma função que tira o listener do clique:
+
+```html
+<input data-h4b-text>
+```
+
+```ts
+import { bindTextFocus } from '@handsforbots/widget'
+
+const parar = bindTextFocus({ onLoad: true, onClick: false })
+```
+
+`input` aceita o elemento, um seletor CSS (`'#composer'`) ou uma função que devolve o elemento. Sem `input`, o primeiro `[data-h4b-text]` da página é o campo. `within` limita os cliques a um elemento (ou a um seletor); o padrão é o documento inteiro. Um campo escondido ou desabilitado fica quieto.
+
 ## react
 
-`<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definição)` (registrada enquanto o componente existe, sempre chama o handler mais recente), `useContextSignal(key, valor)`, `useH4BEvent(nome, listener)`, `useStimulus(listener)`, `useStore(serviço)` (para serviços com estado, como `voice`), `useSources(mensagem)` ([fontes](./sources.md) separadas do texto).
+`<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definição)` (registrada enquanto o componente existe, sempre chama o handler mais recente), `useContextSignal(key, valor)`, `useH4BEvent(nome, listener)`, `useStimulus(listener)`, `useStore(serviço)` (para serviços com estado, como `voice`), `useSources(mensagem)` ([fontes](./sources.md) separadas do texto), `useTextFocus(ref, { onLoad?, onClick?, within? })`.
+
+`useTextFocus` é o mesmo par de interruptores para um campo que você renderiza. O ref diz qual elemento é o campo. `onLoad` foca depois da montagem, que é também o momento da prop `autoFocus` do React, e o hook roda de novo se você ligar esse interruptor mais tarde. `onClick` foca num clique em qualquer ponto livre. O hook não precisa de `H4BProvider`.
+
+```tsx
+const campo = useRef<HTMLInputElement>(null)
+useTextFocus(campo, { onLoad: true, onClick: true })
+return <input ref={campo} />
+```
 
 ## vue
 
-`app.use(h4bVue(h4b))` (ou `provideH4B(h4b)` num componente), `useH4B()`, `useH4BState(seletor)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definição)`, `useContextSignal(key, refOuGetter)`, `useH4BEvent(nome, listener)`, `useStimulus(listener)`, `useService(chave)` (acompanha o serviço sendo fornecido ou removido depois), `useStore(refOuGetter)`, `useSources(refOuGetter)` ([fontes](./sources.md) separadas do texto, como computed ref). O estado volta como shallow refs somente leitura que só disparam quando o valor selecionado muda; os registros acabam junto com o componente (ou `effectScope`).
+`app.use(h4bVue(h4b))` (ou `provideH4B(h4b)` num componente), `useH4B()`, `useH4BState(seletor)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definição)`, `useContextSignal(key, refOuGetter)`, `useH4BEvent(nome, listener)`, `useStimulus(listener)`, `useService(chave)` (acompanha o serviço sendo fornecido ou removido depois), `useStore(refOuGetter)`, `useSources(refOuGetter)` ([fontes](./sources.md) separadas do texto, como computed ref), `useTextFocus(refOuGetter, { onLoad?, onClick?, within? })`, `v-text-focus`. O estado volta como shallow refs somente leitura que só disparam quando o valor selecionado muda; os registros acabam junto com o componente (ou `effectScope`).
+
+`v-text-focus` nomeia o campo: o elemento em que ela está é o compositor. O `h4bVue` registra a diretiva (`vTextFocus` é a mesma diretiva, para um import local). `v-text-focus="true"` é o interruptor de carregar. `v-text-focus="{ onLoad: true, onClick: false }"` liga cada um. O atributo `autofocus` do navegador é esse interruptor de carregar aplicado uma vez, sem o comportamento de clique. `useTextFocus` recebe um template ref quando a diretiva fica desajeitada.
 
 ```ts
 const estadoDaVoz = useStore(useService('voice'))   // listening, speaking, partial…

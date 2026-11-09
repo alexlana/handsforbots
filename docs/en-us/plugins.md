@@ -96,17 +96,43 @@ Data parts `data-ui-effect`, `data-ui-render` and `data-state` become GUI effect
 
 ## widget
 
-`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?, renderers?, sources?: { hosts?, action?, consulted? } | false })`
+`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?: boolean | { onLoad?: boolean, onClick?: boolean }, renderers?, sources?: { hosts?, action?, consulted? } | false })`
 
 A Web Component (`<h4b-chat>`, shadow DOM) usable in any page or framework: safe Markdown, images, quick replies, action cards labelled by origin, a status line shared by all routes, paced bot messages, menu suggestions while typing, microphone and speaker controls (with `voice`), a message telling the user why listening failed or why the bot's voice did not come out (strings `micDenied`, `speechServiceOff`, `micMissing`, `voiceNetwork`, `voiceFailed`, `voiceOutputBlocked`, `voiceSpeakFailed`, replaceable through `strings`), attach and camera buttons (with `files` / `camera`), paste and drop. Style it with CSS variables (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) or `::part()`. Add components for rich content with `renderers: { name: (props) => HTMLElement }`; `gallery` is built in. Sources of a reply show as numbered references and a list (cited, then consulted); `sources.action` runs a registered action instead of following the link ([Sources and citations](./sources.md#widget)).
 
+`autofocus` focuses the composer. Each behavior is its own switch. `true` or `{ onLoad: true }` focuses when the window opens, including a page that loads with the window already open. `{ onClick: true }` focuses when the user clicks anywhere on the page that is a plain spot: message text, empty space, the page around the chat. Clicks on buttons, links, other fields and text selections keep doing what they already do. With the window closed, a click does not open it. Phones often ignore the load focus until the first tap.
+
+For a field you draw yourself, mark it and bind the same switches. `bindTextFocus` returns a function that removes the click listener:
+
+```html
+<input data-h4b-text>
+```
+
+```ts
+import { bindTextFocus } from '@handsforbots/widget'
+
+const stop = bindTextFocus({ onLoad: true, onClick: false })
+```
+
+`input` accepts the element, a CSS selector (`'#composer'`), or a function that returns the element. With `input` omitted, the first `[data-h4b-text]` on the page is the field. `within` limits clicks to one element (or a selector); the default is the whole document. A hidden or disabled field is left alone.
+
 ## react
 
-`<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)` (registered while mounted, always calls the latest handler), `useContextSignal(key, value)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useStore(service)` (for stateful services like `voice`), `useSources(message)` ([sources](./sources.md) split from the text).
+`<H4BProvider value={h4b}>`, `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)` (registered while mounted, always calls the latest handler), `useContextSignal(key, value)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useStore(service)` (for stateful services like `voice`), `useSources(message)` ([sources](./sources.md) split from the text), `useTextFocus(ref, { onLoad?, onClick?, within? })`.
+
+`useTextFocus` is the same pair of switches for a field you render. The ref names the element. `onLoad` focuses after mount, which is also when React's `autoFocus` prop focuses, and the hook runs again if you turn that switch on later. `onClick` focuses on a click anywhere that is a plain spot. The hook does not need `H4BProvider`.
+
+```tsx
+const field = useRef<HTMLInputElement>(null)
+useTextFocus(field, { onLoad: true, onClick: true })
+return <input ref={field} />
+```
 
 ## vue
 
-`app.use(h4bVue(h4b))` (or `provideH4B(h4b)` in a component), `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)`, `useContextSignal(key, refOrGetter)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useService(key)` (follows the service being provided or removed later), `useStore(refOrGetter)`, `useSources(refOrGetter)` ([sources](./sources.md) split from the text, as a computed ref). State comes back as read-only shallow refs that trigger only when the selected value changes; registrations end with the component (or `effectScope`).
+`app.use(h4bVue(h4b))` (or `provideH4B(h4b)` in a component), `useH4B()`, `useH4BState(selector)`, `useMessages()`, `useTurn()`, `useBusy()`, `useSharedState()`, `useAction(definition)`, `useContextSignal(key, refOrGetter)`, `useH4BEvent(name, listener)`, `useStimulus(listener)`, `useService(key)` (follows the service being provided or removed later), `useStore(refOrGetter)`, `useSources(refOrGetter)` ([sources](./sources.md) split from the text, as a computed ref), `useTextFocus(refOrGetter, { onLoad?, onClick?, within? })`, `v-text-focus`. State comes back as read-only shallow refs that trigger only when the selected value changes; registrations end with the component (or `effectScope`).
+
+`v-text-focus` names the field: the element it sits on is the composer. `h4bVue` registers the directive (`vTextFocus` is the same directive, for a local import). `v-text-focus="true"` is the load switch. `v-text-focus="{ onLoad: true, onClick: false }"` sets each switch. The browser attribute `autofocus` is that load switch applied once, with no click behavior. `useTextFocus` takes a template ref when the directive is awkward.
 
 ```ts
 const voiceState = useStore(useService('voice'))   // listening, speaking, partial…

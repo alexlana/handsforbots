@@ -14,6 +14,7 @@ import {
   type Plugin,
   type ShallowRef,
 } from 'vue'
+import { vTextFocus } from './focus.js'
 import {
   sourceView,
   type ActionDefinition,
@@ -42,6 +43,7 @@ export function h4bVue(h4b: H4B): Plugin {
   return {
     install(app: App) {
       app.provide(H4BKey, h4b)
+      app.directive('text-focus', vTextFocus)
     },
   }
 }
@@ -176,3 +178,6 @@ export function useContextSignal(
   )
   onScopeDispose(() => h4b.removeContext(key))
 }
+
+export { useTextFocus, type AutofocusOptions, type TextFocusBinding, type TextFocusTarget } from './focus.js'
+export { vTextFocus }

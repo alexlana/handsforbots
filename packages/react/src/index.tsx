@@ -145,3 +145,5 @@ export function useStore<S>(store: ExternalStore<S> | undefined): S | undefined 
 export function useStimulus(listener: (payload: Events['stimulus']) => unknown): void {
   useH4BEvent('stimulus', listener)
 }
+
+export { useTextFocus, type UseTextFocusOptions } from './focus.js'

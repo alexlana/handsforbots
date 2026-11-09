@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createH4B, textOf, type Message, type Transport, type TurnRequest } from '@handsforbots/core'
-import { useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
-import { H4BProvider, useAction, useBusy, useContextSignal, useMessages, useSources, useStimulus } from '../src/index.js'
+import { useRef, useState } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { H4BProvider, useAction, useBusy, useContextSignal, useMessages, useSources, useStimulus, useTextFocus } from '../src/index.js'
 
 afterEach(cleanup)
 
@@ -149,5 +149,37 @@ describe('react bindings', () => {
     )
     await act(() => h4b.ask('o que é?'))
     expect(container.querySelector('p')!.innerHTML).toBe('<span>Rastreia.</span><sup>c1</sup><small>1.Autotrac</small><em>Outra</em>')
+  })
+})
+
+describe('useTextFocus', () => {
+  function Field({ onLoad = false, onClick = false }: { onLoad?: boolean; onClick?: boolean }) {
+    const ref = useRef<HTMLInputElement>(null)
+    useTextFocus(ref, { onLoad, onClick })
+    return (
+      <div>
+        <input ref={ref} aria-label="mensagem" />
+        <p>nota</p>
+        <button type="button">Enviar</button>
+      </div>
+    )
+  }
+
+  it('focuses on load when the switch is on, and follows the switch later', () => {
+    const view = render(<Field />)
+    const input = screen.getByRole('textbox', { name: 'mensagem' })
+    expect(document.activeElement).not.toBe(input)
+    view.rerender(<Field onLoad />)
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('focuses on a click anywhere except controls', () => {
+    render(<Field onClick />)
+    const input = screen.getByRole('textbox', { name: 'mensagem' })
+    const focus = vi.spyOn(input, 'focus')
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }))
+    expect(focus).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('nota'))
+    expect(focus).toHaveBeenCalled()
   })
 })
