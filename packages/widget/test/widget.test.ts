@@ -2,7 +2,7 @@
 import { createH4B, textOf, type Transport, type TurnRequest } from '@handsforbots/core'
 import { menu } from '@handsforbots/menu'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { renderMarkdown, widget, type H4BChatElement } from '../src/index.js'
+import { pickGreeting, renderMarkdown, widget, type H4BChatElement } from '../src/index.js'
 
 const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms))
 
@@ -46,6 +46,28 @@ afterEach(async () => {
   await Promise.all(live.splice(0).map((h4b) => h4b.stop()))
   document.body.innerHTML = ''
   sessionStorage.clear()
+  localStorage.clear()
+})
+
+describe('pickGreeting', () => {
+  it('keeps a string as one message and an array as messages in order', () => {
+    expect(pickGreeting('Oi')).toEqual({ lines: ['Oi'] })
+    expect(pickGreeting(['Oi', 'Tudo bem?'])).toEqual({ lines: ['Oi', 'Tudo bem?'] })
+  })
+
+  it('draws among all options, skipping the previous one', () => {
+    const options = { random: ['a', 'b', 'c'] }
+    expect(pickGreeting(options, undefined, () => 0.99)).toEqual({ lines: ['c'], index: 2 })
+    expect(pickGreeting(options, 0, () => 0)).toEqual({ lines: ['b'], index: 1 })
+    expect(pickGreeting(options, 1, () => 0.6)).toEqual({ lines: ['c'], index: 2 })
+    expect(pickGreeting(options, 2, () => 0.99)).toEqual({ lines: ['b'], index: 1 })
+    expect(pickGreeting(options, 7, () => 0.99)).toEqual({ lines: ['c'], index: 2 })
+  })
+
+  it('repeats the only option and shows nothing for an empty list', () => {
+    expect(pickGreeting({ random: ['a'] }, 0, () => 0.5)).toEqual({ lines: ['a'], index: 0 })
+    expect(pickGreeting({ random: [] })).toEqual({ lines: [] })
+  })
 })
 
 describe('markdown', () => {
@@ -184,6 +206,26 @@ describe('<h4b-chat>', () => {
     await tick(5)
     expect(h4b.messages.map((m) => m.role)).toEqual(['assistant', 'assistant'])
     expect($$('.msg').map((m) => m.textContent)).toEqual(['Olá!', 'Como posso ajudar?'])
+  })
+
+  it('draws one random greeting and does not repeat the last one in this browser', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    try {
+      const greeting = { random: ['Oi!', ['Bom te ver.', 'Em que posso ajudar?'], 'Olá de novo!'] }
+      const first = await mount({ greeting })
+      await tick(5)
+      expect(first.$$('.msg').map((m) => m.textContent)).toEqual(['Oi!'])
+      expect(localStorage.getItem('h4b-widget-greeting')).toBe('0')
+      await first.h4b.stop()
+      document.body.innerHTML = ''
+
+      const second = await mount({ greeting })
+      await tick(5)
+      expect(second.$$('.msg').map((m) => m.textContent)).toEqual(['Bom te ver.', 'Em que posso ajudar?'])
+      expect(localStorage.getItem('h4b-widget-greeting')).toBe('1')
+    } finally {
+      random.mockRestore()
+    }
   })
 
   it('shows quick replies of the last bot message and sends their payload', async () => {
@@ -452,7 +494,7 @@ describe('<h4b-chat> sources', () => {
   })
 
   it('runs the configured action instead of following the link', async () => {
-    const open = vi.fn(() => ({ ok: true }))
+    const open = vi.fn((_args: unknown) => ({ ok: true }))
     const { h4b, $ } = await mount({ startOpen: true, sources: { action: 'open_source' } }, scripted(sourcesReply))
     h4b.actions.register({ name: 'open_source', description: 'Opens a source', handler: open })
     await h4b.ask('o que é a Autotrac?')

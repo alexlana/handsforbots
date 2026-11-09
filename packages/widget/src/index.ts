@@ -89,8 +89,13 @@ export type WidgetOptions = {
   color?: string
   /** CSS overrides: primary, primaryHover, soft, bg, surface, text, muted, border, radius, width, height, font. */
   colors?: Record<string, string>
-  /** Shown (and recorded) when the conversation is empty. */
-  greeting?: string | string[]
+  /**
+   * Shown (and recorded) when the conversation is empty. A string is one
+   * message, an array is several messages in order, and `{ random }` draws one
+   * option per new conversation (an option is a string or an array of
+   * messages), avoiding the option shown last in this browser.
+   */
+  greeting?: Greeting
   disclaimer?: string
   /** Delay between bot messages that arrive together, in ms. Default 350. */
   pace?: number
@@ -118,8 +123,32 @@ export type WidgetOptions = {
   sources?: SourcesOptions | false
 }
 
+export type Greeting = string | string[] | { random: Array<string | string[]> }
+
 const TAG = 'h4b-chat'
 const OPEN_KEY = 'h4b-widget-open'
+const GREETING_KEY = 'h4b-widget-greeting'
+
+/**
+ * The messages of a greeting. With `{ random }`, draws one option, skipping
+ * the index stored as `previous` when there is another option, and returns it.
+ */
+export function pickGreeting(
+  greeting: Greeting,
+  previous?: number,
+  random: () => number = Math.random,
+): { lines: string[]; index?: number } {
+  if (typeof greeting === 'string') return { lines: [greeting] }
+  if (Array.isArray(greeting)) return { lines: greeting }
+  const options = greeting.random
+  if (options.length === 0) return { lines: [] }
+  const skip = options.length > 1 && previous !== undefined && previous >= 0 && previous < options.length
+  let index = Math.floor(random() * (skip ? options.length - 1 : options.length))
+  if (skip && index >= previous) index++
+  index = Math.min(index, options.length - 1)
+  const option = options[index]!
+  return { lines: Array.isArray(option) ? option : [option], index }
+}
 
 export const widget = definePlugin<WidgetOptions | undefined>({
   name: 'widget',
@@ -375,7 +404,22 @@ export class H4BChatElement extends BaseElement {
   private greet() {
     const greeting = this.options.greeting
     if (!greeting || !this.h4b || this.h4b.messages.length > 0) return
-    const lines = Array.isArray(greeting) ? greeting : [greeting]
+    let previous: number | undefined
+    try {
+      const stored = localStorage.getItem(GREETING_KEY)
+      if (stored !== null) previous = Number(stored)
+    } catch {
+      /* storage unavailable */
+    }
+    const { lines, index } = pickGreeting(greeting, previous)
+    if (index !== undefined) {
+      try {
+        localStorage.setItem(GREETING_KEY, String(index))
+      } catch {
+        /* storage unavailable */
+      }
+    }
+    if (lines.length === 0) return
     void this.h4b.push(
       lines.flatMap((text, i) => {
         const messageId = `greeting-${i}-${Date.now()}`

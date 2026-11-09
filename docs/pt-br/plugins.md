@@ -96,9 +96,23 @@ Data parts `data-ui-effect`, `data-ui-render` e `data-state` viram efeitos na GU
 
 ## widget
 
-`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?: boolean | { onLoad?: boolean, onClick?: boolean }, renderers?, sources?: { hosts?, action?, consulted? } | false })`
+`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?: string | string[] | { random: (string | string[])[] }, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?: boolean | { onLoad?: boolean, onClick?: boolean }, renderers?, sources?: { hosts?, action?, consulted? } | false })`
 
 Um Web Component (`<h4b-chat>`, shadow DOM) que funciona em qualquer página ou framework: Markdown seguro, imagens, respostas rápidas, cartões de ação identificados por origem, linha de status comum a todas as rotas, cadência entre mensagens do bot, sugestões do menu ao digitar, controles de microfone e alto-falante (com `voice`), uma mensagem que diz ao usuário por que a escuta falhou e por que a voz do bot não saiu (textos `micDenied`, `speechServiceOff`, `micMissing`, `voiceNetwork`, `voiceFailed`, `voiceOutputBlocked`, `voiceSpeakFailed`, substituíveis em `strings`), botões de anexo e câmera (com `files` / `camera`), colar e arrastar. Estilize com variáveis CSS (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) ou `::part()`. Adicione componentes para conteúdo rico com `renderers: { nome: (props) => HTMLElement }`; `gallery` já vem pronto. As fontes de uma resposta aparecem como referências numeradas e uma lista (citadas, depois consultadas); `sources.action` roda uma ação registrada em vez de seguir o link ([Fontes e citações](./sources.md#widget)).
+
+`greeting` é mostrado e gravado no histórico quando a conversa está vazia. Uma string é uma mensagem; um array são várias mensagens em ordem. Para começar cada conversa nova de um jeito diferente, use `{ random: [...] }`: o widget sorteia uma opção, e cada opção é uma string ou um array de mensagens. A opção mostrada por último não é sorteada de novo no mesmo navegador (o índice fica no `localStorage`, na chave `h4b-widget-greeting`; sem storage, qualquer opção pode sair). Nada é sorteado nem mostrado se a conversa já tiver mensagens quando o widget monta. `pickGreeting(greeting, previous?, random?)` faz o mesmo sorteio para uma interface que você desenha.
+
+```ts
+widget({
+  greeting: {
+    random: [
+      'Oi! Como posso ajudar?',
+      ['Que bom te ver de novo.', 'Pergunte o que quiser sobre esta página.'],
+      'Olá! Procurando alguma coisa?',
+    ],
+  },
+})
+```
 
 `autofocus` foca o compositor. Cada comportamento é um interruptor. `true` ou `{ onLoad: true }` foca quando a janela abre, inclusive numa página que carrega com a janela já aberta. `{ onClick: true }` foca quando a pessoa clica em qualquer lugar da página que seja um ponto livre: o texto das mensagens, um espaço vazio, a página em volta do chat. Cliques em botões, links, outros campos e seleções de texto continuam fazendo o que já faziam. Com a janela fechada, o clique não a abre. No celular, o foco ao carregar costuma ser ignorado até o primeiro toque.
 

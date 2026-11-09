@@ -109,6 +109,10 @@ Everything goes through **one queue**: turns, `runAction` and `push` run one at 
 
 Provider options: `docs/en-us/plugins.md#voice`.
 
+## Greeting
+
+`widget({ greeting })` shows and records a greeting when the conversation has no messages as the widget mounts. A string is one message; an array is several messages in order. `{ random: [option, ...] }` draws one option per new conversation, where an option is a string or an array of messages, and skips the option shown last in that browser (index in `localStorage`, key `h4b-widget-greeting`). For your own UI, `pickGreeting(greeting, previous?, random?)` from `@handsforbots/widget` returns `{ lines, index? }`.
+
 ## Focusing the text field
 
 Two switches, each one on or off: focus when the screen loads, and focus when the user clicks a plain spot (message text, empty space, the page around the field). Clicks on buttons, links, other fields and text selections keep their own behavior. Turning a switch off leaves the caret where it is. A phone may ignore the load focus until the first tap.

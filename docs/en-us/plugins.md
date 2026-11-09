@@ -96,9 +96,23 @@ Data parts `data-ui-effect`, `data-ui-render` and `data-state` become GUI effect
 
 ## widget
 
-`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?: boolean | { onLoad?: boolean, onClick?: boolean }, renderers?, sources?: { hosts?, action?, consulted? } | false })`
+`widget({ container?, layout?: 'floating' | 'sidebar' | 'inline', corner?, startOpen?, alwaysOpen?, title?, botName?, botJob?, avatar?, language?, strings?, theme?: 'auto' | 'light' | 'dark', color?: 'blue' | 'purple' | 'orange' | 'green', colors?, greeting?: string | string[] | { random: (string | string[])[] }, disclaimer?, pace?, showActions?, showPrivacy?, autofocus?: boolean | { onLoad?: boolean, onClick?: boolean }, renderers?, sources?: { hosts?, action?, consulted? } | false })`
 
 A Web Component (`<h4b-chat>`, shadow DOM) usable in any page or framework: safe Markdown, images, quick replies, action cards labelled by origin, a status line shared by all routes, paced bot messages, menu suggestions while typing, microphone and speaker controls (with `voice`), a message telling the user why listening failed or why the bot's voice did not come out (strings `micDenied`, `speechServiceOff`, `micMissing`, `voiceNetwork`, `voiceFailed`, `voiceOutputBlocked`, `voiceSpeakFailed`, replaceable through `strings`), attach and camera buttons (with `files` / `camera`), paste and drop. Style it with CSS variables (`--h4b-primary`, `--h4b-bg`, `--h4b-radius`…) or `::part()`. Add components for rich content with `renderers: { name: (props) => HTMLElement }`; `gallery` is built in. Sources of a reply show as numbered references and a list (cited, then consulted); `sources.action` runs a registered action instead of following the link ([Sources and citations](./sources.md#widget)).
+
+`greeting` is shown and recorded when the conversation is empty. A string is one message; an array is several messages in order. To start each new conversation differently, use `{ random: [...] }`: the widget draws one option, and an option is a string or an array of messages. The option shown last is not drawn again in the same browser (its index is kept in `localStorage` under `h4b-widget-greeting`; without storage, every option can come up). Nothing is drawn or shown when the conversation already has messages when the widget mounts. `pickGreeting(greeting, previous?, random?)` is the same draw for an interface you build yourself.
+
+```ts
+widget({
+  greeting: {
+    random: [
+      'Hi! How can I help?',
+      ['Welcome back.', 'Ask me anything about this page.'],
+      'Hello! Looking for something?',
+    ],
+  },
+})
+```
 
 `autofocus` focuses the composer. Each behavior is its own switch. `true` or `{ onLoad: true }` focuses when the window opens, including a page that loads with the window already open. `{ onClick: true }` focuses when the user clicks anywhere on the page that is a plain spot: message text, empty space, the page around the chat. Clicks on buttons, links, other fields and text selections keep doing what they already do. With the window closed, a click does not open it. Phones often ignore the load focus until the first tap.
 
