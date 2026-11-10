@@ -2,6 +2,7 @@ import { memory, type MemoryOptions } from '@handsforbots/memory'
 import { ActionError, ActionRegistry } from './actions.js'
 import { isCitation } from './citations.js'
 import { ConsentManager, type ConsentControl, type ConsentOptions } from './consent.js'
+import { cleanAttributes, isAttributeKey, mergeAttributes, type AttributeValue, type ConversationAttributes, type Exposure } from './attributes.js'
 import { Conversation } from './conversation.js'
 import { EventBus } from './events.js'
 import { createId } from './id.js'
@@ -30,6 +31,7 @@ import type {
   Modality,
   Part,
   Route,
+  SessionSnapshot,
   Signal,
   SignalInput,
   Stimulus,
@@ -169,6 +171,7 @@ export class H4B {
   private erased = new Set<Plugin<any>>()
   private reconciling: Promise<void> = Promise.resolve()
   private saving: Promise<void> = Promise.resolve()
+  private _exposures: readonly Exposure[] = []
 
   constructor(private options: H4BOptions = {}) {
     const report = options.onError ?? ((error, source) => console.error(`[h4b] ${source}:`, error))
@@ -187,6 +190,9 @@ export class H4B {
       (state) => {
         this.bus.emit('state.changed', state)
         this.invalidate()
+      },
+      (attributes, reason) => {
+        this.bus.emit('conversation.attributes', { attributes, reason })
       },
     )
     for (const action of options.actions ?? []) this.actions.register(action)
@@ -232,7 +238,7 @@ export class H4B {
     if (storage) {
       try {
         const snapshot = await storage.load()
-        if (snapshot) this.conversation.restore(snapshot)
+        if (snapshot) this.restore(snapshot)
       } catch (error) {
         this.emit('error', { error, source: 'storage' })
       }
@@ -323,7 +329,7 @@ export class H4B {
       const stored = await storage.load()
       const typed = this.conversation.messages.some((m) => m.role === 'user')
       if (this.running) return // the job saves when it ends
-      if (stored && !typed) this.conversation.restore(stored)
+      if (stored && !typed) this.restore(stored)
       else if (this.conversation.messages.length > 0) await this.persist()
     } catch (error) {
       this.emit('error', { error, source: 'storage' })
@@ -840,9 +846,72 @@ export class H4B {
     await this.persist()
   }
 
+  /* ------------------------------------------------------------------------ */
+  /* Conversation attributes and experiments (ADR 0017)                       */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * Merges codes into the conversation's attributes: `null` removes a key.
+   * Keys are lowercase (`greeting.kind`), values numbers, booleans or codes
+   * without spaces (at most 64 characters, 16 attributes); anything else is
+   * left out with an `error` (`source: 'conversation.attributes'`). They are
+   * saved with the conversation and, through `observability`, go on spans and
+   * to the backend as `baggage`. Never put the visitor's text in them.
+   */
+  setConversationAttributes(changes: Readonly<Record<string, AttributeValue | null | undefined>>): ConversationAttributes {
+    const { attributes, rejected } = mergeAttributes(this.conversation.attributes, changes)
+    if (rejected.length > 0) {
+      this.emit('error', {
+        error: new Error(`[h4b] invalid conversation attributes left out: ${rejected.join(', ')}`),
+        source: 'conversation.attributes',
+      })
+    }
+    const before = this.conversation.attributes
+    const changed =
+      Object.keys(before).length !== Object.keys(attributes).length ||
+      Object.entries(attributes).some(([key, value]) => before[key] !== value)
+    if (!changed) return before
+    this.conversation.setAttributes(attributes)
+    if (!this.running) void this.persist() // a running job saves when it ends
+    return attributes
+  }
+
+  /**
+   * Records that the visitor saw a variant of `experiment` (e.g. the greeting
+   * drawn). Kept in memory for the current conversation, never stored, so
+   * `observability` records it even when `analytics` is granted later.
+   */
+  expose(experiment: string, attributes: Readonly<Record<string, AttributeValue>> = this.conversation.attributes): Exposure | undefined {
+    if (!isAttributeKey(experiment)) {
+      this.emit('error', { error: new Error(`[h4b] invalid experiment name: ${experiment}`), source: 'experiment' })
+      return undefined
+    }
+    const exposure: Exposure = Object.freeze({
+      experiment,
+      attributes: cleanAttributes(attributes),
+      threadId: this.conversation.threadId,
+      at: Date.now(),
+    })
+    this._exposures = [...this._exposures, exposure]
+    this.emit('experiment.exposed', exposure)
+    return exposure
+  }
+
+  /** Exposures belong to the conversation that was on screen, not to the one restored. */
+  private restore(snapshot: SessionSnapshot) {
+    this._exposures = []
+    this.conversation.restore(snapshot)
+  }
+
+  /** Exposures of the conversation on screen (see `expose`). Cleared by `reset()` and by a restore. */
+  get exposures(): readonly Exposure[] {
+    return this._exposures
+  }
+
   /** Starts a new thread and clears stored history. */
   async reset(threadId?: string) {
     this.abort({ clearQueue: true })
+    this._exposures = []
     this.conversation.reset(threadId)
     await this.get('storage')?.clear()
   }

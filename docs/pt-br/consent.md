@@ -154,6 +154,8 @@ plugins: [
 
 Quem escreve plugins define um padrão com `definePlugin({ consent: 'finalidade', … })` e faz a limpeza com `ctx.onRevoke(fn)`, que roda depois de o plugin ser desmontado porque o consentimento foi retirado (nunca no `stop()`). Quando o plugin fornecia `storage`, o kernel já terá chamado o `clear()`. O `h4b.use(plugin)` segue o consentimento do mesmo jeito.
 
+O que aconteceu antes de uma finalidade ser concedida ainda pode importar. As exposições de um teste A/B, por exemplo, ficam em memória para a conversa na tela (`h4b.exposures`, nunca guardadas), e a `observability` as registra quando o `analytics` é concedido depois, na mesma página ([Experimentos](./experiments.md#exposições)).
+
 Enquanto a finalidade não está concedida, o `apply` de um plugin condicionado nunca roda, então um exporter, timer ou listener dele nunca começa. Para apagar o que uma visita anterior deixou quando a finalidade volta `denied`, dê ao plugin um `erase(app, config)`: o kernel o chama uma vez por `start()`, sem montar, com o config validado. Um plugin condicionado sem `erase` fica intocado enquanto negado.
 
 ```ts

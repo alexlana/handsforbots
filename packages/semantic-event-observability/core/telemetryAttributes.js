@@ -5,6 +5,7 @@ export const SEVO_ATTR_PREFIX = 'sevo.'
 
 export function sevoAttributes(event) {
 	return {
+		...event.attributes,
 		[`${SEVO_ATTR_PREFIX}session_id`]: event.sessionId,
 		[`${SEVO_ATTR_PREFIX}turn_id`]: event.turnId,
 		[`${SEVO_ATTR_PREFIX}trace_id`]: event.traceId,

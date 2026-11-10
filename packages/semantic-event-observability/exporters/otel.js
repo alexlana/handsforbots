@@ -195,6 +195,18 @@ export function createOtelExporter(config = {}) {
 	function recordOtelMetric(metric) {
 		if (!metric) return
 
+		// recordCounter(): a counter of the app's own, created on first use, labels as given.
+		if (metric.custom && metric.type === 'counter') {
+			if (!meter) return
+			let counter = counters.get(metric.name)
+			if (!counter) {
+				counter = meter.createCounter(metric.name)
+				counters.set(metric.name, counter)
+			}
+			counter.add(metric.value ?? 1, plainAttributes(metric.labels))
+			return
+		}
+
 		const attributes = sevoMetricLabelAttributes(metric.labels)
 
 		if (metric.type === 'histogram') {
@@ -212,4 +224,13 @@ export function createOtelExporter(config = {}) {
 			counters.get(metric.name)?.add(metric.value ?? 1, attributes)
 		}
 	}
+}
+
+function plainAttributes(labels = {}) {
+	const output = {}
+	for (const [key, value] of Object.entries(labels || {})) {
+		if (value == null) continue
+		output[key] = typeof value === 'number' || typeof value === 'boolean' ? value : String(value)
+	}
+	return output
 }

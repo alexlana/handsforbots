@@ -39,6 +39,8 @@ A turn is one job of the kernel: a user message with everything the assistant an
 
 The summary is part of the conversation snapshot (`SessionSnapshot.memory`), so it is stored and restored with it. `h4b.reset()` forgets it. The `memory` service exposes `options`, `summary`, `view(request)` (what would be sent) and `maintain()`; the `memory.changed` event reports new summaries and removed messages.
 
+Conversation attributes (`SessionSnapshot.attributes`, codes such as an experiment's variant) are stored, restored and reset the same way ([Experiments](./experiments.md)).
+
 ```ts
 import { httpSummarizer, memory } from '@handsforbots/memory'
 

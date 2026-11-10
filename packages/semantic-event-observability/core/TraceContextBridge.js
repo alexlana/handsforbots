@@ -1,8 +1,11 @@
+import { mergeBaggage } from './baggage.js'
+
 /**
  * Propagate active turn trace context to fetch and other outbound calls.
  */
 export function createTraceContextBridge(options = {}) {
 	const getContext = options.getContext || (() => ({}))
+	const getBaggage = options.getBaggage || (() => null)
 	let injectHeaders = null
 
 	return {
@@ -22,6 +25,14 @@ export function createTraceContextBridge(options = {}) {
 						Object.assign(headers, injected)
 					}
 				} catch { /* noop */ }
+			}
+
+			const attributes = getBaggage()
+			if (attributes && Object.keys(attributes).length > 0) {
+				const existing = Object.keys(headers).find((key) => key.toLowerCase() === 'baggage')
+				const merged = mergeBaggage(existing ? headers[existing] : '', attributes)
+				if (existing) delete headers[existing]
+				if (merged) headers.baggage = merged
 			}
 
 			return headers

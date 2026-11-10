@@ -121,3 +121,14 @@ Apoia o [ADR 0014](../adr/0014-fontes-e-citacoes.md) e [Fontes e citações](./s
 | [Perplexity: streaming de citações](https://docs.perplexity.ai/docs/cookbook/articles/streaming-citations/README) | Marcadores numerados no texto (`[1]`, ou `[web:1]` em outro modo) ligados a `search_results` enviados à parte | O caso do marcador: tratado pelo `inlineCitations` no backend ou no transporte, nunca na página |
 | [`ui-messages.ts` do AI SDK](https://app.unpkg.com/ai@6.0.99/files/src/ui/ui-messages.ts) | Partes `source-url` (`sourceId`, `url`, `title`) e `source-document`; nada liga uma fonte a um trecho | Mapeamento do `transport-ai-sdk`; `id` e `title` seguem os mesmos papéis |
 | [Especificação do AG-UI (rascunho)](https://docs.ag-ui.com/spec/draft) | Protocolo de eventos entre agentes e interfaces, com eventos CUSTOM com namespace e nenhum evento de fonte | `h4b.sources` e `h4b.citations` como eventos CUSTOM, ao lado de `h4b.ui.effect` e `h4b.ui.render` |
+
+## Experimentos e atributos da conversa
+
+Apoia o [ADR 0017](../adr/0017-atributos-da-conversa.md) e [Experimentos](./experiments.md). Acesso em 2026-11-10.
+
+| Fonte | O que é | Uso na H4B |
+|---|---|---|
+| [W3C Baggage](https://www.w3.org/TR/baggage/) | Cabeçalho `baggage` com membros `chave=valor` (valores com percent-encoding, propriedades opcionais após `;`), limites de 64 membros e 8192 bytes | Como os atributos da conversa chegam ao backend; `encodeBaggage`, `parseBaggage` e `mergeBaggage` seguem a especificação |
+| [W3C Trace Context](https://www.w3.org/TR/trace-context/) | Cabeçalho `traceparent`, que liga os spans do navegador aos do backend | Já enviado pelo `getTraceHeaders()`; o `baggage` vai ao lado |
+| [OpenTelemetry Baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) | Contexto chave-valor propagado do OTel; a documentação avisa que o baggage vai em texto aberto a todo serviço seguinte | Por que só códigos entram, por que o servidor usa lista de chaves permitidas (`readConversationAttributes`) e por que um `baggage` que o propagador do OTel já pôs é juntado, não substituído |
+| [API de métricas do OpenTelemetry: Counter](https://opentelemetry.io/docs/specs/otel/metrics/api/#counter) | Instrumento de soma monotônica | `recordCounter()` e os contadores de experimento: totais sem amostragem que duram mais que a retenção dos traces |

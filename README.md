@@ -53,6 +53,7 @@ await h4b.start()
 - [Sources and citations](./docs/en-us/sources.md): sources in assistant messages, citations as spans of the text, transports, widget references and lists, grouping sections of one article, safe URLs
 - [Speech synthesis and voice effects](./docs/en-us/speech.md): the browser voice, a backend or models in the page (Piper, Kokoro, transformers.js), when models download and who speaks meanwhile, effects as JSON, presets, SSML and FFmpeg export
 - [Persistence, memory and privacy](./docs/en-us/persistence.md): what is sent, kept and stored, encryption, retention, tabs
+- [Experiments and conversation attributes](./docs/en-us/experiments.md): A/B tests, codes attached to a conversation, exposures, counters, W3C `baggage` to the backend
 - [Consent](./docs/en-us/consent.md): working with your consent tool, rule sets per legislation and region, erasing on revoke, anonymization for human review
 - [Security](./docs/en-us/security.md)
 - [Development](./docs/en-us/development.md)

@@ -11,7 +11,11 @@
       "import": "./index.js"
     },
     "./packageIdentity": "./packageIdentity.js",
-    "./adapters/genericEventBus": "./adapters/genericEventBus.js"
+    "./adapters/genericEventBus": "./adapters/genericEventBus.js",
+    "./baggage": {
+      "types": "./core/baggage.d.ts",
+      "import": "./core/baggage.js"
+    }
   },
   "files": [
     "index.js",

@@ -111,7 +111,18 @@ Provider options: `docs/en-us/plugins.md#voice`.
 
 ## Greeting
 
-`widget({ greeting })` shows and records a greeting when the conversation has no messages as the widget mounts. A string is one message; an array is several messages in order. `{ random: [option, ...] }` draws one option per new conversation, where an option is a string or an array of messages, and skips the option shown last in that browser (index in `localStorage`, key `h4b-widget-greeting`). For your own UI, `pickGreeting(greeting, previous?, random?)` from `@handsforbots/widget` returns `{ lines, index? }`.
+`widget({ greeting })` shows and records a greeting when the conversation has no messages as the widget mounts. A string is one message; an array is several messages in order. `{ random: [option, ...] }` draws one option per new conversation, where an option is a string or an array of messages, and skips the option shown last in that browser (index in `localStorage`, key `h4b-widget-greeting`). For your own UI, `pickGreeting(greeting, previous?, random?)` from `@handsforbots/widget` returns `{ lines, index?, attributes? }`.
+
+## A/B tests (experiments)
+
+Docs: `docs/en-us/experiments.md`, ADR 0017.
+
+- **Variant on a greeting.** An option can be `{ text, attributes }` (codes only: `{ 'greeting.kind': 'directed', 'greeting.index': 1 }`). The widget calls `h4b.setConversationAttributes(attributes)` and `h4b.expose(experiment ?? 'greeting', attributes)` before showing it. With `pickGreeting` in your own UI, you call both yourself.
+- **Conversation attributes.** Keys are lowercase; values are numbers, booleans or codes `[A-Za-z0-9_.:-]{1,64}` with no spaces; at most 16. Invalid ones are dropped with an `error` event (`source: 'conversation.attributes'`). They are stored, restored and reset with the conversation. Never put the visitor's text in them.
+- **Exposures.** `h4b.expose(name, attributes?)` keeps the exposure in memory (`h4b.exposures`, never stored). `observability` records it even if `analytics` is granted later in the page (`late: true`).
+- **What observability does with them.** Attributes go on every span; `getTraceHeaders()` adds a W3C `baggage` header (pass it to the transport's `headers`). The counters are `h4b_experiment_exposed_total` and `h4b_conversation_engaged_total`, never sampled.
+- **Backend.** `readConversationAttributes(req.headers, { allow: { 'greeting.kind': 'string', 'greeting.index': 'number' } })` from `@handsforbots/observability/server`. Keep the allow list tight.
+- **Draw for other tests.** Use `pickVariant(variants, previous?)` from `@handsforbots/core`. The analysis (queries, statistics) stays in the app.
 
 ## Focusing the text field
 

@@ -49,6 +49,10 @@ Pass trace headers to HTTP-based transports so a turn is one trace from the brow
 agui({ url: '/api/agent', headers: () => h4b.get('observability')?.getTraceHeaders() ?? {} })
 ```
 
+### Experiments
+
+Conversation attributes (`h4b.setConversationAttributes`, ADR 0017) go on every span and, through `getTraceHeaders()`, to the backend as W3C `baggage`. Exposures (`h4b.expose`) are recorded as `experiment.exposed`, also the ones from before the plugin mounted (`late: true`). Two counters, never sampled, are recorded: `h4b_experiment_exposed_total` and `h4b_conversation_engaged_total`, the conversation's first visitor turn. On the server, `readConversationAttributes` from `@handsforbots/observability/server` reads the header. See [Experiments](../../../docs/en-us/experiments.md).
+
 ## Turn and phase model
 
 | Kernel event | Semantic event |

@@ -154,6 +154,8 @@ plugins: [
 
 Plugin authors set a default with `definePlugin({ consent: 'purpose', … })`, and clean up with `ctx.onRevoke(fn)`, which runs after the plugin was unmounted because consent was withdrawn (never on `stop()`). When the plugin provided `storage`, the kernel has already called `clear()`. `h4b.use(plugin)` follows consent the same way.
 
+What happened before a purpose was granted can still matter. An A/B test's exposures, for instance, are kept in memory for the conversation on screen (`h4b.exposures`, never stored), and `observability` records them when `analytics` is granted later in the same page ([Experiments](./experiments.md#exposures)).
+
 While its purpose is not granted, a gated plugin's `apply` never runs, so an exporter, timer or listener in it never starts. To erase what an earlier visit left when the purpose comes back `denied`, give the plugin `erase(app, config)`: the kernel calls it once per `start()`, without mounting, with the validated config. A gated plugin without `erase` is left alone while denied.
 
 ```ts

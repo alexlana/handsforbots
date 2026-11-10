@@ -68,6 +68,22 @@ describe('pickGreeting', () => {
     expect(pickGreeting({ random: ['a'] }, 0, () => 0.5)).toEqual({ lines: ['a'], index: 0 })
     expect(pickGreeting({ random: [] })).toEqual({ lines: [] })
   })
+
+  it('returns the attributes of an option with text and attributes', () => {
+    const greeting = {
+      random: [
+        { text: 'Pergunte o que quiser.', attributes: { 'greeting.kind': 'open', 'greeting.index': 0 } },
+        { text: ['Oi!', 'Quer ver os projetos?'], attributes: { 'greeting.kind': 'directed', 'greeting.index': 1 } },
+        { text: 'Sem atributos' },
+      ],
+    }
+    expect(pickGreeting(greeting, undefined, () => 0.5)).toEqual({
+      lines: ['Oi!', 'Quer ver os projetos?'],
+      index: 1,
+      attributes: { 'greeting.kind': 'directed', 'greeting.index': 1 },
+    })
+    expect(pickGreeting(greeting, undefined, () => 0.99)).toEqual({ lines: ['Sem atributos'], index: 2 })
+  })
 })
 
 describe('markdown', () => {
@@ -223,6 +239,61 @@ describe('<h4b-chat>', () => {
       await tick(5)
       expect(second.$$('.msg').map((m) => m.textContent)).toEqual(['Bom te ver.', 'Em que posso ajudar?'])
       expect(localStorage.getItem('h4b-widget-greeting')).toBe('1')
+    } finally {
+      random.mockRestore()
+    }
+  })
+
+  it('sets the drawn option\'s attributes on the conversation and records the exposure', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    localStorage.setItem('h4b-widget-greeting', '0') // shown last: draws the other one
+    try {
+      const greeting = {
+        experiment: 'welcome',
+        random: [
+          { text: 'A', attributes: { 'greeting.kind': 'open' } },
+          { text: 'B', attributes: { 'greeting.kind': 'directed' } },
+        ],
+      }
+      const h4b = createH4B({ plugins: [widget({ pace: 0, greeting })] })
+      const exposures: unknown[] = []
+      h4b.on('experiment.exposed', (e) => exposures.push(e.experiment))
+      h4b.provide('transport', scripted(() => []))
+      await h4b.start()
+      live.push(h4b)
+      await tick(5)
+      expect(h4b.conversation.attributes).toEqual({ 'greeting.kind': 'directed' })
+      expect(exposures).toEqual(['welcome'])
+      expect(h4b.exposures.map((e) => e.attributes)).toEqual([{ 'greeting.kind': 'directed' }])
+    } finally {
+      random.mockRestore()
+    }
+  })
+
+  it('with consent, keeps the last greeting in memory until persistence is granted', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const rules = [{ id: 't', regions: ['*'], purposes: { persistence: { default: 'pending' as const } } }]
+    try {
+      const greeting = { random: ['Oi!', 'Olá!', 'E aí!'] }
+      const first = createH4B({ consent: { rules, channel: false }, plugins: [widget({ pace: 0, greeting })] })
+      first.provide('transport', scripted(() => []))
+      await first.start()
+      live.push(first)
+      await tick(5)
+      const shown = textOf(first.messages[0]!)
+      expect(localStorage.getItem('h4b-widget-greeting')).toBeNull()
+
+      // A new conversation in the same page does not repeat it.
+      await first.reset()
+      await first.stop()
+      document.body.innerHTML = ''
+      const second = createH4B({ consent: { rules, channel: false }, plugins: [widget({ pace: 0, greeting })] })
+      second.provide('transport', scripted(() => []))
+      await second.start()
+      live.push(second)
+      await tick(5)
+      expect(textOf(second.messages[0]!)).not.toBe(shown)
+      expect(localStorage.getItem('h4b-widget-greeting')).toBeNull()
     } finally {
       random.mockRestore()
     }

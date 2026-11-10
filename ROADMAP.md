@@ -486,6 +486,8 @@ Em 2026-11-06 ([ADR 0015](./docs/adr/0015-retorno-da-interrupcao.md)): o backend
 
 Em 2026-11-08 ([ADR 0016](./docs/adr/0016-baixar-a-voz-ao-ligar.md)): com `load.start: 'first-use'`, o modelo de voz começa a baixar quando a pessoa liga a voz do bot (`setOutput('voice' | 'auto')`, o botão de alto-falante do widget) e ao montar com `output: 'voice'`, não só na primeira fala do bot. Junto, depuração da voz: eventos `voice.tts` (carga do modelo, fala durante a carga, vida do Worker numerada), handshake `ready` no `workerTTS`/`serveTTS` com `init` reenviado, um só `error` por falha de síntese e o navegador no export do `devPanel`.
 
+Em 2026-11-10 ([ADR 0017](./docs/adr/0017-atributos-da-conversa.md)): atributos da conversa para testes A/B, só códigos (`setConversationAttributes`, `SessionSnapshot.attributes`, guardados, restaurados e zerados com a conversa); exposições em memória (`h4b.expose`, `experiment.exposed`) que a `observability` registra mesmo quando o `analytics` chega depois; `pickVariant` no core e opções `{ text, attributes }` no `greeting` do widget; atributos em todo span, cabeçalho W3C `baggage` no `getTraceHeaders()`, contadores `h4b_experiment_exposed_total` e `h4b_conversation_engaged_total` sem amostragem (`recordCounter`) e `readConversationAttributes` em `@handsforbots/observability/server`. Primeiro uso: o site do polvo (alexlana), que fazia isso à mão. Pendente: variantes no `idle` do `gui()` e em outros pontos da conversa; contagem agregada e anônima de visitas sem consentimento (precisa de decisão e leitura jurídica).
+
 ### Prioritário: revisão de XSS
 
 Antes da 1.0, revisar o H4B contra XSS, de ponta a ponta. A cripto do `storage-local` só limita o tempo em que a conversa fica legível; um script injetado na página lê o cookie da chave (não pode ser `HttpOnly`, o JavaScript precisa dela), chama o `backendKey` com as credenciais da sessão e lê `h4b.messages` em memória. Pontos a revisar:
@@ -658,6 +660,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-11-10 | Atributos da conversa, exposições e contadores de experimento; `baggage` para o backend (ADR 0017) |
 | 2026-11-09 | Teste marcado, ainda não rodado: whisper.cpp na VPS da Hostinger para jargão em inglês no meio do português (efeito Claudinei; o navegador escreveu "cloud native" como "claud native"). Decisão em aberto 10 |
 | 2026-11-08 | Mãos-livres conta a pausa das últimas palavras ouvidas, não do resultado final; estado ganha `pauseSince` e `endOfTurnCheckAt`. Envios sem modelo de fim de turno ficam mais rápidos com os mesmos padrões; compensação por navegador fica em aberto (decisão 9) |
 | 2026-11-06 | Interrupção e reações vão ao backend como sinais de contexto de um turno (ADR 0015) |

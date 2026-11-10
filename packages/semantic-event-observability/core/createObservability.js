@@ -52,6 +52,7 @@ export function createObservability(options = {}) {
 
 	const traceContextBridge = createTraceContextBridge({
 		getContext: () => correlation.getContext(),
+		getBaggage: () => (policy.enabled ? api.attributes : null),
 	})
 
 	const sessionEndEvents = new Set((options.sessionEndEvents || []).map(String))
@@ -81,6 +82,8 @@ export function createObservability(options = {}) {
 		sessionTracker,
 		sessionEndEvents,
 		exporters: [],
+		/** Attributes on every event and span, sent as `baggage` (see setAttributes). */
+		attributes: Object.freeze({}),
 	}
 
 	const phaseTracker = createPhaseTracker({
@@ -211,6 +214,46 @@ export function createObservability(options = {}) {
 
 			if (customMetricAllowlist?.has(String(name))) {
 				metricsRegistry.recordCustomMetric(String(name), labels)
+			}
+		},
+
+		/**
+		 * Replaces the attributes that go on every event and span and, as W3C
+		 * `baggage`, in getTraceHeaders(). Values: strings, numbers, booleans.
+		 */
+		setAttributes(attributes = {}) {
+			const next = {}
+			for (const [key, value] of Object.entries(attributes || {})) {
+				if (typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) {
+					next[key] = value
+				}
+			}
+			api.attributes = Object.freeze(next)
+		},
+
+		getAttributes() {
+			return api.attributes
+		},
+
+		/**
+		 * Adds to a counter (an OpenTelemetry Counter in the otel exporter, created
+		 * on first use). Counters are never sampled nor rate-limited: use them for
+		 * totals that must add up (exposures, conversions). Labels are kept as given.
+		 */
+		recordCounter(name, value = 1, labels = {}) {
+			if (!policy.enabled) return
+			const metric = {
+				name: String(name),
+				value,
+				labels: { environment, ...labels },
+				type: 'counter',
+				custom: true,
+				timestamp: new Date().toISOString(),
+				sessionId: correlation.sessionId,
+			}
+			buffer.pushMetric(metric)
+			for (const exporter of api.exporters) {
+				dispatchMetric(exporter, metric, metricsRegistry)
 			}
 		},
 
@@ -473,6 +516,7 @@ function emitEvent(api, partial) {
 		environment: policy.environment,
 		payloadSummary: policy.sanitizePayload(partial.payload),
 		state: api.stateProvider?.() || undefined,
+		...(Object.keys(api.attributes).length > 0 ? { attributes: api.attributes } : {}),
 		...partial,
 	}
 

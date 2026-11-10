@@ -43,6 +43,18 @@ export {
   type SourceGroupLine,
   type SourceView,
 } from './citations.js'
+export {
+  cleanAttributes,
+  isAttributeKey,
+  isAttributeValue,
+  MAX_ATTRIBUTE_LENGTH,
+  MAX_ATTRIBUTES,
+  mergeAttributes,
+  pickVariant,
+  type AttributeValue,
+  type ConversationAttributes,
+  type Exposure,
+} from './attributes.js'
 export { Conversation } from './conversation.js'
 export { EventBus, type Listener } from './events.js'
 export { createId } from './id.js'

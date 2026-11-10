@@ -1,4 +1,4 @@
-import { definePlugin, type H4B, type Route } from '@handsforbots/core'
+import { definePlugin, type Exposure, type H4B, type Route, type Signal } from '@handsforbots/core'
 import {
   createObservability,
   type CreateObservabilityOptions,
@@ -17,6 +17,21 @@ declare module '@handsforbots/core' {
 }
 
 const ROUTES: Route[] = ['transport', 'direct', 'capture', 'agent', 'push']
+
+/** Counters for experiments (ADR 0017), labelled with the conversation's attributes. */
+export const H4B_EXPOSED_COUNTER = 'h4b_experiment_exposed_total'
+export const H4B_ENGAGED_COUNTER = 'h4b_conversation_engaged_total'
+
+/**
+ * What was already counted, per app: survives the plugin being unmounted and
+ * mounted again (consent revoked and granted), so nothing is counted twice.
+ */
+const counted = new WeakMap<H4B, { exposures: WeakSet<Exposure>; engaged: Set<string> }>()
+
+/** The visitor started this turn (typed, spoke, sent a file, clicked a suggestion), not an idle nudge or a sensor. */
+export function isVisitorTurn(signal: Signal | undefined): boolean {
+  return !!signal && signal.kind === 'trigger' && signal.modality !== 'sensor' && signal.meta?.reason !== 'idle'
+}
 
 /** Turn and phase model of the v2 kernel: one turn per trigger, one phase per route. */
 export const H4B_TURN_START_EVENTS = ['turn.started']
@@ -43,7 +58,9 @@ export const observability = definePlugin<ObservabilityOptions | undefined>({
     ctx.provide('observability', obs)
     void obs.init().catch((error) => ctx.emit('error', { error, source: 'observability' }))
     const trigger = attach(ctx.app, obs, includeContent, ctx.on.bind(ctx))
+    const experiments = trackExperiments(ctx.app, obs, ctx.on.bind(ctx), trigger.record)
     ctx.onDispose(() => {
+      experiments.dispose()
       trigger.dispose()
       obs.endSession('dispose')
       obs.destroy()
@@ -57,7 +74,7 @@ function attach(
   obs: Observability,
   includeContent: boolean,
   on: H4B['on'],
-): { dispose(): void } {
+): { dispose(): void; record: (name: string, payload?: Record<string, unknown>) => void } {
   const bus = { on: () => {}, trigger: (_name: string, _args?: unknown): unknown => undefined }
   obs.instrument(bus, {
     stateProvider: () => ({ busy: h4b.busy, contextSignals: h4b.context.length, messages: h4b.messages.length }),
@@ -148,5 +165,61 @@ function attach(
       record('voice.decision', includeContent && text !== undefined ? decision : rest)
     }),
   )
+  return { dispose: () => offs.forEach((off) => off()), record }
+}
+
+/**
+ * Conversation attributes on every span and in `baggage`; exposures (also the
+ * ones from before this plugin mounted, e.g. before `analytics` was granted)
+ * and the conversation's first visitor turn as events and counters.
+ */
+function trackExperiments(
+  h4b: H4B,
+  obs: Observability,
+  on: H4B['on'],
+  record: (name: string, payload?: Record<string, unknown>) => void,
+): { dispose(): void } {
+  let state = counted.get(h4b)
+  if (!state) counted.set(h4b, (state = { exposures: new WeakSet(), engaged: new Set() }))
+  const done = state
+
+  obs.setAttributes(h4b.conversation.attributes)
+
+  const expose = (exposure: Exposure, late: boolean) => {
+    if (done.exposures.has(exposure)) return
+    done.exposures.add(exposure)
+    record('experiment.exposed', { experiment: exposure.experiment, ...exposure.attributes, ...(late ? { late: true } : {}) })
+    obs.recordCounter(H4B_EXPOSED_COUNTER, 1, { experiment: exposure.experiment, ...exposure.attributes })
+  }
+  const engage = () => {
+    const threadId = h4b.conversation.threadId
+    if (done.engaged.has(threadId)) return
+    done.engaged.add(threadId)
+    obs.recordCounter(H4B_ENGAGED_COUNTER, 1, { ...h4b.conversation.attributes })
+  }
+
+  // Granted after the draw: what the visitor saw in this conversation still counts.
+  for (const exposure of h4b.exposures) expose(exposure, true)
+  if (h4b.exposures.length > 0 && h4b.messages.some((m) => m.role === 'user')) engage()
+
+  const seen = new Set<string>()
+  const offs = [
+    on('conversation.attributes', ({ attributes }) => obs.setAttributes(attributes)),
+    on('experiment.exposed', (exposure) => expose(exposure, false)),
+    on('turn.status', (status) => {
+      if (seen.has(status.turnId)) {
+        if (status.phase === 'done' || status.phase === 'error' || status.phase === 'aborted') seen.delete(status.turnId)
+        return
+      }
+      seen.add(status.turnId)
+      if (!isVisitorTurn(status.signal)) return
+      // A restored conversation the visitor already wrote in was counted on an earlier page.
+      const before = h4b.messages.some(
+        (m) => m.role === 'user' && m.turnId !== status.turnId && m.modality !== 'gui-event' && m.modality !== 'sensor',
+      )
+      if (before) done.engaged.add(h4b.conversation.threadId)
+      else engage()
+    }),
+  ]
   return { dispose: () => offs.forEach((off) => off()) }
 }

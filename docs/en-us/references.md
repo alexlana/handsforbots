@@ -121,3 +121,14 @@ Supports [ADR 0014](../adr/0014-fontes-e-citacoes.md) and [Sources and citations
 | [Perplexity: streaming citations](https://docs.perplexity.ai/docs/cookbook/articles/streaming-citations/README) | Numbered markers in the text (`[1]`, or `[web:1]` in another mode) mapped to `search_results` sent apart | The marker case: handled by `inlineCitations` in the backend or transport, never in the page |
 | [AI SDK `ui-messages.ts`](https://app.unpkg.com/ai@6.0.99/files/src/ui/ui-messages.ts) | `source-url` (`sourceId`, `url`, `title`) and `source-document` parts; no link from a source to a span | `transport-ai-sdk` mapping; `id` and `title` follow the same roles |
 | [AG-UI specification (draft)](https://docs.ag-ui.com/spec/draft) | Event protocol between agents and UIs, with namespaced CUSTOM events and no source event | `h4b.sources` and `h4b.citations` as CUSTOM events, next to `h4b.ui.effect` and `h4b.ui.render` |
+
+## Experiments and conversation attributes
+
+Supports [ADR 0017](../adr/0017-atributos-da-conversa.md) and [Experiments](./experiments.md). Accessed 2026-11-10.
+
+| Source | What it is | Use in H4B |
+|---|---|---|
+| [W3C Baggage](https://www.w3.org/TR/baggage/) | Header `baggage` with `key=value` members (percent-encoded values, optional `;` properties), limits of 64 members and 8192 bytes | How conversation attributes reach the backend; `encodeBaggage`, `parseBaggage` and `mergeBaggage` follow it |
+| [W3C Trace Context](https://www.w3.org/TR/trace-context/) | Header `traceparent` that joins the browser's spans to the backend's | Already sent by `getTraceHeaders()`; `baggage` goes next to it |
+| [OpenTelemetry Baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) | OTel's propagated key-value context; the docs warn that baggage is sent in plain text to every service downstream | Why only codes go in it, why the server keeps an allow list (`readConversationAttributes`), and why an existing `baggage` from the OTel propagator is merged, not replaced |
+| [OpenTelemetry metrics API: Counter](https://opentelemetry.io/docs/specs/otel/metrics/api/#counter) | Monotonic sum instrument | `recordCounter()` and the experiment counters: totals that are not sampled and outlive trace retention |

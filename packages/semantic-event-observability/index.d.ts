@@ -41,7 +41,11 @@ export type SemanticEvent = {
 	payloadSummary?: unknown
 	state?: Record<string, unknown>
 	turnMetadata?: Record<string, unknown>
+	/** Set by `setAttributes()`: on every event and span. */
+	attributes?: Readonly<Record<string, AttributeValue>>
 }
+
+export type AttributeValue = string | number | boolean
 
 export type MetricRecord = {
 	name: string
@@ -49,6 +53,8 @@ export type MetricRecord = {
 	value: number
 	labels?: Record<string, string | number | boolean>
 	timestamp?: string
+	/** Recorded with `recordCounter()`: labels are exported as given. */
+	custom?: boolean
 }
 
 export type ExporterContext = {
@@ -189,6 +195,12 @@ export type Observability = {
 	instrument: (bus: EventBus, options?: InstrumentOptions) => EventBus
 	record: (name: string, payload?: unknown, meta?: { type?: string }) => void
 	recordMetric: (name: string, value: number, labels?: Record<string, string>) => void
+	/** Adds to a counter that is never sampled nor rate-limited; labels are exported as given. */
+	recordCounter: (name: string, value?: number, labels?: Record<string, AttributeValue>) => void
+	/** Replaces the attributes put on every event and span and sent as W3C `baggage` by getTraceHeaders(). */
+	setAttributes: (attributes: Readonly<Record<string, AttributeValue>>) => void
+	getAttributes: () => Readonly<Record<string, AttributeValue>>
+	attributes: Readonly<Record<string, AttributeValue>>
 	startPhase: (phaseId: string, labels?: Record<string, string>) => boolean
 	endPhase: (phaseId: string, labels?: Record<string, string>) => boolean
 	getTraceHeaders: () => Record<string, string>
@@ -230,7 +242,19 @@ export function createTurnMetricsCollector(options?: Record<string, unknown>): u
 export function createTraceMapper(options?: Record<string, unknown>): unknown
 export function createTraceContextBridge(options?: {
 	getContext?: () => { traceId?: string | null }
+	/** Attributes added to the `baggage` header. */
+	getBaggage?: () => Readonly<Record<string, AttributeValue>> | null | undefined
 }): TraceContextBridge
+export const BAGGAGE_MAX_MEMBERS: 64
+export const BAGGAGE_MAX_BYTES: 8192
+/** Encodes attributes as a W3C baggage header value. */
+export function encodeBaggage(attributes?: Readonly<Record<string, AttributeValue | null | undefined>>): string
+/** Parses a W3C baggage header (string, Headers or headers object) into decoded strings. */
+export function parseBaggage(
+	source: string | { get(name: string): string | null } | Record<string, string | string[] | undefined> | null | undefined,
+): Record<string, string>
+/** Adds attributes to a baggage header value; the attributes win on the same key. */
+export function mergeBaggage(existing: string | null | undefined, attributes?: Readonly<Record<string, AttributeValue>>): string
 export function buildTurnRootSpan(
 	event: SemanticEvent,
 	config?: TurnRootSpanConfig,

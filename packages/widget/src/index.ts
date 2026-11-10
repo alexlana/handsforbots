@@ -1,6 +1,9 @@
 import {
   consentText,
   definePlugin,
+  pickVariant,
+  type AttributeValue,
+  type ConversationAttributes,
   sameRetention,
   textOf,
   type H4B,
@@ -94,6 +97,12 @@ export type WidgetOptions = {
    * message, an array is several messages in order, and `{ random }` draws one
    * option per new conversation (an option is a string or an array of
    * messages), avoiding the option shown last in this browser.
+   *
+   * An option can be `{ text, attributes }` for an A/B test (ADR 0017): the
+   * drawn option's `attributes` (codes, such as `{ 'greeting.kind': 'directed' }`)
+   * are set on the conversation and recorded as an exposure of `experiment`
+   * (default `greeting`). With `consent`, the option shown last is only kept
+   * in `localStorage` once `persistence` is granted; until then, in memory.
    */
   greeting?: Greeting
   disclaimer?: string
@@ -123,31 +132,47 @@ export type WidgetOptions = {
   sources?: SourcesOptions | false
 }
 
-export type Greeting = string | string[] | { random: Array<string | string[]> }
+/** One option of a random greeting: text, several messages, or text with attributes for an A/B test. */
+export type GreetingOption =
+  | string
+  | string[]
+  | { text: string | string[]; attributes?: Readonly<Record<string, AttributeValue>> }
+
+export type Greeting =
+  | string
+  | string[]
+  | {
+      random: GreetingOption[]
+      /** Name of the experiment the exposure is recorded under. Default `greeting`. */
+      experiment?: string
+    }
 
 const TAG = 'h4b-chat'
 const OPEN_KEY = 'h4b-widget-open'
 const GREETING_KEY = 'h4b-widget-greeting'
+/** The option shown last, while it may not go to localStorage (consent). */
+let lastGreeting: number | undefined
 
 /**
  * The messages of a greeting. With `{ random }`, draws one option, skipping
- * the index stored as `previous` when there is another option, and returns it.
+ * the index stored as `previous` when there is another option, and returns it
+ * with the option's `attributes`, if any. Setting them on the conversation is
+ * up to the caller (the widget does it).
  */
 export function pickGreeting(
   greeting: Greeting,
   previous?: number,
   random: () => number = Math.random,
-): { lines: string[]; index?: number } {
+): { lines: string[]; index?: number; attributes?: ConversationAttributes } {
   if (typeof greeting === 'string') return { lines: [greeting] }
   if (Array.isArray(greeting)) return { lines: greeting }
-  const options = greeting.random
-  if (options.length === 0) return { lines: [] }
-  const skip = options.length > 1 && previous !== undefined && previous >= 0 && previous < options.length
-  let index = Math.floor(random() * (skip ? options.length - 1 : options.length))
-  if (skip && index >= previous) index++
-  index = Math.min(index, options.length - 1)
-  const option = options[index]!
-  return { lines: Array.isArray(option) ? option : [option], index }
+  const drawn = pickVariant(greeting.random, previous, random)
+  if (!drawn) return { lines: [] }
+  const { variant: option, index } = drawn
+  if (typeof option === 'string') return { lines: [option], index }
+  if (Array.isArray(option)) return { lines: option, index }
+  const lines = Array.isArray(option.text) ? option.text : [option.text]
+  return option.attributes ? { lines, index, attributes: option.attributes } : { lines, index }
 }
 
 export const widget = definePlugin<WidgetOptions | undefined>({
@@ -403,24 +428,36 @@ export class H4BChatElement extends BaseElement {
 
   private greet() {
     const greeting = this.options.greeting
-    if (!greeting || !this.h4b || this.h4b.messages.length > 0) return
-    let previous: number | undefined
-    try {
-      const stored = localStorage.getItem(GREETING_KEY)
-      if (stored !== null) previous = Number(stored)
-    } catch {
-      /* storage unavailable */
-    }
-    const { lines, index } = pickGreeting(greeting, previous)
-    if (index !== undefined) {
+    const h4b = this.h4b
+    if (!greeting || !h4b || h4b.messages.length > 0) return
+    // With consent rules, the browser keeps the last option only with `persistence`.
+    const mayStore = !h4b.consent.enabled || h4b.consent.granted('persistence')
+    let previous = lastGreeting
+    if (mayStore) {
       try {
-        localStorage.setItem(GREETING_KEY, String(index))
+        const stored = localStorage.getItem(GREETING_KEY)
+        if (stored !== null) previous = Number(stored)
       } catch {
         /* storage unavailable */
       }
     }
+    const { lines, index, attributes } = pickGreeting(greeting, previous)
+    if (index !== undefined) {
+      lastGreeting = index
+      if (mayStore) {
+        try {
+          localStorage.setItem(GREETING_KEY, String(index))
+        } catch {
+          /* storage unavailable */
+        }
+      }
+    }
     if (lines.length === 0) return
-    void this.h4b.push(
+    if (attributes) {
+      h4b.setConversationAttributes(attributes)
+      h4b.expose(typeof greeting === 'object' && !Array.isArray(greeting) ? (greeting.experiment ?? 'greeting') : 'greeting', attributes)
+    }
+    void h4b.push(
       lines.flatMap((text, i) => {
         const messageId = `greeting-${i}-${Date.now()}`
         return [

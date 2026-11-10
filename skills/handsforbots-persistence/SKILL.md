@@ -32,6 +32,7 @@ createH4B({ plugins: [memory({ send: 30 })] }) // explicit instance replaces the
 - `send` counts the current turn. `'all'` / `'none'` / number. The screen keeps showing the stored history.
 - The summary is updated **before** each request (async `request.before`), so a slow `Summarizer` delays the turn that pushes old turns out. On failure it falls back to the local summary and emits `error` with source `memory`.
 - `keep` removes turns from the history (and the screen, and storage) after each job; with compaction it removes only summarized turns. `keep >= send` is enforced.
+- Conversation attributes (A/B variants, codes only) live in `SessionSnapshot.attributes`: stored, restored and cleared by `reset()` with the conversation (ADR 0017).
 - The summary lives in `SessionSnapshot.memory` and is stored with the conversation. `reset()` clears it.
 - `httpSummarizer` POSTs `{ previous, messages }` and expects `{ summary }`.
 - Transports no longer cap history themselves; `contextWindow` on `universalLLM` / `openAICompatible` is only an extra, optional cap.

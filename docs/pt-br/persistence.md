@@ -39,6 +39,8 @@ O `@handsforbots/memory` é um plugin que o `createH4B` monta para você. Ele fa
 
 O resumo faz parte do snapshot da conversa (`SessionSnapshot.memory`), então é guardado e restaurado junto com ela. `h4b.reset()` o esquece. O serviço `memory` expõe `options`, `summary`, `view(request)` (o que seria enviado) e `maintain()`; o evento `memory.changed` avisa de resumos novos e mensagens removidas.
 
+Os atributos da conversa (`SessionSnapshot.attributes`, códigos como a variante de um experimento) são guardados, restaurados e zerados do mesmo jeito ([Experimentos](./experiments.md)).
+
 ```ts
 import { httpSummarizer, memory } from '@handsforbots/memory'
 

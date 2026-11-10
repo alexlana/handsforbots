@@ -1,3 +1,4 @@
+import type { ConversationAttributes, Exposure } from './attributes.js'
 import type { ConsentSnapshot } from './consent.js'
 import type {
   Confirmer,
@@ -107,5 +108,9 @@ export interface Events {
   'turn.interrupted': { turnId?: string; messageId?: string; kept?: string; removed?: boolean; by?: string }
   /** Triggers were joined into `signal` (ADR 0011); `resumed`: the running turn was restarted with it. */
   'signal.merged': { signal: Signal; from: Signal[]; resumed: boolean }
+  /** The conversation's attributes changed (ADR 0017): set, restored from storage or cleared by a new conversation. */
+  'conversation.attributes': { attributes: ConversationAttributes; reason: 'set' | 'restored' | 'reset' }
+  /** `h4b.expose()`: someone saw a variant of an experiment. */
+  'experiment.exposed': Exposure
   error: { error: unknown; source: string }
 }

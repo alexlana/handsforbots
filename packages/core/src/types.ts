@@ -1,3 +1,4 @@
+import type { ConversationAttributes } from './attributes.js'
 import type { StandardSchemaV1 } from './standard-schema.js'
 
 /* -------------------------------------------------------------------------- */
@@ -342,6 +343,8 @@ export type SessionSnapshot = {
   state?: unknown
   /** Owned by the `memory` plugin (summary of turns that left the window). Stored with the conversation. */
   memory?: unknown
+  /** Conversation attributes (ADR 0017): codes such as an experiment's variant. */
+  attributes?: ConversationAttributes
 }
 
 export type Storage = {

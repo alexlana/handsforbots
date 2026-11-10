@@ -1,3 +1,4 @@
+import { cleanAttributes, EMPTY_ATTRIBUTES, type ConversationAttributes } from './attributes.js'
 import { createId } from './id.js'
 import { applyPatch } from './patch.js'
 import type { AssistantMessage, JsonPatchOperation, Message, SessionSnapshot } from './types.js'
@@ -12,11 +13,13 @@ export class Conversation {
   private _state: unknown = undefined
   /** Opaque slot for the `memory` plugin; saved and restored with the conversation. */
   memory: unknown = undefined
+  private _attributes: ConversationAttributes = EMPTY_ATTRIBUTES
 
   constructor(
     threadId: string | undefined,
     private onMessages: (messages: Message[]) => void,
     private onState: (state: unknown) => void,
+    private onAttributes: (attributes: ConversationAttributes, reason: 'set' | 'restored' | 'reset') => void = () => {},
   ) {
     this.threadId = threadId ?? createId('thread')
   }
@@ -29,13 +32,27 @@ export class Conversation {
     return this._state
   }
 
+  /** Codes attached to this conversation (ADR 0017). Replaced, never mutated. */
+  get attributes(): ConversationAttributes {
+    return this._attributes
+  }
+
+  /** Replaces the attributes. Use `h4b.setConversationAttributes()`, which validates and saves. */
+  setAttributes(attributes: ConversationAttributes) {
+    this._attributes = attributes
+    this.onAttributes(attributes, 'set')
+  }
+
   restore(snapshot: SessionSnapshot) {
     this.threadId = snapshot.threadId
     this._messages = snapshot.messages
     this._state = snapshot.state
     this.memory = snapshot.memory
+    const hadAttributes = Object.keys(this._attributes).length > 0
+    this._attributes = cleanAttributes(snapshot.attributes)
     this.onMessages(this._messages)
     this.onState(this._state)
+    if (hadAttributes || Object.keys(this._attributes).length > 0) this.onAttributes(this._attributes, 'restored')
   }
 
   reset(threadId?: string) {
@@ -43,8 +60,11 @@ export class Conversation {
     this._messages = []
     this._state = undefined
     this.memory = undefined
+    const hadAttributes = Object.keys(this._attributes).length > 0
+    this._attributes = EMPTY_ATTRIBUTES
     this.onMessages(this._messages)
     this.onState(this._state)
+    if (hadAttributes) this.onAttributes(this._attributes, 'reset')
   }
 
   snapshot(): SessionSnapshot {
@@ -53,6 +73,7 @@ export class Conversation {
       messages: this._messages,
       state: this._state,
       ...(this.memory === undefined ? {} : { memory: this.memory }),
+      ...(Object.keys(this._attributes).length === 0 ? {} : { attributes: this._attributes }),
     }
   }
 

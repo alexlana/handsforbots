@@ -87,6 +87,20 @@ exporterConfig: {
 }
 ```
 
+## Attributes, baggage and counters
+
+```javascript
+observability.setAttributes({ 'greeting.kind': 'directed', 'greeting.index': 3 })
+observability.getTraceHeaders()
+// { traceparent: '00-…', baggage: 'greeting.kind=directed,greeting.index=3' }
+observability.recordCounter('h4b_experiment_exposed_total', 1, { experiment: 'greeting', 'greeting.kind': 'directed' })
+```
+
+- **`setAttributes(attributes)` / `getAttributes()`.** Replaces the attributes (strings, finite numbers, booleans) put on every event (`event.attributes`) and every span: turn root, phases and events. Keep them to codes, never user text.
+- **`baggage` header.** `getTraceHeaders()` adds the attributes as a [W3C Baggage](https://www.w3.org/TR/baggage/) header. If an injected carrier already has a `baggage` header, the two are merged and the attributes win on the same key. Nothing is added when `enabled: false`.
+- **`recordCounter(name, value = 1, labels)`.** A counter that is never sampled nor rate-limited. The `otel` exporter creates the OpenTelemetry Counter on first use and keeps the labels as given (no `sevo.` prefix).
+- **Baggage helpers.** `encodeBaggage`, `parseBaggage` and `mergeBaggage` come from the main entry and from `@handsforbots/semantic-event-observability/baggage`, which has no other imports and suits a server.
+
 ## Security defaults
 
 - Payload redaction via denylist (`password`, `token`, `history`, …)
