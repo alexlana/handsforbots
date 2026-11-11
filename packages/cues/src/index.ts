@@ -6,9 +6,15 @@ import {
   type Message,
   type Modality,
   type PluginDefinition,
+  type Services,
   type Signal,
   type SourcePart,
 } from '@handsforbots/core'
+
+/** The parts of `@handsforbots/voice` cues read, without importing it. */
+type VoiceLike = { willSpeakReplies?(): boolean }
+type VoiceSpeech = { phase: string; messageId?: string }
+type VoiceTrack = { messageId: string; speak: boolean }
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -91,6 +97,12 @@ export type CuesOptions = {
   report?: boolean
   /** Registers the `set_cues` action for backends that use tool calling. Default true; a string renames it. */
   action?: boolean | string
+  /**
+   * When the page sees a reply's cues. `'speech'` (default): when the `voice`
+   * plugin speaks the reply, its cues wait for its first spoken chunk; replies
+   * that are not spoken show them on arrival. `'arrival'`: always on arrival.
+   */
+  sync?: 'speech' | 'arrival'
 }
 
 /** Who decided a value. */
@@ -358,12 +370,12 @@ const definition: PluginDefinition<CuesOptions> = {
       return counters
     }
 
-    const replay = (messages: Message[]): Record<string, CueState> => {
+    const replay = (messages: Message[], skip?: ReadonlySet<string>): Record<string, CueState> => {
       const next = initial()
       const counters = emptyCounters(names)
       for (const message of messages) {
         const stored = cuesOf(message)
-        if (!stored) continue
+        if (!stored || skip?.has(message.id)) continue
         count(counters, stored)
         for (const name of names) {
           const entry = stored[name]
@@ -396,9 +408,36 @@ const definition: PluginDefinition<CuesOptions> = {
       a.requested === b.requested &&
       a.pending === b.pending
 
+    /* Speech sync: replies the voice will speak wait for their first chunk. */
+    const speechSync = options.sync !== 'arrival'
+    const held = new Set<string>()
+    const heldTurns = new Set<string>()
+    let overlayTurn: string | undefined
+    const voice = () => (speechSync ? (app.get('voice' as keyof Services) as unknown as VoiceLike | undefined) : undefined)
+    const turnOf = (messageId: string) => app.conversation.find(messageId)?.turnId
+    const releaseTurn = (turnId: string | undefined) => {
+      if (!turnId) return
+      for (const id of held) if (turnOf(id) === turnId) return
+      heldTurns.delete(turnId)
+    }
+    const release = (messageId: string) => {
+      if (!held.delete(messageId)) return
+      releaseTurn(turnOf(messageId))
+      publish()
+    }
+    const releaseAll = () => {
+      if (!held.size && !heldTurns.size) return
+      held.clear()
+      heldTurns.clear()
+      publish()
+    }
+
+    /** What was decided, spoken or not (for the backend). */
+    const actual = (): Record<string, CueState> => ({ ...replay(app.messages), ...overlay })
+
     const publish = () => {
-      const base = replay(app.messages)
-      const next: Record<string, CueState> = { ...base, ...overlay }
+      const base = replay(app.messages, held)
+      const next: Record<string, CueState> = { ...base, ...(overlayTurn && heldTurns.has(overlayTurn) ? {} : overlay) }
       const changed = names.filter((name) => !same(state[name], next[name]!))
       if (!changed.length) return
       state = Object.freeze(next)
@@ -544,6 +583,8 @@ const definition: PluginDefinition<CuesOptions> = {
         if (next[name]!.messageId === undefined) delete next[name]!.messageId
       }
       overlay = next
+      overlayTurn = turnId
+      if (voice()?.willSpeakReplies?.()) heldTurns.add(turnId)
       publish()
     }
 
@@ -568,6 +609,7 @@ const definition: PluginDefinition<CuesOptions> = {
       turns.delete(turnId)
       if (currentTurn === turnId) currentTurn = undefined
       overlay = {}
+      releaseTurn(turnId)
       publish()
     }
 
@@ -595,7 +637,34 @@ const definition: PluginDefinition<CuesOptions> = {
       if (stimulus.type === 'ui.effect' && stimulus.name === CUES_PART) ask(turnId, stimulus.value)
       else if (stimulus.type === 'message.end') settle(stimulus.messageId)
     })
+    if (speechSync) {
+      const onPlugin = ctx.on.bind(ctx) as unknown as <P>(event: string, listener: (payload: P) => void) => () => void
+      onPlugin<VoiceTrack>('voice.track', ({ messageId, speak }) => {
+        const turnId = turnOf(messageId)
+        if (speak) {
+          held.add(messageId)
+          if (turnId) heldTurns.add(turnId)
+          publish()
+        } else if (turnId && heldTurns.has(turnId)) {
+          releaseTurn(turnId)
+          publish()
+        }
+      })
+      // Started, ended, failed or skipped: the reply reached (or will never reach) the speakers.
+      onPlugin<VoiceSpeech>('voice.speech', ({ messageId }) => {
+        if (messageId) release(messageId)
+      })
+      ctx.on('turn.interrupted', releaseAll)
+      ctx.on('service.removed', ({ key }) => {
+        if (key === ('voice' as keyof Services)) releaseAll()
+      })
+    }
     ctx.on('messages.changed', (messages) => {
+      if (held.size) {
+        const ids = new Set(messages.map((m) => m.id))
+        for (const id of held) if (!ids.has(id)) held.delete(id)
+        if (!held.size) heldTurns.clear()
+      }
       const stored = messages.map(cuesOf).filter((c): c is StoredCues => !!c)
       if (stored.length === known.length && stored.every((c, i) => c === known[i])) return
       known = stored
@@ -617,16 +686,18 @@ const definition: PluginDefinition<CuesOptions> = {
         exposeTo: ['assistant', 'agent'],
         handler: (args: unknown) => {
           const values = ask(currentTurn, args)
-          return Object.fromEntries(Object.keys(values).map((name) => [name, { ...state[name]! }]))
+          const now = actual()
+          return Object.fromEntries(Object.keys(values).map((name) => [name, { ...now[name]! }]))
         },
       })
     }
 
     if (options.report) {
       ctx.intercept('request.before', (request) => {
+        const now = actual()
         const value = Object.fromEntries(
           names.map((name) => {
-            const s = state[name]!
+            const s = now[name]!
             return [name, { value: s.value, streak: s.streak, count: s.count, level: s.level, ...(s.requested ? { requested: s.requested } : {}) }]
           }),
         )

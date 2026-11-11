@@ -53,6 +53,12 @@ Os atributos da conversa ([ADR 0017](./0017-atributos-da-conversa.md)) não serv
 
   A H4B não desenha nada: personagem, animação, cenário e destaque são do app.
 - **Segurança.** Só valores da lista saem do plugin. Assim, um backend comprometido não consegue injetar classes, nomes de arquivo ou HTML pelos atributos `data-` ou pelos componentes do app.
+- **Sincronia com a voz (2026-11-11).** Com `sync: 'speech'` (padrão), as deixas de uma resposta que vai ser falada aparecem quando o primeiro trecho dela começa a tocar, e não quando ela chega. Não há atraso fixo: o tempo até a fala muda com o download do modelo, a síntese e o que ainda está tocando. Também não depende do provedor dizer onde está: o próprio `voice` divide a resposta em frases e passa a contar isso.
+  - O `voice` emite `voice.track` (`{ messageId, speak }`) quando o texto de uma resposta começa a chegar, e põe `messageId`, `from` e `to` (posições no texto) em cada `voice.speech` dos trechos da resposta. Um trecho que nunca foi falado termina como `skip` (`no-provider` ou `cancelled`), para quem espera não ficar preso. O serviço ganha `willSpeakReplies()`.
+  - As deixas seguram a resposta marcada com `speak: true` e a soltam no primeiro `voice.speech` com o `messageId` dela, seja qual for a fase. `turn.interrupted` e a saída do serviço `voice` soltam tudo. Um valor do backend que chega antes do texto fica seguro se `willSpeakReplies()` diz que a resposta vai ser falada.
+  - Até soltar, o `getState()` e o widget mostram o estado anterior. O `report` e o resultado do `set_cues` já levam o que foi decidido, porque o backend precisa da verdade, não do que está na tela.
+  - `sync: 'arrival'` mostra tudo na chegada, como antes. Respostas que não são faladas mostram na chegada nos dois modos.
+  - A precisão é por frase, que é o que o `voice` fala de cada vez. Por palavra dependeria de marcas de tempo do provedor (`onboundary` no Web Speech, alinhamento em alguns TTS na nuvem; Piper e Kokoro não dão) ou de uma estimativa pela duração do áudio. Fica para quando houver um uso, como sincronia labial.
 - **Observabilidade.** A `observability` grava `cue.changed` e `cue.repeat` como eventos (são só códigos). Deixas não viram atributos da conversa nem rótulos de contador.
 
 **Consequências.**
@@ -63,7 +69,7 @@ Os atributos da conversa ([ADR 0017](./0017-atributos-da-conversa.md)) não serv
 - Um componente inteiro trocado continua sendo `ui.render` com `slot`. As deixas são para valores de uma lista, não para conteúdo.
 - **Em aberto:**
   - se a política de repetição deve mesmo ficar na H4B. Ela entra porque a contagem já está aqui e porque a interface precisa aplicá-la sem esperar o backend. Mas ela duplica o que o backend decide sobre a fala. Se os usos mostrarem que só a contagem e o `report` bastam, o `max`/`then` sai e fica só o `levels`;
-  - a sincronia com a voz: aplicar a deixa quando a mensagem chega ou quando a fala dela começa (o `voice` já sabe quanto foi falado), e ligar um valor a um preset de `voice-effects` ou de prosódia;
-  - deixas por trecho da resposta, que exigiriam posições como as das citações ([ADR 0014](./0014-fontes-e-citacoes.md));
+  - ligar um valor a um preset de `voice-effects` ou de prosódia;
+  - deixas por trecho da resposta, que exigiriam posições como as das citações ([ADR 0014](./0014-fontes-e-citacoes.md)); o `from`/`to` do `voice.speech` já diz em que frase a voz está;
   - o decaimento do nível por tempo;
   - um campo de taxonomia nas partes `source`, se o `classify` no cliente não bastar.

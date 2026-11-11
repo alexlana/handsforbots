@@ -131,6 +131,7 @@ Docs: `docs/en-us/plugins.md#cues`, ADR 0018. Use `@handsforbots/cues` when the 
 - **Declare channels with closed lists.** `cues({ channels: { tone: { values: [...], default: 'neutral' } } })`. Values are codes (`[A-Za-z0-9_.:-]{1,64}`, so `sem-graça` becomes `sem-graca`); labels and drawings stay in the app. Invalid values become the `default` with an `error` (`source: 'cues'`).
 - **Pick one input.** A backend that streams events sends `ui.effect` named `cues` (`{ tone: 'curious' }`); one that only uses tool calling gets the `set_cues` action (one `enum` per channel). Client `rules` tie values to sources (`urlPrefix`, `trail`, `taxonomy` through `classify`), actions, errors or the text. Backend beats rules; rules beat the default.
 - **Repetition.** `repeat: { confused: { levels: [2, 4] } }` raises the level as the value repeats in a row; `{ max: 1, by: 'count', then: 'serious' }` lets a value apply once per conversation. This only changes what the page shows: turn on `report: true` so the backend gets `cues.state` and words its reply to match.
+- **With voice.** By default (`sync: 'speech'`) a spoken reply's cues show when the voice starts speaking it, not when the text arrives; no delay to tune. `sync: 'arrival'` shows them at once.
 - **Reacting.** CSS on `<h4b-chat data-cue-tone="…" data-cue-tone-level="…">`, or `useStore(h4b.get('cues'))` / the `cue.changed` and `cue.repeat` events. Each reply stores its cues, so reloads and other tabs show the same state.
 
 ## Focusing the text field

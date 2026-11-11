@@ -76,6 +76,7 @@ voice({ tts: [piper, webSpeechTTS()] })
 ## Playback
 
 - `synthesize` providers (models, `httpTTS` by default) play through Web Audio: effects apply, and the next sentence is synthesized while the current one plays. `speak` providers (`webSpeechTTS`, `httpTTS({ playback: 'element' })`) play by themselves, without effects.
+- To sync the page with speech (an avatar, cues), listen to `voice.track` (`{ messageId, speak }`) and `voice.speech`: chunks of a reply carry `messageId`, `from` and `to` (positions in its text), and unspoken ones end as `skip`. Never guess a delay: synthesis, model loading and what is still playing change it.
 - Audio unlocks on the first pointer/key/touch in the page and on `listen()`. If speech can start long after any gesture, call `voice.unlockAudio()` in a click. Still blocked → `error.code === 'not-allowed'` and that sentence is not spoken.
 - `webAudioPlayer({ context, output })` shares the app's `AudioContext` or routes speech into a node (an `AnalyserNode` for lip sync). `encodeWav(audio)` makes a WAV Blob.
 

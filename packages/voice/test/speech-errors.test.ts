@@ -110,9 +110,10 @@ describe('voice service: speaking errors', () => {
     await eventually(() => expect(v.getState().error).toBeDefined())
     expect(v.getState().error).toMatchObject({ code: 'synthesis-failed', stage: 'speak' })
     expect(errors).toEqual([{ error: expect.objectContaining({ stage: 'speak' }), source: 'voice:tts:browser' }])
+    const at = { messageId: expect.any(String), from: 0, to: 4 }
     expect(speech).toEqual([
-      { phase: 'start', provider: 'browser', chars: 4 },
-      { phase: 'error', provider: 'browser', code: 'synthesis-failed', message: 'engine crashed' },
+      { phase: 'start', provider: 'browser', chars: 4, ...at },
+      { phase: 'error', provider: 'browser', code: 'synthesis-failed', message: 'engine crashed', ...at },
     ])
     expect(v.getState().speaking).toBe(false)
   })

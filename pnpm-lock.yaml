@@ -188,6 +188,9 @@ importers:
       '@handsforbots/testkit':
         specifier: workspace:^
         version: link:../testkit
+      '@handsforbots/voice':
+        specifier: workspace:^
+        version: link:../voice
 
   packages/expose-webmcp:
     devDependencies:

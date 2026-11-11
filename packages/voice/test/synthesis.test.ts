@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createH4B, type Transport } from '@handsforbots/core'
+import { createH4B, textOf, type Transport } from '@handsforbots/core'
 import { describe, expect, it, vi } from 'vitest'
 import {
   encodeWav,
@@ -454,6 +454,44 @@ describe('debugging speech (voice.tts)', () => {
     await h4b.start()
     await h4b.ask('oi')
     await eventually(() => expect(events.find((e) => e.event === 'speech.while-loading')).toMatchObject({ policy: 'silent', action: 'silent' }))
+  })
+
+  it('says which reply and which part of its text each chunk is, and whether a reply will be spoken', async () => {
+    const speaker = fakeSpeaker()
+    const { h4b, voice: v } = await setup({ tts: speaker.provider }, 'Olá. Tudo bem?')
+    const speech: Record<string, unknown>[] = []
+    const tracks: unknown[] = []
+    h4b.on('voice.speech', (e) => speech.push(e as Record<string, unknown>))
+    h4b.on('voice.track', (e) => tracks.push(e))
+    expect(v.willSpeakReplies()).toBe(true)
+    void h4b.ask('oi')
+    await eventually(() => expect(speaker.spoken).toHaveLength(1))
+    const reply = h4b.messages.find((m) => m.role === 'assistant')!
+    const text = textOf(reply)
+    expect(tracks).toEqual([{ messageId: reply.id, speak: true }])
+    expect(speech[0]).toMatchObject({ phase: 'start', messageId: reply.id, from: 0 })
+    expect(text.slice(speech[0]!.from as number, speech[0]!.to as number)).toBe(speaker.spoken[0])
+    speaker.finishAll()
+    await eventually(() => expect(speaker.spoken).toHaveLength(2))
+    const second = speech.filter((e) => e.phase === 'start')[1]!
+    expect(second).toMatchObject({ messageId: reply.id, from: speech[0]!.to, to: text.length })
+    v.cancelSpeech()
+    v.setOutput('text')
+    expect(v.willSpeakReplies()).toBe(false)
+    await h4b.ask('de novo')
+    expect(tracks.at(-1)).toMatchObject({ speak: false })
+  })
+
+  it('reports a reply chunk that was cancelled before it was spoken', async () => {
+    const speaker = fakeSpeaker()
+    const { h4b, voice: v } = await setup({ tts: speaker.provider }, 'Um. Dois. Três.')
+    const skipped: Record<string, unknown>[] = []
+    h4b.on('voice.speech', (e) => e.phase === 'skip' && skipped.push(e as Record<string, unknown>))
+    void h4b.ask('oi')
+    await eventually(() => expect(speaker.spoken).toHaveLength(1))
+    v.cancelSpeech()
+    await eventually(() => expect(skipped.length).toBeGreaterThan(0))
+    expect(skipped[0]).toMatchObject({ reason: 'cancelled', messageId: expect.any(String) })
   })
 
   it('reports the last synthesis failure once, under the provider name', async () => {

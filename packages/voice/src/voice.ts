@@ -153,10 +153,24 @@ export type VoiceDecision =
  * The life of one spoken chunk (a sentence or a whole short reply), for logs
  * and debugging: `start` without `end` or `error` means the voice went silent.
  */
-export type VoiceSpeechEvent =
+export type VoiceSpeechEvent = (
   | { phase: 'start'; provider: string; chars: number }
   | { phase: 'end'; provider: string; ms: number; interrupted?: boolean }
   | { phase: 'error'; provider?: string; code: SpeechErrorCode; message: string }
+  /** A chunk of a reply that was not spoken: no provider could speak it, or speech was cancelled first. */
+  | { phase: 'skip'; reason: 'no-provider' | 'cancelled' }
+) &
+  Partial<SpokenRange>
+
+/**
+ * Where a chunk of an assistant reply sits in its text: `from` (inclusive) and
+ * `to` (exclusive) are UTF-16 positions into the message's text. Chunks from
+ * `speak(text)` have none.
+ */
+export type SpokenRange = { messageId: string; from: number; to: number }
+
+/** Whether a reply will be spoken, decided when its first text arrives (from the output preference). */
+export type VoiceTrackEvent = { messageId: string; speak: boolean }
 
 /**
  * A speech provider's model and internals, for logs and debugging: the voice
@@ -204,6 +218,8 @@ export type VoiceService = {
   setEffects(effects: SpeechEffects | null): void
   /** Allows audio playback: call it inside a click if speech may start long after it. */
   unlockAudio(): void
+  /** Whether a reply arriving now would be spoken (`output` is `voice`, or `auto` after voice input). */
+  willSpeakReplies(): boolean
 }
 
 declare module '@handsforbots/core' {
@@ -213,8 +229,10 @@ declare module '@handsforbots/core' {
   interface Events {
     /** Why the voice interrupted, ignored or ended a turn (for logs and debugging). */
     'voice.decision': VoiceDecision
-    /** Each spoken chunk starting, ending or failing (for logs and debugging). */
+    /** Each spoken chunk starting, ending, failing or skipped; chunks of a reply carry `messageId`, `from` and `to`. */
     'voice.speech': VoiceSpeechEvent
+    /** A reply's text started arriving: whether it will be spoken (for UIs that sync with speech, like cues). */
+    'voice.track': VoiceTrackEvent
     /** Each speech provider loading its model and, when it traces, its internals (for logs and debugging). */
     'voice.tts': VoiceTtsEvent
   }
@@ -1085,8 +1103,11 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     return undefined
   }
 
-  const speakChunk = (text: string, onSpoken?: () => void): Promise<void> => {
+  const willSpeakReplies = () => state.output === 'voice' || (state.output === 'auto' && state.lastInput === 'voice')
+
+  const speakChunk = (text: string, onSpoken?: () => void, at?: SpokenRange): Promise<void> => {
     if (!preferred() || !text.trim()) {
+      if (at && text.trim()) ctx.emit('voice.speech', { phase: 'skip', reason: 'no-provider', ...at })
       onSpoken?.()
       return Promise.resolve()
     }
@@ -1104,11 +1125,17 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       let sentence: SpokenSentence | undefined
       try {
         prepared = job instanceof Promise ? await job : job
-        if (controller.signal.aborted) return
+        if (controller.signal.aborted) {
+          if (at) ctx.emit('voice.speech', { phase: 'skip', reason: 'cancelled', ...at })
+          return
+        }
         // Nobody can speak it yet: the text stays as shown.
-        if (!prepared) return onSpoken?.()
+        if (!prepared) {
+          if (at) ctx.emit('voice.speech', { phase: 'skip', reason: 'no-provider', ...at })
+          return onSpoken?.()
+        }
         set({ speaking: true, tts: prepared.provider.name })
-        ctx.emit('voice.speech', { phase: 'start', provider: prepared.provider.name, chars: text.length })
+        ctx.emit('voice.speech', { phase: 'start', provider: prepared.provider.name, chars: text.length, ...at })
         sentence = { text, startedAt: Date.now() }
         recentSpeech().push(sentence)
         // Without barge-in the mic would hear the bot: pause recognition while speaking.
@@ -1132,6 +1159,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           provider: prepared.provider.name,
           ms: Date.now() - sentence.startedAt,
           ...(interrupted ? { interrupted } : {}),
+          ...at,
         })
         if (!interrupted) onSpoken?.()
       } catch (error) {
@@ -1139,7 +1167,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
           const failure = error instanceof ProviderFailure ? error : undefined
           const speechError = speakError(failure ? failure.error : error)
           const provider = failure?.provider ?? prepared?.provider.name
-          ctx.emit('voice.speech', { phase: 'error', provider, code: speechError.code, message: speechError.message })
+          ctx.emit('voice.speech', { phase: 'error', provider, code: speechError.code, message: speechError.message, ...at })
           fail(speechError, {}, provider ? `voice:tts:${provider}` : 'voice')
         }
       } finally {
@@ -1161,11 +1189,12 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
     if (message?.role !== 'assistant') return
     let track = tracks.get(messageId)
     if (!track) {
-      const speak = state.output === 'voice' || (state.output === 'auto' && state.lastInput === 'voice')
+      const speak = willSpeakReplies()
       track = { speak, queued: 0, spoken: 0 }
       tracks.set(messageId, track)
       if (tracks.size > 8) tracks.delete(tracks.keys().next().value!)
       if (state.interrupted) set({ interrupted: false })
+      ctx.emit('voice.track', { messageId, speak })
     }
     if (!track.speak || (message as AssistantMessage).interrupted) return
     const text = textOf(message)
@@ -1177,7 +1206,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       if (until < 0) return
       const chunk = text.slice(current.queued, until)
       current.queued = until
-      void speakChunk(chunk, () => (current.spoken = until))
+      void speakChunk(chunk, () => (current.spoken = until), { messageId, from: until - chunk.length, to: until })
     }
   }
 
@@ -1348,6 +1377,7 @@ export async function createVoice(ctx: PluginContext, options: VoiceOptions): Pr
       followEffects()
     },
     unlockAudio,
+    willSpeakReplies,
   }
   publishStatus()
   followEffects()
