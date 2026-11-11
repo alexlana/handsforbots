@@ -660,6 +660,7 @@ P3 — reavaliar com demanda
 
 | Data | Alteração |
 |------|-----------|
+| 2026-11-11 | Proposta: deixas (`@handsforbots/cues`), categorias de apresentação com vocabulário fechado, regras ligadas ao conteúdo e política de repetição por valor; primeiro uso, os tons de humor do polvo (ADR 0018) |
 | 2026-11-10 | Atributos da conversa, exposições e contadores de experimento; `baggage` para o backend (ADR 0017) |
 | 2026-11-09 | Teste marcado, ainda não rodado: whisper.cpp na VPS da Hostinger para jargão em inglês no meio do português (efeito Claudinei; o navegador escreveu "cloud native" como "claud native"). Decisão em aberto 10 |
 | 2026-11-08 | Mãos-livres conta a pausa das últimas palavras ouvidas, não do resultado final; estado ganha `pauseSince` e `endOfTurnCheckAt`. Envios sem modelo de fim de turno ficam mais rápidos com os mesmos padrões; compensação por navegador fica em aberto (decisão 9) |
