@@ -159,6 +159,9 @@ function attach(
     onPlugin('voice.speech', ({ phase, ...rest }) => record(`voice.speech.${String(phase)}`, rest)),
     // Models loading and the speech worker's life: `voice.tts.load.start`, `voice.tts.worker.init`...
     onPlugin('voice.tts', ({ event, ...rest }) => record(`voice.tts.${String(event)}`, rest)),
+    // Cues (ADR 0018): codes only, so recorded as they come.
+    onPlugin('cue.changed', (cue) => record('cue.changed', cue)),
+    onPlugin('cue.repeat', (cue) => record('cue.repeat', cue)),
     onPlugin('voice.decision', (decision) => {
       // The transcript is content: kept out unless `includeContent`.
       const { text, ...rest } = decision

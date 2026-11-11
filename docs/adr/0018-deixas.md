@@ -19,7 +19,7 @@ Os atributos da conversa ([ADR 0017](./0017-atributos-da-conversa.md)) não serv
 **Decisão.**
 
 - **Pacote `@handsforbots/cues`, sem mudar o core.** É um plugin `cues({ channels, rules?, classify?, report? })` que usa só o que o kernel já tem: estímulos, ações, partes `data`, eventos, interceptadores e sinais de contexto. Nada nele fala de personagem: o tom de humor é um canal como outro qualquer.
-- **Canais com vocabulário fechado.** Um canal é uma dimensão independente das outras (`tone`, `scene`, `urgency`, `mode`). Cada um declara:
+- **Canais com vocabulário fechado.** Um canal é uma dimensão independente das outras (`tone`, `scene`, `urgency`, `mode`), com nome em minúsculas, dígitos e `-` (`^[a-z][a-z0-9-]{0,31}$`), porque vira nome de atributo HTML. Cada um declara:
   - `values`: os valores aceitos, em forma de código, com a mesma regra dos atributos (`[A-Za-z0-9_.:-]{1,64}`). `sem-graça` vira `sem-graca`, e o rótulo exibido é do app;
   - `default`: o valor de quando ninguém decidiu nada;
   - `persist`: com `'message'` (padrão), uma mensagem sem valor volta ao `default`; com `'sticky'`, mantém o anterior. Tom costuma ser `message`, e cenário ou modo costumam ser `sticky`;
@@ -27,15 +27,15 @@ Os atributos da conversa ([ADR 0017](./0017-atributos-da-conversa.md)) não serv
 
   Um valor fora da lista vira o `default` e emite `error` com `source: 'cues'`. Um canal desconhecido é descartado com o mesmo `error`.
 - **Três entradas, todas pela mesma validação:**
-  1. **Estímulo do backend.** `ui.effect` com `name: 'cues'` e `value: { tone: 'curioso', scene: 'oficina' }`. Funciona com os transportes que já entregam `ui.effect`, sem contrato novo. Sem `messageId` explícito, vale para a mensagem do assistente em curso.
+  1. **Estímulo do backend.** `ui.effect` com `name: 'cues'` e `value: { tone: 'curioso', scene: { value: 'oficina', level: 2 } }`. Funciona com os transportes que já entregam `ui.effect`, sem contrato novo. Com `messageId` no `value`, vale para aquela mensagem, e nomear uma mensagem já guardada a decide de novo, mantendo os outros canais. Sem ele, vale para a próxima resposta do turno que tenha texto. Respostas sem texto (só chamadas de ferramenta) não recebem deixas.
   2. **Ação `set_cues`.** O plugin a registra com um JSON Schema gerado a partir dos canais (um `enum` por canal), `confirm: 'never'` e origens `assistant` e `agent`. Serve para backends que só falam por tool calling. O resultado devolve o estado aplicado, inclusive o que a política de repetição trocou, para o modelo saber o que valeu.
   3. **Regras no cliente.** Uma regra é `{ when, set, priority? }`. O `when` vê a mensagem do assistente e o turno: as partes `source` (url, `trail`, título), as ações chamadas, os eventos (`error`, `turn.interrupted`, ação negada) e o tipo de sinal que abriu o turno. Pode ser uma função ou uma forma declarativa (`{ source: { urlPrefix, trail } }`, `{ action: 'nome' }`, `{ event: 'error' }`). É assim que um valor se liga a taxonomias e elementos. As partes `source` não têm campo de taxonomia, então o app pode passar `classify(source) → string[]`, e as regras usam `{ taxonomy: 'projetos' }`.
-- **Precedência.** Para cada canal em cada mensagem: o backend (estímulo ou ação) vence uma regra, e uma regra vence o `default` ou o valor mantido pelo `sticky`. Entre regras, ganha a de maior `priority`; empatadas, a última declarada. A política de repetição vem depois de tudo, sobre o valor escolhido. As regras rodam no fim da mensagem (`message.end`), porque as fontes e as ações só estão completas ali. Um valor do backend é aplicado assim que chega.
+- **Precedência.** Para cada canal em cada mensagem: o backend (estímulo ou ação) vence uma regra, e uma regra vence o `default` ou o valor mantido pelo `sticky`. Entre regras, ganha a de maior `priority`; empatadas, a última declarada. A política de repetição vem depois de tudo, sobre o valor escolhido. As regras rodam no fim da mensagem (`message.end`), porque as fontes e as ações só estão completas ali. Um valor do backend aparece assim que chega, com `pending: true`, e é guardado quando a mensagem termina.
 - **Contagem.** Por canal, o plugin guarda `{ value, previous, streak, count, level, messageId, from }`:
   - `streak`: mensagens seguidas do assistente com o mesmo valor, começando em 1;
   - `count`: quantas mensagens tiveram esse valor na conversa;
   - `level`: o nível da política de repetição (veja abaixo), 1 sem política;
-  - `from`: `'backend'`, `'rule'`, `'default'` ou `'repeat'`.
+  - `from`: `'backend'`, `'rule'`, `'default'`, `'sticky'` ou `'repeat'`.
 
   A contagem vale para qualquer valor de qualquer canal, não só para um tom.
 - **Política de repetição, por valor.** `repeat` diz o que acontece quando um valor se repete. É declarativa e igual para todos os canais:
@@ -48,8 +48,8 @@ Os atributos da conversa ([ADR 0017](./0017-atributos-da-conversa.md)) não serv
 - **Guardado na mensagem.** O valor resolvido vai na própria mensagem do assistente como parte `{ type: 'data', name: 'cues', value: { tone: { value: 'serio', level: 1, from: 'repeat' } } }`. Por isso a persistência, a restauração e o `tab-sync` levam o estado junto. O plugin o reconstrói relendo o histórico, com `streak`, `count` e os limites já gastos. As regras e a política não rodam de novo sobre mensagens antigas, então mudar uma regra não reescreve o passado. Uma mensagem interrompida e removida leva o valor dela embora. `reset()` volta tudo ao `default` e zera as contagens.
 - **Saída para o front-end:**
   - o evento `cue.changed` `{ channel, value, previous, streak, count, level, messageId, from }`, emitido só quando algo muda, e `cue.repeat`;
-  - o serviço `h4b.get('cues')` com `state()` e `subscribe()`, e `useCue(channel)` nos bindings de React e Vue;
-  - no widget, `data-h4b-cue-<canal>` e `data-h4b-cue-<canal>-level` no elemento raiz, para reagir só com CSS.
+  - o serviço `h4b.get('cues')` com `getState()` e `subscribe()`, no formato que o `useStore` dos bindings de React e Vue já lê. Os bindings não ganham um hook próprio, para não dependerem do pacote;
+  - no widget, `data-cue-<canal>` e `data-cue-<canal>-level` no `<h4b-chat>`, como os outros `data-` dele, para reagir só com CSS. O widget lê o serviço pelo formato, sem importar o plugin, e tira os atributos quando o serviço some.
 
   A H4B não desenha nada: personagem, animação, cenário e destaque são do app.
 - **Segurança.** Só valores da lista saem do plugin. Assim, um backend comprometido não consegue injetar classes, nomes de arquivo ou HTML pelos atributos `data-` ou pelos componentes do app.

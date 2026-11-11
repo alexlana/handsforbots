@@ -180,6 +180,15 @@ importers:
         specifier: workspace:^
         version: link:../memory
 
+  packages/cues:
+    devDependencies:
+      '@handsforbots/core':
+        specifier: workspace:^
+        version: link:../core
+      '@handsforbots/testkit':
+        specifier: workspace:^
+        version: link:../testkit
+
   packages/expose-webmcp:
     devDependencies:
       '@handsforbots/core':
@@ -443,6 +452,9 @@ importers:
       '@handsforbots/core':
         specifier: workspace:^
         version: link:../core
+      '@handsforbots/cues':
+        specifier: workspace:^
+        version: link:../cues
       '@handsforbots/menu':
         specifier: workspace:^
         version: link:../menu

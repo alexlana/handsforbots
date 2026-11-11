@@ -22,6 +22,7 @@ Cada pacote exporta uma fábrica de plugin: chame com as opções e passe para `
 | [`guided`](#guided) | `guided` | `guided` |
 | [`expose-webmcp`](#expose-webmcp) | `webmcp` | `webmcp` |
 | [`mcp-apps`](#mcp-apps) | `mountMcpApp`, `mcpAppRenderer` | — |
+| [`cues`](#cues) | `cues` | `cues` |
 | [`memory`](#memory) | `memory`, `httpSummarizer`, `localSummary`, `groupTurns` | `memory` |
 | [`storage-local`](#storage-local) | `storageLocal`, `cookieKey`, `backendKey` | `storage`, `retention` |
 | [`storage-backend`](#storage-backend) | `storageBackend` | `storage`, `retention` |
@@ -256,6 +257,48 @@ widget({ renderers: { 'mcp-app': mcpAppRenderer({ allowTools: ['filter_orders'] 
 // ou na sua própria UI: elemento.append(mountMcpApp(h4b, props, { allowTools }))
 ```
 
+## cues
+
+`cues({ channels, rules?, classify?, report?: false, action?: true })`. Deixas são categorias de apresentação com vocabulário fechado a que a página reage: o humor de um personagem, o cenário, a urgência de um atendimento, o modo da conversa (ADR 0018). Cada canal declara seus valores (códigos, `[A-Za-z0-9_.:-]{1,64}`), um `default`, `persist` (`'message'`, o padrão, volta ao `default` numa mensagem sem valor; `'sticky'` mantém o anterior) e, opcionalmente, uma política `repeat` por valor. O rótulo exibido e o que cada valor faz são seus.
+
+```ts
+cues({
+  channels: {
+    tom: {
+      values: ['neutro', 'curioso', 'contente', 'empolgado', 'confuso', 'serio', 'ofendido'],
+      default: 'neutro',
+      repeat: {
+        confuso: { levels: [2, 4] },                        // nível 2 a partir do 2º seguido, 3 a partir do 4º
+        ofendido: { max: 1, by: 'count', then: 'serio' },  // avisa uma vez por conversa
+      },
+    },
+    cenario: { values: ['dia', 'noite', 'oficina'], default: 'dia', persist: 'sticky' },
+  },
+  classify: (fonte) => (fonte.url?.includes('/projetos/') ? ['projetos'] : []),
+  rules: [
+    { when: { taxonomy: 'projetos' }, set: { tom: 'empolgado' } },
+    { when: { event: 'action.failed' }, set: { tom: 'confuso' } },
+  ],
+  report: true,
+})
+```
+
+Os valores vêm de três lugares, todos validados: um valor fora da lista vira o `default` e um canal desconhecido é descartado, os dois com `error` (`source: 'cues'`).
+
+- **Estímulo do backend**: `ui.effect` com `name: 'cues'` e `{ tom: 'curioso' }` ou `{ tom: { value: 'confuso', level: 3 } }`, mais um `messageId` opcional. Sem ele, o valor vai para a próxima resposta com texto do turno. Aparece na hora, com `pending: true`, e é guardado quando a mensagem termina; nomear uma mensagem já guardada a decide de novo.
+- **Ação `set_cues`**: para backends que só usam tool calling. O JSON Schema tem um `enum` por canal (com a `description` do canal); roda para as origens `assistant` e `agent` sem confirmação e devolve o estado aplicado. `action: false` a deixa de fora; uma string a renomeia.
+- **Regras**: `{ when, set, priority? }`, rodadas quando uma mensagem do assistente termina. O `when` é uma função de `{ message, text, sources, taxonomies, actions, errors, interrupted, trigger }` ou um objeto em que todas as chaves precisam bater: `source` (`urlPrefix`, `trail`, `title`, `taxonomy`), `taxonomy` (vinda do `classify(fonte)`), `action`, `event` (`error`, `action.failed`, `interrupted`), `trigger` (a modalidade que abriu o turno) e `text` (uma RegExp).
+
+Precedência por canal e mensagem: backend, depois regras (maior `priority`; no empate, a última declarada), depois `sticky` ou `default`. A política de repetição vem por último. `levels` sobe o nível conforme o valor se repete (`by: 'streak'`, o padrão, conta mensagens seguidas; `'count'`, a conversa inteira); um nível mandado pelo backend fica dentro da faixa declarada. `max` limita quantas vezes o valor vale: passado o limite, ele vira `then` (ou o `default`), guardado com `from: 'repeat'` e `requested`. A H4B só aplica a política ao que a página mostra; o que o assistente diz continua sendo do backend, então ligue o `report` junto com `max`: toda requisição leva o sinal de contexto `cues.state` (`{ tom: { value, streak, count, level, requested? } }`).
+
+Respostas sem texto (só chamadas de ferramenta) não recebem deixas. Cada resposta guarda o que foi decidido numa parte `data` chamada `cues` (`{ tom: { value, level, from, requested? } }`). Por isso o storage, a restauração e o `tab-sync` trazem o estado de volta e as contagens são refeitas a partir do histórico; as regras nunca rodam de novo sobre mensagens antigas, e o `reset()` volta aos padrões. Transportes que mandam partes `data` ao backend mandam essa também.
+
+O serviço `cues` tem `getState()` (por canal: `value`, `previous`, `streak`, `count`, `level`, `from`, `requested?`, `messageId?`, `pending?`), `subscribe()`, `channels` e `schema()`. Eventos: `cue.changed` (`{ channel, ...estado }`, quando algo mudou) e `cue.repeat` (`{ channel, value, level, streak, count, replaced?, messageId }`, quando um nível é alcançado ou um valor é trocado). No React, `useStore(useH4B().get('cues'))`; no Vue, `useStore(useService('cues'))`. O widget espelha cada canal em `data-cue-<canal>` e `data-cue-<canal>-level` no `<h4b-chat>`, para o CSS:
+
+```css
+h4b-chat[data-cue-tom='confuso'][data-cue-tom-level='3'] .avatar { animation: tremer 0.6s; }
+```
+
 ## memory
 
 Montado pelo `createH4B` por padrão; `createH4B({ memory: { … } })` ajusta, `memory: false` desliga, e um `memory(...)` em `plugins` o substitui.
@@ -333,6 +376,6 @@ Para quem escreve plugins e transportes: `scriptedTransport`, `reply`, `citedRep
 
 ## observability
 
-`observability({ includeContent?: false, ...opçõesDoCreateObservability })`. Turnos, fases por rota, ações, sinais e estímulos como eventos semânticos, além da latência percebida por rota (`h4b_first_response_ms`, `h4b_turn_duration_ms`) para calibrar comandos diretos frente às respostas do LLM, para Grafana (Faro/OTel), Langfuse e LangSmith. Com `voice`, também registra cada trecho falado (`voice.speech.start`, `.end`, `.error`), `voice.decision` (transcrições só com `includeContent`) e cada evento `voice.tts` como `voice.tts.<evento>` (carga do modelo, fala durante a carga, vida do Worker de fala); os erros levam `code` e `stage`. Registra o navegador no início (`client.environment`: `userAgent`, `language`). Os atributos da conversa vão em todo span e, pelo `getTraceHeaders()`, ao seu backend como W3C `baggage`; exposições e o primeiro turno do visitante em cada conversa viram `experiment.exposed` e os contadores `h4b_experiment_exposed_total` e `h4b_conversation_engaged_total`, inclusive exposições de antes do `analytics` ser concedido. `@handsforbots/observability/server` lê o cabeçalho no seu backend ([Experimentos](./experiments.md)).
+`observability({ includeContent?: false, ...opçõesDoCreateObservability })`. Turnos, fases por rota, ações, sinais e estímulos como eventos semânticos, além da latência percebida por rota (`h4b_first_response_ms`, `h4b_turn_duration_ms`) para calibrar comandos diretos frente às respostas do LLM, para Grafana (Faro/OTel), Langfuse e LangSmith. Com `voice`, também registra cada trecho falado (`voice.speech.start`, `.end`, `.error`), `voice.decision` (transcrições só com `includeContent`) e cada evento `voice.tts` como `voice.tts.<evento>` (carga do modelo, fala durante a carga, vida do Worker de fala); os erros levam `code` e `stage`. Com `cues`, registra `cue.changed` e `cue.repeat` (só códigos). Registra o navegador no início (`client.environment`: `userAgent`, `language`). Os atributos da conversa vão em todo span e, pelo `getTraceHeaders()`, ao seu backend como W3C `baggage`; exposições e o primeiro turno do visitante em cada conversa viram `experiment.exposed` e os contadores `h4b_experiment_exposed_total` e `h4b_conversation_engaged_total`, inclusive exposições de antes do `analytics` ser concedido. `@handsforbots/observability/server` lê o cabeçalho no seu backend ([Experimentos](./experiments.md)).
 
 Para depurar no celular, sem devtools: adicione o exporter `devPanel` (`observability({ exporters: ['memory', 'devPanel'] })`) e ligue-o naquele navegador com `localStorage.setItem('semantic-event-observability:debug', 'true')`, depois recarregue. Um painel flutuante lista os eventos recentes, e o botão de exportar baixa esses eventos junto com o navegador (`environment`: user agent, idioma, plataforma, tamanho da tela). Veja [`packages/semantic-event-observability`](../../packages/semantic-event-observability/README.md) e [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md).

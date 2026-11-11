@@ -90,6 +90,20 @@ describe('voice events', () => {
   })
 })
 
+describe('cue events', () => {
+  it('records cue.changed and cue.repeat with their codes', async () => {
+    const h4b = await createH4B({ plugins: [observability()] }).start()
+    const emit = h4b.emit.bind(h4b) as (event: string, payload: unknown) => void
+    emit('cue.changed', { channel: 'tone', value: 'confuso', streak: 2, count: 2, level: 2, from: 'backend', messageId: 'm1' })
+    emit('cue.repeat', { channel: 'tone', value: 'serio', level: 1, streak: 1, count: 1, replaced: 'ofendido', messageId: 'm2' })
+    const timeline = h4b.get('observability')!.getTimeline()
+    expect(timeline.map((e) => e.name)).toEqual(expect.arrayContaining(['cue.changed', 'cue.repeat']))
+    const json = JSON.stringify(timeline)
+    expect(json).toContain('"value":"confuso"')
+    expect(json).toContain('"replaced":"ofendido"')
+  })
+})
+
 describe('speech provider trace', () => {
   it('records voice.tts events by name, with the worker number', async () => {
     const h4b = await createH4B({ plugins: [observability()] }).start()

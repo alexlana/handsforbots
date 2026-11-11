@@ -11,6 +11,7 @@ import {
   type MediaPart,
   type Message,
   type Retention,
+  type Services,
   type Signal,
   type TurnStatus,
 } from '@handsforbots/core'
@@ -19,6 +20,12 @@ import { stringsFor, type Strings } from './i18n.js'
 import { escapeHtml, renderMarkdown } from './markdown.js'
 import { renderCitedText, sourceList, type SourcesOptions } from './sources.js'
 import { PALETTES, STYLES } from './styles.js'
+
+/** The part of the `cues` service (@handsforbots/cues) the widget reads, without importing the plugin. */
+type CueStore = {
+  getState(): Readonly<Record<string, { value: string; level: number }>>
+  subscribe(listener: () => void): () => void
+}
 
 export { renderMarkdown, escapeHtml } from './markdown.js'
 export { stringsFor, STRINGS, type Strings } from './i18n.js'
@@ -258,7 +265,17 @@ export class H4BChatElement extends BaseElement {
       this.renderPrivacy()
     }
     watchRetention()
+    // Cues (ADR 0018): one data attribute per channel, for CSS. The widget only knows their shape.
+    let unsubscribeCues: (() => void) | undefined
+    const watchCues = () => {
+      unsubscribeCues?.()
+      const store = this.h4b?.get('cues' as keyof Services) as unknown as CueStore | undefined
+      unsubscribeCues = store?.subscribe(() => this.renderCues(store))
+      this.renderCues(store)
+    }
+    watchCues()
     const onService = ({ key }: { key: string }) => {
+      if (key === 'cues') watchCues()
       if (key === 'voice') watchVoice()
       if (key === 'files' || key === 'camera') this.renderMedia()
       if (key === 'retention') watchRetention()
@@ -266,6 +283,10 @@ export class H4BChatElement extends BaseElement {
     this.cleanups.push(
       () => unsubscribeVoice?.(),
       () => unsubscribeRetention?.(),
+      () => {
+        unsubscribeCues?.()
+        this.renderCues(undefined)
+      },
       h4b.consent.subscribe(() => this.renderPrivacy()),
       h4b.on('service.provided', onService as never),
       h4b.on('service.removed', onService as never),
@@ -290,6 +311,20 @@ export class H4BChatElement extends BaseElement {
   /* ---------------------------------------------------------------------- */
   /* Structure                                                              */
   /* ---------------------------------------------------------------------- */
+
+  /** Mirrors the cues as `data-cue-<channel>` and `data-cue-<channel>-level` on the element; removes them without the service. */
+  private renderCues(store: CueStore | undefined) {
+    const state = store?.getState() ?? {}
+    for (const name of [...this.getAttributeNames()]) {
+      const match = /^data-cue-(.+?)(-level)?$/.exec(name)
+      if (match && !(match[1]! in state)) this.removeAttribute(name)
+    }
+    for (const [channel, cue] of Object.entries(state)) {
+      if (!/^[a-z][a-z0-9-]{0,31}$/.test(channel)) continue
+      this.setAttribute(`data-cue-${channel}`, cue.value)
+      this.setAttribute(`data-cue-${channel}-level`, String(cue.level))
+    }
+  }
 
   private build() {
     const o = this.options

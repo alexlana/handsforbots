@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { createH4B, textOf, type Transport, type TurnRequest } from '@handsforbots/core'
+import { cues } from '@handsforbots/cues'
 import { menu } from '@handsforbots/menu'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pickGreeting, renderMarkdown, widget, type H4BChatElement } from '../src/index.js'
@@ -703,5 +704,27 @@ describe('composer focus', () => {
     click(note)
     expect(element.isOpen).toBe(false)
     expect(element.shadowRoot!.activeElement).toBeNull()
+  })
+})
+
+describe('<h4b-chat> cues', () => {
+  it('mirrors cues as data attributes on the element and removes them with the service', async () => {
+    const transport = scripted(() => [
+      { type: 'ui.effect', name: 'cues', value: { tone: { value: 'confuso', level: 2 } } },
+      { type: 'message.start', messageId: 'm1' },
+      { type: 'message.delta', messageId: 'm1', delta: 'hã?' },
+      { type: 'message.end', messageId: 'm1' },
+    ])
+    const { h4b, element } = await mount({}, transport)
+    expect(element.hasAttribute('data-cue-tone')).toBe(false)
+    const remove = await h4b.use(cues({ channels: { tone: { values: ['neutro', 'confuso'], default: 'neutro', repeat: { confuso: { levels: [2] } } } } }))
+    expect(element.getAttribute('data-cue-tone')).toBe('neutro')
+    expect(element.getAttribute('data-cue-tone-level')).toBe('1')
+    await h4b.send('oi')
+    await vi.waitFor(() => expect(element.getAttribute('data-cue-tone')).toBe('confuso'))
+    expect(element.getAttribute('data-cue-tone-level')).toBe('2')
+    await remove()
+    expect(element.hasAttribute('data-cue-tone')).toBe(false)
+    expect(element.hasAttribute('data-cue-tone-level')).toBe(false)
   })
 })

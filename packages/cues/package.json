@@ -1,0 +1,33 @@
+{
+  "name": "@handsforbots/cues",
+  "version": "2.0.0-alpha.0",
+  "description": "Cues for Hands for Bots: closed-vocabulary presentation categories (tone, scene, urgency\u2026) set by the backend, an action or content rules, with repetition counts and policies.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "peerDependencies": {
+    "@handsforbots/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@handsforbots/core": "workspace:^",
+    "@handsforbots/testkit": "workspace:^"
+  }
+}

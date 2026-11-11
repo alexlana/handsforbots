@@ -22,6 +22,7 @@ Every package exports a plugin factory: call it with options and pass it to `cre
 | [`guided`](#guided) | `guided` | `guided` |
 | [`expose-webmcp`](#expose-webmcp) | `webmcp` | `webmcp` |
 | [`mcp-apps`](#mcp-apps) | `mountMcpApp`, `mcpAppRenderer` | — |
+| [`cues`](#cues) | `cues` | `cues` |
 | [`memory`](#memory) | `memory`, `httpSummarizer`, `localSummary`, `groupTurns` | `memory` |
 | [`storage-local`](#storage-local) | `storageLocal`, `cookieKey`, `backendKey` | `storage`, `retention` |
 | [`storage-backend`](#storage-backend) | `storageBackend` | `storage`, `retention` |
@@ -256,6 +257,48 @@ widget({ renderers: { 'mcp-app': mcpAppRenderer({ allowTools: ['filter_orders'] 
 // or in your own UI: element.append(mountMcpApp(h4b, props, { allowTools }))
 ```
 
+## cues
+
+`cues({ channels, rules?, classify?, report?: false, action?: true })`. Cues are presentation categories with a closed vocabulary that the page reacts to: a character's mood, the scenery, a support conversation's urgency, the conversation mode (ADR 0018). Each channel declares its values (codes, `[A-Za-z0-9_.:-]{1,64}`), a `default`, `persist` (`'message'`, the default, goes back to `default` on a message without a value; `'sticky'` keeps the previous one) and an optional `repeat` policy per value. The display label and what each value does are yours.
+
+```ts
+cues({
+  channels: {
+    tone: {
+      values: ['neutral', 'curious', 'happy', 'excited', 'confused', 'serious', 'offended'],
+      default: 'neutral',
+      repeat: {
+        confused: { levels: [2, 4] },                         // level 2 from the 2nd in a row, 3 from the 4th
+        offended: { max: 1, by: 'count', then: 'serious' },  // warns once per conversation
+      },
+    },
+    scene: { values: ['day', 'night', 'workshop'], default: 'day', persist: 'sticky' },
+  },
+  classify: (source) => (source.url?.includes('/projects/') ? ['projects'] : []),
+  rules: [
+    { when: { taxonomy: 'projects' }, set: { tone: 'excited' } },
+    { when: { event: 'action.failed' }, set: { tone: 'confused' } },
+  ],
+  report: true,
+})
+```
+
+Values come from three places, all validated: a value outside the list becomes the `default` and an unknown channel is dropped, both with an `error` (`source: 'cues'`).
+
+- **Backend stimulus**: `ui.effect` named `cues` with `{ tone: 'curious' }` or `{ tone: { value: 'confused', level: 3 } }`, plus an optional `messageId`. Without it, the value goes to the turn's next reply with text. It shows right away, with `pending: true`, and is stored when the message ends; naming a message that was already stored decides it again.
+- **Action `set_cues`**: for backends that only use tool calling. Its JSON Schema has one `enum` per channel (`description` of the channel goes with it); it runs for origins `assistant` and `agent` without confirmation and returns the state applied. `action: false` leaves it out; a string renames it.
+- **Rules**: `{ when, set, priority? }`, run when an assistant message ends. `when` is a function of `{ message, text, sources, taxonomies, actions, errors, interrupted, trigger }` or an object whose keys must all match: `source` (`urlPrefix`, `trail`, `title`, `taxonomy`), `taxonomy` (from `classify(source)`), `action`, `event` (`error`, `action.failed`, `interrupted`), `trigger` (the modality that started the turn) and `text` (a RegExp).
+
+Precedence per channel and message: backend, then rules (highest `priority`; ties go to the last one declared), then `sticky` or `default`. The repetition policy comes last. `levels` raise the level as the value repeats (`by: 'streak'`, the default, counts messages in a row; `'count'`, the whole conversation); a level sent by the backend is kept within the declared range. `max` limits how many times the value applies: past it, it becomes `then` (or the `default`), stored with `from: 'repeat'` and `requested`. H4B only applies the policy to what the page shows; what the assistant says is still the backend's, so turn `report` on with `max`: every request carries the context signal `cues.state` (`{ tone: { value, streak, count, level, requested? } }`).
+
+Replies without text (only tool calls) get no cues. Each reply stores what was decided as a `data` part named `cues` (`{ tone: { value, level, from, requested? } }`), so storage, restore and `tab-sync` bring the state back and counts are rebuilt from history; rules never run again on old messages, and `reset()` goes back to the defaults. Transports that send `data` parts to the backend send it too.
+
+The `cues` service has `getState()` (per channel: `value`, `previous`, `streak`, `count`, `level`, `from`, `requested?`, `messageId?`, `pending?`), `subscribe()`, `channels` and `schema()`. Events: `cue.changed` (`{ channel, ...state }`, when something changed) and `cue.repeat` (`{ channel, value, level, streak, count, replaced?, messageId }`, when a level is reached or a value replaced). With React, `useStore(useH4B().get('cues'))`; with Vue, `useStore(useService('cues'))`. The widget mirrors each channel as `data-cue-<channel>` and `data-cue-<channel>-level` on `<h4b-chat>`, for CSS:
+
+```css
+h4b-chat[data-cue-tone='confused'][data-cue-tone-level='3'] .avatar { animation: wobble 0.6s; }
+```
+
 ## memory
 
 Mounted by `createH4B` by default; `createH4B({ memory: { … } })` tunes it, `memory: false` unplugs it, and a `memory(...)` in `plugins` replaces it.
@@ -333,6 +376,6 @@ For plugin and transport authors: `scriptedTransport`, `reply`, `citedReply` (so
 
 ## observability
 
-`observability({ includeContent?: false, ...createObservabilityOptions })`. Turns, per-route phases, actions, signals and stimuli as semantic events, plus perceived latency per route (`h4b_first_response_ms`, `h4b_turn_duration_ms`) to tune direct commands against LLM answers, for Grafana (Faro/OTel), Langfuse and LangSmith. With `voice`, it also records each spoken chunk (`voice.speech.start`, `.end`, `.error`), `voice.decision` (transcripts only with `includeContent`) and every `voice.tts` event as `voice.tts.<event>` (model loading, speech while it loads, the speech worker's life); errors carry their `code` and `stage`. It records the browser at start (`client.environment`: `userAgent`, `language`). Conversation attributes go on every span and, from `getTraceHeaders()`, to your backend as W3C `baggage`; exposures and each conversation's first visitor turn become `experiment.exposed` and the counters `h4b_experiment_exposed_total` and `h4b_conversation_engaged_total`, also for exposures from before `analytics` was granted. `@handsforbots/observability/server` reads the header on your backend ([Experiments](./experiments.md)).
+`observability({ includeContent?: false, ...createObservabilityOptions })`. Turns, per-route phases, actions, signals and stimuli as semantic events, plus perceived latency per route (`h4b_first_response_ms`, `h4b_turn_duration_ms`) to tune direct commands against LLM answers, for Grafana (Faro/OTel), Langfuse and LangSmith. With `voice`, it also records each spoken chunk (`voice.speech.start`, `.end`, `.error`), `voice.decision` (transcripts only with `includeContent`) and every `voice.tts` event as `voice.tts.<event>` (model loading, speech while it loads, the speech worker's life); errors carry their `code` and `stage`. With `cues`, it records `cue.changed` and `cue.repeat` (codes only). It records the browser at start (`client.environment`: `userAgent`, `language`). Conversation attributes go on every span and, from `getTraceHeaders()`, to your backend as W3C `baggage`; exposures and each conversation's first visitor turn become `experiment.exposed` and the counters `h4b_experiment_exposed_total` and `h4b_conversation_engaged_total`, also for exposures from before `analytics` was granted. `@handsforbots/observability/server` reads the header on your backend ([Experiments](./experiments.md)).
 
 To debug on a phone, without devtools: add the `devPanel` exporter (`observability({ exporters: ['memory', 'devPanel'] })`) and turn it on in that browser with `localStorage.setItem('semantic-event-observability:debug', 'true')`, then reload. A floating panel lists the latest events, and its export button downloads them with the browser (`environment`: user agent, language, platform, viewport). See [`packages/semantic-event-observability`](../../packages/semantic-event-observability/README.md) and [`examples/OBSERVABILITY.md`](../../examples/OBSERVABILITY.md).

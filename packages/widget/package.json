@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@handsforbots/core": "workspace:^",
+    "@handsforbots/cues": "workspace:^",
     "@handsforbots/menu": "workspace:^",
     "@handsforbots/voice": "workspace:^",
     "jsdom": "^27.0.0"
