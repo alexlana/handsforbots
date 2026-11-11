@@ -59,13 +59,14 @@ Os atributos da conversa ([ADR 0017](./0017-atributos-da-conversa.md)) não serv
   - Até soltar, o `getState()` e o widget mostram o estado anterior. O `report` e o resultado do `set_cues` já levam o que foi decidido, porque o backend precisa da verdade, não do que está na tela.
   - `sync: 'arrival'` mostra tudo na chegada, como antes. Respostas que não são faladas mostram na chegada nos dois modos.
   - A precisão é por frase, que é o que o `voice` fala de cada vez. Por palavra dependeria de marcas de tempo do provedor (`onboundary` no Web Speech, alinhamento em alguns TTS na nuvem; Piper e Kokoro não dão) ou de uma estimativa pela duração do áudio. Fica para quando houver um uso, como sincronia labial.
+- **Leitor no servidor (2026-11-11).** `@handsforbots/cues/server` tem `readCuesState(origem, permitidos, opções?)`, como o `readConversationAttributes` da [ADR 0017](./0017-atributos-da-conversa.md): sem core nem navegador, aceita o `context` do AG-UI (onde o sinal chega como `cues.state: {…}`), o objeto de contexto do transporte HTTP, sinais ou o próprio valor, e devolve só canais e valores permitidos, com `streak`, `count` e `level` inteiros dentro da faixa. O formato com que os transportes mandam o contexto não mudou, porque outros backends podem depender dele; o leitor é que entende os formatos. O estado vem do navegador e pode ser forjado: serve para escolher as palavras, e uma regra que precisa valer pede uma contagem guardada pelo backend.
 - **Observabilidade.** A `observability` grava `cue.changed` e `cue.repeat` como eventos (são só códigos). Deixas não viram atributos da conversa nem rótulos de contador.
 
 **Consequências.**
 
 - Qualquer reação da página guiada pela conversa passa a ser: a lista de valores, as regras do app e o que a página faz com cada valor. Validação, precedência, contagem, política de repetição, persistência e entrega ao front-end ficam com a H4B.
 - O backend tem dois jeitos de mandar uma deixa, por estímulo ou por ação, e pode não mandar nada, deixando as regras decidirem.
-- O histórico ganha uma parte `data` a mais por mensagem. Os transportes que mandam partes `data` ao backend passam a mandar as deixas junto. Se isso for indesejado, o `report` é o caminho combinado, e o transporte pode filtrar a parte.
+- O histórico ganha uma parte `data` a mais por mensagem. Ela é para a página (restauração, `tab-sync`): os transportes AG-UI e HTTP só mandam de volta o texto das respostas do assistente, então ela não volta ao modelo. O caminho até o backend é o `report`.
 - Um componente inteiro trocado continua sendo `ui.render` com `slot`. As deixas são para valores de uma lista, não para conteúdo.
 - **Em aberto:**
   - se a política de repetição deve mesmo ficar na H4B. Ela entra porque a contagem já está aqui e porque a interface precisa aplicá-la sem esperar o backend. Mas ela duplica o que o backend decide sobre a fala. Se os usos mostrarem que só a contagem e o `report` bastam, o `max`/`then` sai e fica só o `levels`;

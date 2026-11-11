@@ -188,6 +188,12 @@ importers:
       '@handsforbots/testkit':
         specifier: workspace:^
         version: link:../testkit
+      '@handsforbots/transport-agui':
+        specifier: workspace:^
+        version: link:../transport-agui
+      '@handsforbots/transport-http':
+        specifier: workspace:^
+        version: link:../transport-http
       '@handsforbots/voice':
         specifier: workspace:^
         version: link:../voice
