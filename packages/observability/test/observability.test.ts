@@ -1,5 +1,5 @@
 import { createH4B, type Transport } from '@handsforbots/core'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { observability } from '../src/index.js'
 
 const transport: Transport = {
@@ -115,9 +115,21 @@ describe('speech provider trace', () => {
     expect(JSON.stringify(timeline)).toContain('"worker":3')
   })
 
+  // Node only has a global `navigator` from 21 on: stub it so the test runs on Node 20 too.
+  afterEach(() => vi.unstubAllGlobals())
+
   it('records the browser once, at start', async () => {
+    vi.stubGlobal('navigator', { userAgent: 'TestAgent/1.0', language: 'pt-BR' })
     const h4b = await createH4B({ plugins: [observability()] }).start()
-    const event = h4b.get('observability')!.getTimeline().find((e) => e.name === 'client.environment')
-    expect(JSON.stringify(event)).toContain(navigator.userAgent)
+    const events = h4b.get('observability')!.getTimeline().filter((e) => e.name === 'client.environment')
+    expect(events).toHaveLength(1)
+    expect(JSON.stringify(events[0])).toContain('TestAgent/1.0')
+    expect(JSON.stringify(events[0])).toContain('pt-BR')
+  })
+
+  it('records no browser where there is no navigator', async () => {
+    vi.stubGlobal('navigator', undefined)
+    const h4b = await createH4B({ plugins: [observability()] }).start()
+    expect(h4b.get('observability')!.getTimeline().some((e) => e.name === 'client.environment')).toBe(false)
   })
 })
