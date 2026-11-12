@@ -132,3 +132,11 @@ Supports [ADR 0017](../adr/0017-atributos-da-conversa.md) and [Experiments](./ex
 | [W3C Trace Context](https://www.w3.org/TR/trace-context/) | Header `traceparent` that joins the browser's spans to the backend's | Already sent by `getTraceHeaders()`; `baggage` goes next to it |
 | [OpenTelemetry Baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) | OTel's propagated key-value context; the docs warn that baggage is sent in plain text to every service downstream | Why only codes go in it, why the server keeps an allow list (`readConversationAttributes`), and why an existing `baggage` from the OTel propagator is merged, not replaced |
 | [OpenTelemetry metrics API: Counter](https://opentelemetry.io/docs/specs/otel/metrics/api/#counter) | Monotonic sum instrument | `recordCounter()` and the experiment counters: totals that are not sampled and outlive trace retention |
+
+## Menu: local semantic matcher
+
+Supports open decision 4 in the [ROADMAP](../../ROADMAP.md) (in-browser embeddings vs. patterns only). Read on 2026-11-12. Nothing here was measured by us.
+
+| Source | What it is | Use in H4B |
+|---|---|---|
+| `@alexlana/agent-intents` (the octopus backend, alexlana's private repository) | Fixed answers before the LLM: compares the message with example phrases for each intent and only answers when the score reaches `threshold` **and** beats the runner-up intent by `margin`; what it did not answer goes to an inbox that a person labels | Reference for the menu's semantic matcher: a wrong answer is worse than none (below both conditions, it goes to the LLM), and nothing users type becomes an example on its own |

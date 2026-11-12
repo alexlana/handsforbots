@@ -132,3 +132,11 @@ Apoia o [ADR 0017](../adr/0017-atributos-da-conversa.md) e [Experimentos](./expe
 | [W3C Trace Context](https://www.w3.org/TR/trace-context/) | Cabeçalho `traceparent`, que liga os spans do navegador aos do backend | Já enviado pelo `getTraceHeaders()`; o `baggage` vai ao lado |
 | [OpenTelemetry Baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) | Contexto chave-valor propagado do OTel; a documentação avisa que o baggage vai em texto aberto a todo serviço seguinte | Por que só códigos entram, por que o servidor usa lista de chaves permitidas (`readConversationAttributes`) e por que um `baggage` que o propagador do OTel já pôs é juntado, não substituído |
 | [API de métricas do OpenTelemetry: Counter](https://opentelemetry.io/docs/specs/otel/metrics/api/#counter) | Instrumento de soma monotônica | `recordCounter()` e os contadores de experimento: totais sem amostragem que duram mais que a retenção dos traces |
+
+## Menu: matcher semântico local
+
+Apoia a decisão em aberto 4 do [ROADMAP](../../ROADMAP.md) (embeddings no navegador vs. só padrões). Lido em 2026-11-12. Nada aqui foi medido por nós.
+
+| Fonte | O que é | Uso no H4B |
+|---|---|---|
+| `@alexlana/agent-intents` (backend do polvo, repositório privado do alexlana) | Respostas fixas antes do LLM: compara a mensagem com frases de exemplo de cada intent e só responde quando a pontuação passa do `threshold` **e** vence a segunda intent pela `margin`; o que não respondeu vai a uma caixa de entrada que uma pessoa classifica | Referência para o matcher semântico do menu: resposta errada é pior que nenhuma (abaixo das duas condições, vai ao LLM) e nada do que o usuário escreve vira exemplo sozinho |
